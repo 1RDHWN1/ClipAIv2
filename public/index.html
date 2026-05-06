@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClipAI — AI Video Clipper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #080a0f;
+      --bg2: #0d1017;
+      --surface: #111520;
+      --surface2: #161b28;
+      --border: #1e2535;
+      --border-glow: #2a3a5e;
+      --accent: #4f8eff;
+      --accent2: #7c5cfc;
+      --accent-glow: rgba(79, 142, 255, 0.15);
+      --success: #2ecc88;
+      --warning: #f5a623;
+      --danger: #ff4f6e;
+      --text: #e8ecf4;
+      --text2: #8a94aa;
+      --text3: #4a5568;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(79,142,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79,142,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Glow orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(79,142,255,0.08), transparent 70%);
+      top: -150px; left: -100px;
+    }
+    .orb-2 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(124,92,252,0.06), transparent 70%);
+      bottom: 0; right: -50px;
+    }
+
+    /* Layout */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      padding: 32px 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+    }
+
+    .logo-text {
+      font-family: var(--font-head);
+      font-weight: 800;
+      font-size: 20px;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+
+    .logo-text span { color: var(--accent); }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: rgba(79,142,255,0.1);
+      border: 1px solid rgba(79,142,255,0.2);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Hero */
+    .hero {
+      padding: 64px 0 48px;
+      text-align: center;
+    }
+
+    .hero-eyebrow {
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .hero-eyebrow::before,
+    .hero-eyebrow::after {
+      content: '';
+      width: 30px; height: 1px;
+      background: var(--accent);
+      opacity: 0.4;
+    }
+
+    .hero-title {
+      font-family: var(--font-head);
+      font-weight: 800;
+      font-size: clamp(36px, 6vw, 64px);
+      line-height: 1.05;
+      letter-spacing: -2px;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.5));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-title .highlight {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      color: var(--text2);
+      font-size: 15px;
+      line-height: 1.7;
+      max-width: 520px;
+      margin: 0 auto 40px;
+    }
+
+    /* Main card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(79,142,255,0.4), transparent);
+    }
+
+    .card-title {
+      font-family: var(--font-head);
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 20px;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 11px;
+    }
+
+    /* URL Input */
+    .url-group {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .input-wrap {
+      flex: 1;
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text3);
+      font-size: 16px;
+      pointer-events: none;
+    }
+
+    input[type="text"], input[type="url"] {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 14px 16px 14px 44px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    input[type="text"]:focus, input[type="url"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    input[type="text"]::placeholder, input[type="url"]::placeholder {
+      color: var(--text3);
+    }
+
+    /* Options row */
+    .options-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .option-group label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text2);
+      margin-bottom: 10px;
+    }
+
+    .ar-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .ar-btn {
+      flex: 1;
+      padding: 10px 8px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text2);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .ar-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    .ar-btn.active {
+      background: rgba(79,142,255,0.1);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .ar-icon {
+      display: block;
+      border: 2px solid currentColor;
+      border-radius: 3px;
+    }
+
+    .ar-btn[data-ar="9:16"] .ar-icon { width: 16px; height: 28px; }
+    .ar-btn[data-ar="1:1"] .ar-icon { width: 22px; height: 22px; }
+    .ar-btn[data-ar="16:9"] .ar-icon { width: 32px; height: 18px; }
+
+    /* Clip count */
+    .clip-count-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .clip-count-wrap button {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: all 0.15s;
+    }
+
+    .clip-count-wrap button:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    #clipCountDisplay {
+      font-family: var(--font-head);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+      min-width: 28px;
+      text-align: center;
+    }
+
+    .clip-count-wrap span.label {
+      font-size: 12px;
+      color: var(--text2);
+    }
+
+    /* Process button */
+    .btn-process {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-family: var(--font-head);
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-process::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+    }
+
+    .btn-process:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 32px rgba(79,142,255,0.35);
+    }
+
+    .btn-process:active { transform: translateY(0); }
+    .btn-process:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Progress section */
+    #progressSection { display: none; }
+
+    .progress-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+
+    .progress-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      opacity: 0.3;
+      transition: all 0.3s;
+    }
+
+    .step.active { opacity: 1; }
+    .step.done { opacity: 0.6; }
+
+    .step-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+
+    .step.active .step-icon {
+      background: rgba(79,142,255,0.15);
+      border-color: var(--accent);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .step.done .step-icon {
+      background: rgba(46,204,136,0.1);
+      border-color: var(--success);
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(79,142,255,0.3); }
+      50% { box-shadow: 0 0 0 6px rgba(79,142,255,0); }
+    }
+
+    .step-text {
+      flex: 1;
+    }
+
+    .step-label {
+      font-size: 13px;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .step-sub {
+      font-size: 11px;
+      color: var(--text3);
+    }
+
+    /* Progress bar */
+    .progress-bar-wrap {
+      background: var(--bg2);
+      border-radius: 100px;
+      height: 6px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 100px;
+      transition: width 0.5s ease;
+      position: relative;
+    }
+
+    .progress-bar-fill::after {
+      content: '';
+      position: absolute;
+      right: 0; top: 0; bottom: 0;
+      width: 40px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0% { opacity: 0; }
+      50% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text3);
+    }
+
+    /* Results */
+    #resultsSection { display: none; }
+
+    .results-header {
+      margin-bottom: 28px;
+    }
+
+    .results-title {
+      font-family: var(--font-head);
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .results-sub { color: var(--text2); font-size: 13px; }
+
+    .clips-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .clip-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      transition: all 0.2s;
+      animation: slideUp 0.4s ease forwards;
+      opacity: 0;
+    }
+
+    .clip-card:hover {
+      border-color: var(--border-glow);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .clip-number {
+      font-family: var(--font-head);
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--border);
+      min-width: 36px;
+    }
+
+    .clip-info { flex: 1; min-width: 0; }
+
+    .clip-title {
+      font-family: var(--font-head);
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .clip-reason {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+
+    .clip-meta {
+      display: flex;
+      gap: 12px;
+    }
+
+    .meta-tag {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--surface2);
+      color: var(--text2);
+    }
+
+    .meta-tag.score {
+      background: rgba(46,204,136,0.1);
+      color: var(--success);
+    }
+
+    .btn-download {
+      padding: 10px 20px;
+      background: rgba(79,142,255,0.1);
+      border: 1px solid rgba(79,142,255,0.3);
+      border-radius: 10px;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .btn-download:hover {
+      background: rgba(79,142,255,0.2);
+      border-color: var(--accent);
+      box-shadow: 0 4px 16px rgba(79,142,255,0.2);
+    }
+
+    /* Error */
+    .error-card {
+      background: rgba(255,79,110,0.05);
+      border: 1px solid rgba(255,79,110,0.2);
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .error-card .icon { font-size: 22px; }
+    .error-card .msg { font-size: 13px; color: #ff8fa3; }
+
+    /* Reset btn */
+    .btn-reset {
+      width: 100%;
+      padding: 12px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text2);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 16px;
+    }
+
+    .btn-reset:hover { border-color: var(--text2); color: var(--text); }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 32px 0;
+      color: var(--text3);
+      font-size: 11px;
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+
+    /* Features row */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .feature {
+      text-align: center;
+      padding: 20px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .feature-icon { font-size: 24px; margin-bottom: 8px; }
+    .feature-title {
+      font-family: var(--font-head);
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .feature-sub { font-size: 11px; color: var(--text2); }
+
+    @media (max-width: 600px) {
+      .features { grid-template-columns: 1fr; }
+      .options-row { grid-template-columns: 1fr; }
+      .url-group { flex-direction: column; }
+      .clip-card { flex-direction: column; align-items: flex-start; }
+      .btn-download { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <div class="container">
+    <header>
+      <a class="logo" href="/">
+        <div class="logo-icon">🎬</div>
+        <span class="logo-text">Clip<span>AI</span></span>
+      </a>
+      <span class="badge">AI Powered</span>
+    </header>
+
+    <section class="hero">
+      <div class="hero-eyebrow">YouTube → Short Clips</div>
+      <h1 class="hero-title">
+        Ubah Video Panjang<br/>jadi <span class="highlight">Clip Viral</span>
+      </h1>
+      <p class="hero-sub">
+        Paste URL YouTube, AI kami otomatis analisis dan potong momen terbaik.
+        Siap untuk TikTok, Reels & YouTube Shorts.
+      </p>
+    </section>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🎙️</div>
+        <div class="feature-title">AI Transcription</div>
+        <div class="feature-sub">Whisper transkripsi otomatis</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🤖</div>
+        <div class="feature-title">AI Analisis</div>
+        <div class="feature-sub">DeepSeek pilih momen terbaik</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">✂️</div>
+        <div class="feature-title">Auto Clip</div>
+        <div class="feature-sub">FFmpeg potong & reframe</div>
+      </div>
+    </div>
+
+    <!-- Input Form -->
+    <div id="formSection">
+      <div class="card">
+        <div class="card-title">📎 URL Video YouTube</div>
+        <div class="url-group">
+          <div class="input-wrap">
+            <span class="input-icon">🔗</span>
+            <input
+              type="url"
+              id="youtubeUrl"
+              placeholder="https://www.youtube.com/watch?v=..."
+            />
+          </div>
+        </div>
+
+        <div class="options-row">
+          <div class="option-group">
+            <label>Aspect Ratio</label>
+            <div class="ar-buttons">
+              <button class="ar-btn active" data-ar="9:16">
+                <span class="ar-icon"></span>
+                9:16
+              </button>
+              <button class="ar-btn" data-ar="1:1">
+                <span class="ar-icon"></span>
+                1:1
+              </button>
+              <button class="ar-btn" data-ar="16:9">
+                <span class="ar-icon"></span>
+                16:9
+              </button>
+            </div>
+          </div>
+
+          <div class="option-group">
+            <label>Jumlah Clip</label>
+            <div class="clip-count-wrap">
+              <button id="btnMinus" onclick="changeClipCount(-1)">−</button>
+              <span id="clipCountDisplay">3</span>
+              <span class="label">clips</span>
+              <button id="btnPlus" onclick="changeClipCount(1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-process" id="btnProcess" onclick="startProcess()">
+          ✨ Generate Clips dengan AI
+        </button>
+      </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div id="progressSection">
+      <div class="progress-card">
+        <div class="progress-steps">
+          <div class="step" id="step1">
+            <div class="step-icon">📥</div>
+            <div class="step-text">
+              <div class="step-label">Download Video</div>
+              <div class="step-sub" id="step1sub">Menunggu...</div>
+            </div>
+          </div>
+          <div class="step" id="step2">
+            <div class="step-icon">🎙️</div>
+            <div class="step-text">
+              <div class="step-label">Transkripsi Audio</div>
+              <div class="step-sub" id="step2sub">Menunggu...</div>
+            </div>
+          </div>
+          <div class="step" id="step3">
+            <div class="step-icon">🤖</div>
+            <div class="step-text">
+              <div class="step-label">AI Analisis Momen Terbaik</div>
+              <div class="step-sub" id="step3sub">Menunggu...</div>
+            </div>
+          </div>
+          <div class="step" id="step4">
+            <div class="step-icon">✂️</div>
+            <div class="step-text">
+              <div class="step-label">Proses & Potong Video</div>
+              <div class="step-sub" id="step4sub">Menunggu...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progressBar" style="width: 2%"></div>
+        </div>
+        <div class="progress-text">
+          <span id="progressMsg">Memulai proses...</span>
+          <span id="progressPct">2%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Section -->
+    <div id="errorSection" style="display:none">
+      <div class="error-card">
+        <span class="icon">❌</span>
+        <span class="msg" id="errorMsg">Terjadi kesalahan.</span>
+      </div>
+      <button class="btn-reset" onclick="resetForm()">← Coba Lagi</button>
+    </div>
+
+    <!-- Results -->
+    <div id="resultsSection">
+      <div class="results-header">
+        <div class="results-title" id="resultsTitle">Clips Berhasil Dibuat! 🎉</div>
+        <div class="results-sub" id="resultsSub"></div>
+      </div>
+
+      <div class="clips-grid" id="clipsGrid"></div>
+
+      <button class="btn-reset" onclick="resetForm()">← Proses Video Baru</button>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container">
+      ClipAI — Powered by Groq Whisper + DeepSeek + FFmpeg &nbsp;·&nbsp;
+      Built with Node.js + BullMQ
+    </div>
+  </footer>
+
+  <script>
+    // ── State ─────────────────────────────────────────────────
+    let selectedAR = '9:16';
+    let clipCount = 3;
+    let pollInterval = null;
+    let currentJobId = null;
+
+    // ── Aspect Ratio ─────────────────────────────────────────
+    document.querySelectorAll('.ar-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.ar-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedAR = btn.dataset.ar;
+      });
+    });
+
+    // ── Clip Count ───────────────────────────────────────────
+    function changeClipCount(delta) {
+      clipCount = Math.min(5, Math.max(1, clipCount + delta));
+      document.getElementById('clipCountDisplay').textContent = clipCount;
+    }
+
+    // ── Process ───────────────────────────────────────────────
+    async function startProcess() {
+      const url = document.getElementById('youtubeUrl').value.trim();
+      if (!url) {
+        alert('Masukkan URL YouTube terlebih dahulu!');
+        return;
+      }
+
+      // Hide form, show progress
+      document.getElementById('formSection').style.display = 'none';
+      document.getElementById('progressSection').style.display = 'block';
+      document.getElementById('errorSection').style.display = 'none';
+      document.getElementById('resultsSection').style.display = 'none';
+
+      try {
+        const res = await fetch('/api/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, aspectRatio: selectedAR, clipCount }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.jobId) {
+          throw new Error(data.error || 'Gagal memulai proses');
+        }
+
+        currentJobId = data.jobId;
+        startPolling(currentJobId);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    // ── Polling ───────────────────────────────────────────────
+    function startPolling(jobId) {
+      if (pollInterval) clearInterval(pollInterval);
+
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/job/${jobId}`);
+          const data = await res.json();
+
+          if (!res.ok) throw new Error(data.error || 'Status tidak diketahui');
+
+          updateProgress(data);
+
+          if (data.state === 'completed') {
+            clearInterval(pollInterval);
+            showResults(data.result);
+          } else if (data.state === 'failed') {
+            clearInterval(pollInterval);
+            showError(data.error || 'Proses gagal. Coba lagi.');
+          }
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+      }, 2500);
+    }
+
+    // ── Update UI Progress ────────────────────────────────────
+    function updateProgress(data) {
+      const progress = data.progress || {};
+      const step = progress.step || 0;
+      const percent = progress.percent || 2;
+      const message = progress.message || 'Memproses...';
+
+      document.getElementById('progressBar').style.width = `${percent}%`;
+      document.getElementById('progressMsg').textContent = message;
+      document.getElementById('progressPct').textContent = `${percent}%`;
+
+      // Update steps
+      for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById(`step${i}`);
+        el.classList.remove('active', 'done');
+        if (i < step) el.classList.add('done');
+        else if (i === step) el.classList.add('active');
+      }
+
+      // Update step sub-text
+      if (progress.videoTitle) {
+        document.getElementById('step1sub').textContent = `"${progress.videoTitle}"`;
+      }
+      if (step === 2) {
+        document.getElementById('step2sub').textContent = message;
+      }
+      if (step === 3 && progress.clips) {
+        const titles = progress.clips.map(c => c.title).join(', ');
+        document.getElementById('step3sub').textContent = `Found: ${titles.substring(0, 60)}...`;
+      }
+      if (step === 4) {
+        document.getElementById('step4sub').textContent = message;
+      }
+    }
+
+    // ── Show Results ──────────────────────────────────────────
+    function showResults(result) {
+      document.getElementById('progressSection').style.display = 'none';
+      document.getElementById('resultsSection').style.display = 'block';
+
+      document.getElementById('resultsTitle').textContent = `${result.clips.length} Clips Berhasil Dibuat! 🎉`;
+      document.getElementById('resultsSub').textContent =
+        `Dari "${result.videoTitle}" (${Math.round(result.videoDuration / 60)} menit) · Bahasa: ${result.language?.toUpperCase()}`;
+
+      const grid = document.getElementById('clipsGrid');
+      grid.innerHTML = '';
+
+      result.clips.forEach((clip, i) => {
+        const card = document.createElement('div');
+        card.className = 'clip-card';
+        card.style.animationDelay = `${i * 0.1}s`;
+        card.innerHTML = `
+          <div class="clip-number">0${clip.index}</div>
+          <div class="clip-info">
+            <div class="clip-title">${escapeHtml(clip.title)}</div>
+            <div class="clip-reason">${escapeHtml(clip.reason)}</div>
+            <div class="clip-meta">
+              <span class="meta-tag">⏱ ${clip.duration}s</span>
+              <span class="meta-tag">💾 ${clip.fileSizeMB}MB</span>
+              <span class="meta-tag score">🔥 ${clip.score}/100</span>
+            </div>
+          </div>
+          <a class="btn-download" href="${clip.downloadUrl}" download="${clip.filename}">
+            ⬇ Download
+          </a>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    // ── Show Error ────────────────────────────────────────────
+    function showError(msg) {
+      document.getElementById('progressSection').style.display = 'none';
+      document.getElementById('errorSection').style.display = 'block';
+      document.getElementById('errorMsg').textContent = msg;
+    }
+
+    // ── Reset ─────────────────────────────────────────────────
+    function resetForm() {
+      if (pollInterval) clearInterval(pollInterval);
+      document.getElementById('formSection').style.display = 'block';
+      document.getElementById('progressSection').style.display = 'none';
+      document.getElementById('resultsSection').style.display = 'none';
+      document.getElementById('errorSection').style.display = 'none';
+      document.getElementById('youtubeUrl').value = '';
+      currentJobId = null;
+    }
+
+    // ── Util ─────────────────────────────────────────────────
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

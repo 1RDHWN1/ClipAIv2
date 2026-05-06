@@ -1,0 +1,27 @@
+{
+  "name": "video-clipper",
+  "version": "1.0.0",
+  "description": "AI-powered video clipping tool - like 2short.ai",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node scripts/start-all.js",
+    "server": "node server.js",
+    "worker": "node workers/videoWorker.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "bullmq": "^5.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "fluent-ffmpeg": "^2.1.3",
+    "form-data": "^4.0.0",
+    "groq-sdk": "^0.5.0",
+    "ioredis": "^5.4.1",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^10.0.0",
+    "youtubei.js": "^10.1.0"
+  }
+}
