@@ -139,7 +139,8 @@ export function buildDiscreteSentencePrompt(sentencesList, duration, clipCount =
 
   const formattedLines = sentencesList.map((s) => {
     const spk = s.speaker ? ` [${s.speaker}]` : '';
-    return `[${s.id}]${spk}: ${s.text}`;
+    const hype = s.isHypePeak ? ` [🔥 HYPE PEAK: ${s.hypeScore || 85}]` : '';
+    return `[${s.id}]${spk}${hype}: ${s.text}`;
   });
 
   const rawLang = options.language || 'id';

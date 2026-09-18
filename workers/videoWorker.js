@@ -9,6 +9,7 @@ import { fetchGeminiApiTranscript } from '../utils/geminiVideoProvider.js';
 import { extractTranscriptViaBrowser } from '../utils/youtubeAutomation.js';
 import { analyzeTranscript } from '../utils/analyzer.js';
 import { processClips } from '../utils/clipper.js';
+import { detectAudioPeaks, annotateSentencesWithAudioPeaks } from '../utils/audioPeakDetector.js';
 import 'dotenv/config';
 
 const WORKER_CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY || '1', 10);
@@ -167,11 +168,25 @@ const worker = new Worker(
         percent: 55,
       });
 
+      // Deteksi Audio Hype / Excitement Peaks jika file audio tersedia (Milestone 3)
+      let enrichedSentences = sentences;
+      if (audioPath && fs.existsSync(audioPath)) {
+        try {
+          const { peaks } = await detectAudioPeaks(audioPath);
+          if (peaks && peaks.length > 0) {
+            enrichedSentences = annotateSentencesWithAudioPeaks(sentences, peaks);
+            console.log(`🔥 [videoWorker] Terdeteksi ${peaks.length} zona audio hype! Kalimat telah dianotasi.`);
+          }
+        } catch (peakErr) {
+          console.warn(`⚠️ [videoWorker] Audio peak detector notice: ${peakErr.message}`);
+        }
+      }
+
       // STEP 3: AI Analisis (dengan Discrete Sentence ID & Boundary Snapping)
       await job.updateProgress({ step: 3, message: 'AI sedang menganalisis momen terbaik...', percent: 60 });
       const aiClips = await analyzeTranscript(text, segments, downloaded.duration, clipCount, {
         words,
-        sentences,
+        sentences: enrichedSentences,
         silences: silenceIntervals,
         language,
       });
