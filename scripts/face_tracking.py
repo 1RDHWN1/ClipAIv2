@@ -4,8 +4,23 @@ import statistics
 import sys
 
 import cv2
-import mediapipe as mp
 import numpy as np
+
+# Try importing scenedetect (PySceneDetect) for professional-grade scene cut detection.
+# Falls back to legacy heuristic (absdiff + histogram correlation) if unavailable.
+try:
+    from scenedetect import open_video, SceneManager, ContentDetector
+    HAS_SCENEDETECT = True
+except ImportError:
+    HAS_SCENEDETECT = False
+
+# MediaPipe is optional secondary face detector (fallback if YuNet fails)
+try:
+    import mediapipe as mp
+    HAS_MEDIAPIPE = True
+except ImportError:
+    mp = None
+    HAS_MEDIAPIPE = False
 
 
 FRAME_SAMPLE_FPS = 5.0          # 5 FPS temporal resolution (0.2s step)
@@ -15,6 +30,87 @@ FACE_ASPECT_RATIO_MAX = 2.0     # Max w/h or h/w ratio for valid human face
 FACE_Y_BAND_RATIO = 0.72        # Faces should be in top 72% of frame (not floor/desk)
 MIN_HOLD_SAME_SHOT = 0.8        # 0.8s responsive hold time between speaker shifts in wide shot
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Scene Cut Detection (Milestone 1 upgrade)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def detect_scene_cuts_pyscenedetect(video_path, clip_start, clip_end):
+    """
+    Pre-scan the clip range with PySceneDetect ContentDetector.
+    Returns a sorted list of scene-cut timestamps (in clip-relative seconds).
+
+    ContentDetector uses HSV-based frame differencing with adaptive thresholding,
+    which is far more robust than simple grayscale absdiff + histogram correlation.
+    It handles gradual lighting changes, camera motion, and color grading shifts
+    that would cause false positives with the legacy heuristic.
+    """
+    try:
+        video = open_video(video_path)
+        scene_manager = SceneManager()
+        # threshold=27 is well-tuned for talking-head / podcast / IRL content.
+        # Lower values catch subtle cuts but risk false positives on fast motion.
+        scene_manager.add_detector(ContentDetector(threshold=27.0, min_scene_len=8))
+
+        # Seek to clip start and only scan the relevant range
+        video_fps = video.frame_rate
+        start_frame = int(clip_start * video_fps)
+        end_frame = int(clip_end * video_fps)
+        duration_frames = max(1, end_frame - start_frame)
+
+        video.seek(start_frame)
+        scene_manager.detect_scenes(video, end_time=duration_frames)
+
+        scene_list = scene_manager.get_scene_list()
+        cut_times = []
+        for i, (start_sc, end_sc) in enumerate(scene_list):
+            if i == 0:
+                continue  # First scene boundary is the start of the clip, not a cut
+            # Convert scene start to clip-relative seconds
+            cut_sec = round(start_sc.get_seconds() - clip_start, 3)
+            if 0 < cut_sec < (clip_end - clip_start):
+                cut_times.append(cut_sec)
+
+        return sorted(set(cut_times))
+    except Exception as exc:
+        print(f"[face_tracking] PySceneDetect warning: {exc}", file=sys.stderr)
+        return None  # Signal to use legacy fallback
+
+
+def detect_scene_cuts_legacy(prev_gray, gray):
+    """
+    Legacy heuristic scene cut detection using grayscale absdiff + histogram correlation.
+    Used as fallback when PySceneDetect is not available.
+    """
+    if prev_gray is None:
+        return False
+    diff = cv2.absdiff(prev_gray, gray)
+    diff_mean = float(diff.mean())
+    if diff_mean > 45.0:
+        h1 = cv2.calcHist([prev_gray], [0], None, [32], [0, 256])
+        h2 = cv2.calcHist([gray], [0], None, [32], [0, 256])
+        corr = cv2.compareHist(h1, h2, cv2.HISTCMP_CORREL)
+        if corr < 0.70:
+            return True
+    return False
+
+
+def build_cut_lookup(cut_times, sample_step):
+    """
+    Build a set of rounded cut times for O(1) lookup during frame iteration.
+    Each cut time is rounded to the nearest sample_step boundary.
+    """
+    lookup = set()
+    for ct in cut_times:
+        # Round to nearest sample step to match frame_records time values
+        rounded = round(round(ct / sample_step) * sample_step, 2)
+        lookup.add(rounded)
+    return lookup
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Main
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def main():
     payload = json.load(sys.stdin)
@@ -33,6 +129,21 @@ def main():
     if width <= 0 or height <= 0:
         raise RuntimeError("Dimensi video tidak valid untuk face tracking")
 
+    # ── Scene Cut Pre-Scan (PySceneDetect or legacy fallback) ──────────────
+    sample_step = max(1.0 / FRAME_SAMPLE_FPS, 0.20)
+    use_pyscenedetect = False
+    cut_lookup = set()
+
+    if HAS_SCENEDETECT:
+        cut_times = detect_scene_cuts_pyscenedetect(video_path, clip_start, clip_end)
+        if cut_times is not None:
+            cut_lookup = build_cut_lookup(cut_times, sample_step)
+            use_pyscenedetect = True
+            if cut_times:
+                print(f"[face_tracking] PySceneDetect found {len(cut_times)} scene cut(s): "
+                      f"{[round(t, 2) for t in cut_times[:10]]}", file=sys.stderr)
+
+    # ── Face Detector Setup ────────────────────────────────────────────────
     yunet_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "face_detection_yunet_2023mar.onnx")
     yunet_detector = None
     if os.path.exists(yunet_model) and hasattr(cv2, "FaceDetectorYN"):
@@ -49,7 +160,7 @@ def main():
             yunet_detector = None
 
     mp_face_detection = None
-    if yunet_detector is None and hasattr(mp, "solutions") and hasattr(mp.solutions, "face_detection"):
+    if yunet_detector is None and HAS_MEDIAPIPE and hasattr(mp, "solutions") and hasattr(mp.solutions, "face_detection"):
         try:
             mp_face_detection = mp.solutions.face_detection.FaceDetection(
                 model_selection=1,
@@ -58,7 +169,6 @@ def main():
         except Exception:
             mp_face_detection = None
 
-    sample_step = max(1.0 / FRAME_SAMPLE_FPS, 0.20)
     min_face_size = max(20, int(min(width, height) * MIN_FACE_RATIO))
     video_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
     frames_per_step = max(1, int(round(video_fps * sample_step)))
@@ -76,26 +186,23 @@ def main():
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # 1. Camera scene cut detection:
-        # High diff_mean combined with low histogram correlation marks true camera cuts.
-        is_scene_cut = False
-        if prev_gray is not None:
-            diff = cv2.absdiff(prev_gray, gray)
-            diff_mean = float(diff.mean())
-            if diff_mean > 45.0:
-                h1 = cv2.calcHist([prev_gray], [0], None, [32], [0, 256])
-                h2 = cv2.calcHist([gray], [0], None, [32], [0, 256])
-                corr = cv2.compareHist(h1, h2, cv2.HISTCMP_CORREL)
-                if corr < 0.70:
-                    is_scene_cut = True
+        # ── Scene Cut Detection ────────────────────────────────────────────
+        clip_relative_time = round(t - clip_start, 2)
+
+        if use_pyscenedetect:
+            # O(1) lookup against pre-computed scene cuts
+            is_scene_cut = clip_relative_time in cut_lookup
+        else:
+            # Legacy fallback: heuristic absdiff + histogram
+            is_scene_cut = detect_scene_cuts_legacy(prev_gray, gray)
         prev_gray = gray.copy()
 
-        # 2. Robust face detection (YuNet with landmark-derived mouth patches)
+        # ── Face Detection ─────────────────────────────────────────────────
         faces = detect_faces(frame, gray, yunet_detector, mp_face_detection, min_face_size, width, height)
-        active_speaker = get_active_speaker(speaker_turns, t - clip_start)
+        active_speaker = get_active_speaker(speaker_turns, clip_relative_time)
 
         frame_records.append({
-            "time": round(t - clip_start, 2),
+            "time": clip_relative_time,
             "is_cut": is_scene_cut,
             "speaker": active_speaker,
             "faces": faces,
@@ -114,16 +221,19 @@ def main():
             pass
 
     if not frame_records:
-        json.dump({"plan": [], "debug": {"tracks": 0, "samples": 0, "detector": "none"}}, sys.stdout)
+        json.dump({"plan": [], "debug": {"tracks": 0, "samples": 0, "detector": "none", "scene_detector": "none"}}, sys.stdout)
         return
 
     total_detections = sum(len(fr["faces"]) for fr in frame_records)
     if total_detections == 0:
-        json.dump({"plan": [], "debug": {"tracks": 0, "samples": len(frame_records), "detector": "none"}}, sys.stdout)
+        json.dump({"plan": [], "debug": {"tracks": 0, "samples": len(frame_records), "detector": "none", "scene_detector": "pyscenedetect" if use_pyscenedetect else "legacy"}}, sys.stdout)
         return
 
     # 3. Build intelligent shot-aware plan
     plan = build_shot_aware_plan(frame_records, width, height, speaker_turns)
+
+    scene_detector_name = "pyscenedetect" if use_pyscenedetect else "legacy"
+    total_cuts = sum(1 for fr in frame_records if fr["is_cut"])
 
     json.dump(
         {
@@ -132,6 +242,8 @@ def main():
                 "tracks": len(plan),
                 "samples": len(frame_records),
                 "detector": "yunet" if yunet_detector is not None else ("mediapipe" if mp_face_detection is not None else "none"),
+                "scene_detector": scene_detector_name,
+                "scene_cuts_found": total_cuts,
             },
         },
         sys.stdout,

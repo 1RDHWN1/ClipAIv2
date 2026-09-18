@@ -155,7 +155,8 @@ test('Tier 2: F12 - Face Tracking Boundary & Corner Cases', async (t) => {
 
     // Run with invalid JSON to verify error handling
     const result = await new Promise((resolve) => {
-      const proc = spawn('python', [scriptPath], { stdio: ['pipe', 'pipe', 'pipe'] });
+      const pythonExe = process.env.FACE_TRACKING_PYTHON || 'python';
+      const proc = spawn(pythonExe, [scriptPath], { stdio: ['pipe', 'pipe', 'pipe'] });
       let out = '';
       let err = '';
       proc.stdout.on('data', (d) => { out += d.toString(); });
@@ -307,7 +308,8 @@ test('Tier 3: F12 - Face Tracked Crop & Panning Invariants', async (t) => {
     };
 
     const result = await new Promise((resolve) => {
-      const proc = spawn('python', [scriptPath], { stdio: ['pipe', 'pipe', 'pipe'] });
+      const pythonExe = process.env.FACE_TRACKING_PYTHON || 'python';
+      const proc = spawn(pythonExe, [scriptPath], { stdio: ['pipe', 'pipe', 'pipe'] });
       let out = '';
       let err = '';
       proc.stdout.on('data', (d) => { out += d.toString(); });
