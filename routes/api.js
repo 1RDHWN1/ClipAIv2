@@ -9,9 +9,13 @@ const router = express.Router();
 function isValidYouTubeUrl(url) {
   try {
     const u = new URL(url);
+    const isYouTubeHost = /(^|\.)(youtube\.com|youtu\.be)$/i.test(u.hostname);
+    if (!isYouTubeHost) return false;
     return (
-      (u.hostname === 'www.youtube.com' || u.hostname === 'youtube.com' || u.hostname === 'youtu.be') &&
-      (u.searchParams.has('v') || u.pathname.startsWith('/shorts/') || u.hostname === 'youtu.be')
+      u.searchParams.has('v') ||
+      u.pathname.startsWith('/shorts/') ||
+      u.pathname.startsWith('/live/') ||
+      u.hostname.toLowerCase().includes('youtu.be')
     );
   } catch {
     return false;
@@ -24,7 +28,7 @@ function isValidYouTubeUrl(url) {
  */
 router.post('/process', async (req, res) => {
   try {
-    const { url, aspectRatio = '9:16', clipCount = 3 } = req.body;
+    const { url, aspectRatio = '9:16', clipCount = 3, transcriptText, subtitleConfig } = req.body;
 
     if (!url) {
       return res.status(400).json({ error: 'URL YouTube wajib diisi' });
@@ -40,20 +44,48 @@ router.post('/process', async (req, res) => {
 
     const count = Math.min(5, Math.max(1, parseInt(clipCount) || 3));
     const jobId = uuidv4();
+    const cleanTranscript = typeof transcriptText === 'string' && transcriptText.trim().length > 0
+      ? transcriptText.trim()
+      : null;
+
+    // Normalisasi konfigurasi subtitle jika disediakan
+    let cleanSubtitleConfig = null;
+    if (subtitleConfig && typeof subtitleConfig === 'object') {
+      cleanSubtitleConfig = {
+        enabled: subtitleConfig.enabled !== false,
+        preset: subtitleConfig.preset || 'hormozi',
+        fontFamily: subtitleConfig.fontFamily || undefined,
+        fontSize: subtitleConfig.fontSize ? Number(subtitleConfig.fontSize) : undefined,
+        highlightColor: subtitleConfig.highlightColor || undefined,
+        primaryColor: subtitleConfig.primaryColor || undefined,
+        position: subtitleConfig.position || 'bottom',
+      };
+    } else if (subtitleConfig === true || subtitleConfig === 'true') {
+      cleanSubtitleConfig = { enabled: true, preset: 'hormozi' };
+    }
 
     const job = await videoQueue.add(
       'process-video',
-      { url, aspectRatio, clipCount: count, jobId },
+      {
+        url,
+        aspectRatio,
+        clipCount: count,
+        transcriptText: cleanTranscript,
+        jobId,
+        subtitleConfig: cleanSubtitleConfig,
+      },
       { jobId }
     );
 
-    console.log(`📌 Job added: ${jobId} | URL: ${url}`);
+    console.log(`📌 Job added: ${jobId} | URL: ${url} | FastPath: ${Boolean(cleanTranscript)} | Subs: ${Boolean(cleanSubtitleConfig?.enabled)}`);
 
     res.json({
       success: true,
       jobId,
-      message: 'Video sedang diproses. Gunakan jobId untuk cek status.',
-      estimatedTime: '2-5 menit',
+      message: cleanTranscript
+        ? 'Video sedang diproses menggunakan transkrip instan (Mode Cepat).'
+        : 'Video sedang diproses. Gunakan jobId untuk cek status.',
+      estimatedTime: cleanTranscript ? '30-60 detik' : '2-5 menit',
     });
   } catch (err) {
     console.error('POST /process error:', err);

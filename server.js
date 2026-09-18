@@ -52,7 +52,7 @@ app.listen(PORT, () => {
   console.log(`  🎬 Video Clipper AI`);
   console.log(`  🌐 Server: http://localhost:${PORT}`);
   console.log(`  📁 Output dir: ${process.env.OUTPUT_DIR || './outputs'}`);
-  console.log(`  🤖 AI Model: ${process.env.AI_MODEL || 'deepseek/deepseek-chat-v3-0324'}`);
+  console.log(`  🤖 AI Model: ${process.env.DEFAULT_MODEL || process.env.AI_MODEL || 'ag/gemini-3.8-flash-high'}`);
   console.log(`${'═'.repeat(50)}\n`);
   console.log(`  ▶️  Jalankan \`npm start\` untuk server + worker sekaligus`);
   console.log(`  🛠️  Jika server dijalankan sendiri, lanjutkan dengan: npm run worker\n`);

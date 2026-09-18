@@ -4,54 +4,407 @@ import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
 import 'dotenv/config';
+import { normalizeLanguageCode, detectLanguageFromText } from './transcriber.js';
 
 const execAsync = promisify(exec);
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
 
 /**
- * Download video YouTube menggunakan yt-dlp
- * @param {string} url - YouTube URL
- * @param {string} jobId - ID job untuk penamaan file
- * @returns {Promise<{videoPath: string, audioPath: string, title: string, duration: number}>}
+ * Normalisasi URL YouTube (menghapus tracking token seperti ?si=... yang dapat mengacaukan CDN)
  */
-export async function downloadVideo(url, jobId) {
+export function normalizeYouTubeUrl(rawUrl) {
+  try {
+    const u = new URL(rawUrl);
+    let videoId = '';
+    if (u.hostname.includes('youtu.be')) {
+      videoId = u.pathname.replace(/^\//, '').split('/')[0];
+    } else if (u.searchParams.has('v')) {
+      videoId = u.searchParams.get('v');
+    } else if (u.pathname.includes('/shorts/')) {
+      videoId = u.pathname.split('/shorts/')[1].split('/')[0];
+    }
+    if (videoId) {
+      return `https://www.youtube.com/watch?v=${videoId}`;
+    }
+  } catch (_) {}
+  return rawUrl;
+}
+
+/**
+ * Format detik ke string waktu HH:MM:SS.xx untuk yt-dlp section
+ */
+function formatSectionTimestamp(seconds) {
+  const s = Math.max(0, parseFloat(seconds) || 0);
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = (s % 60).toFixed(2);
+  return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(5, '0')}`;
+}
+
+/**
+ * Download HANYA audio dan metadata video YouTube (super cepat, ~5 detik untuk video 1 jam).
+ * Dilengkapi proteksi anti-403 Forbidden dengan fallback player client.
+ *
+ * @param {string} rawUrl - YouTube URL
+ * @param {string} jobId - ID job
+ * @param {Object} [options={}] - Opsi unduhan
+ * @param {boolean} [options.skipAudioDownload=false] - Jika true, hanya ambil info tanpa unduh audio
+ * @returns {Promise<{audioPath: string, title: string, duration: number, subtitles: any}>}
+ */
+export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
+  const url = normalizeYouTubeUrl(rawUrl);
   const outputDir = path.resolve(UPLOAD_DIR);
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
-  const videoOutput = path.join(outputDir, `${jobId}_video.%(ext)s`);
   const audioOutput = path.join(outputDir, `${jobId}_audio.mp3`);
 
-  // Download video (max 720p untuk hemat storage)
-  console.log(`📥 Downloading video: ${url}`);
-  const downloadCmd = `yt-dlp -f "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]" --merge-output-format mp4 -o "${videoOutput}" "${url}" --no-playlist`;
+  console.log(`ℹ️ Fetching video info: ${url}`);
+  const infoCmd = `yt-dlp --no-update --js-runtimes node --no-playlist --print "%(title)s|||%(duration)s|||%(language)s" "${url}"`;
+  let title = 'Unknown Video';
+  let duration = 0;
+  let videoLang = null;
 
   try {
-    await execAsync(downloadCmd, { timeout: 300000 }); // timeout 5 menit
-  } catch (err) {
-    throw new Error(`Gagal download video: ${err.message}`);
+    const { stdout } = await execAsync(infoCmd, { timeout: 45000 });
+    const parts = stdout.trim().split('|||');
+    title = parts[0] || 'Unknown Video';
+    duration = parseInt(parts[1], 10) || 0;
+    const rawLang = parts[2] || '';
+    const normLang = normalizeLanguageCode(rawLang);
+    if (normLang && normLang !== 'unknown' && normLang !== 'auto') {
+      videoLang = normLang;
+    } else {
+      videoLang = detectLanguageFromText(title);
+    }
+  } catch (infoErr) {
+    console.warn(`⚠️ Gagal mengambil info video, fallback: ${infoErr.message}`);
   }
 
-  // Cari file video yang sudah didownload
-  const files = fs.readdirSync(outputDir).filter(f => f.startsWith(`${jobId}_video`));
-  if (files.length === 0) throw new Error('File video tidak ditemukan setelah download');
-  const videoPath = path.join(outputDir, files[0]);
+  // Coba ambil subtitle/caption instan jika ada (sangat cepat ~1-2s, tanpa unduh audio)
+  let subtitles = null;
+  try {
+    subtitles = await fetchYouTubeSubtitles(url, jobId, { videoLang, videoTitle: title });
+  } catch (_) {}
 
-  // Extract audio ke MP3 untuk transkripsi
-  console.log(`🎵 Extracting audio...`);
-  const audioCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${audioOutput}" "${url}" --no-playlist`;
-  await execAsync(audioCmd, { timeout: 180000 });
+  // Jika subtitle instan YouTube berhasil didapatkan, TIDAK PERLU download audio lagi (hemat waktu & kuota)!
+  if (subtitles && Array.isArray(subtitles.words) && subtitles.words.length >= 10) {
+    console.log(`⚡ Subtitle instan YouTube tersedia (${subtitles.words.length} kata)! Melewati download audio.`);
+    return {
+      audioPath: null,
+      title,
+      duration,
+      subtitles,
+      language: subtitles.language || videoLang || 'id',
+    };
+  }
 
-  // Ambil info video (title, durasi)
-  const infoCmd = `yt-dlp --print "%(title)s|||%(duration)s" "${url}" --no-playlist`;
-  const { stdout } = await execAsync(infoCmd);
-  const [title, durationStr] = stdout.trim().split('|||');
+  // Jika opsi skipAudioDownload aktif (misal transkrip Gemini disediakan langsung atau mau mencoba jalur cloud)
+  if (options.skipAudioDownload) {
+    console.log(`⚡ Skip audio download aktif (menggunakan transkrip instan Gemini / Manual / Cloud).`);
+    return {
+      audioPath: null,
+      title,
+      duration,
+      subtitles: null,
+      language: videoLang || 'id',
+    };
+  }
+
+  console.log(`ℹ️ Video ini tidak menyediakan subtitle otomatis di YouTube. Mengunduh audio untuk transkripsi AI...`);
+  console.log(`🎵 Downloading audio stream only (~5-10s): ${url}`);
+  
+  // Strategi fallback multi-client untuk mengatasi YouTube 403 Forbidden & SABR
+  const downloadStrategies = [
+    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 -f "ba[ext=m4a]/ba/bestaudio/140/251" -x --audio-format mp3 --audio-quality 5 -o "${audioOutput}" "${url}"`,
+    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 --extractor-args "youtube:player_client=web,default" -f "ba/bestaudio/140/251" -x --audio-format mp3 --audio-quality 5 -o "${audioOutput}" "${url}"`,
+    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 --extractor-args "youtube:player_client=android,web" -f "ba/bestaudio" -x --audio-format mp3 --audio-quality 5 -o "${audioOutput}" "${url}"`,
+  ];
+
+  let downloaded = false;
+  let lastErr = null;
+
+  for (let i = 0; i < downloadStrategies.length; i++) {
+    const cmd = downloadStrategies[i];
+    try {
+      if (i > 0) {
+        console.log(`🔄 Retrying audio download with fallback strategy #${i + 1}...`);
+      }
+      await execAsync(cmd, { timeout: 180000 });
+      if (fs.existsSync(audioOutput) && fs.statSync(audioOutput).size > 1000) {
+        downloaded = true;
+        break;
+      }
+    } catch (err) {
+      lastErr = err;
+      console.warn(`⚠️ Audio download strategy #${i + 1} notice: ${err.message.substring(0, 100)}...`);
+    }
+  }
+
+  if (!downloaded) {
+    throw new Error(`Gagal download audio setelah ${downloadStrategies.length} percobaan: ${lastErr ? lastErr.message : 'Unknown error'}`);
+  }
 
   return {
-    videoPath,
     audioPath: audioOutput,
-    title: title || 'Unknown Video',
-    duration: parseInt(durationStr) || 0,
+    title,
+    duration,
+    subtitles,
+    language: (subtitles && subtitles.language) || videoLang || 'id',
+  };
+}
+
+/**
+ * Memilih file subtitle terbaik dengan memprioritaskan track audio lisan asli (*-orig).
+ * Track *-orig adalah penanda resmi YouTube untuk bahasa asli video dan BUKAN terjemahan mesin.
+ *
+ * @param {string[]} files
+ * @param {string} [preferredLang='auto']
+ * @param {string} [videoLang=null] - Bahasa asli video dari metadata YouTube (misal 'en' atau 'id')
+ * @returns {string|null}
+ */
+export function selectTargetSubtitleFile(files, preferredLang = 'auto', videoLang = null) {
+  if (!Array.isArray(files) || files.length === 0) return null;
+
+  const normalizedPref = (preferredLang || 'auto').toLowerCase();
+  const normalizedVideo = (videoLang || '').toLowerCase();
+
+  const matchesLang = (file, lang) => {
+    if (!lang || lang === 'auto' || lang === 'unknown') return false;
+    const l = lang.toLowerCase();
+    return file.includes(`.${l}.`) || file.includes(`.${l}-`) || file.includes(`.${l}_`);
+  };
+
+  const matchesOrig = (file, lang = null) => {
+    if (!file.includes('-orig.')) return false;
+    if (!lang || lang === 'auto' || lang === 'unknown') return true;
+    return matchesLang(file, lang);
+  };
+
+  // 1. Spoken original audio track (*-orig)
+  // Jika user specify preferredLang bukan auto, cek apakah ada *-orig yang match preferredLang
+  if (normalizedPref !== 'auto' && normalizedPref !== 'unknown') {
+    const prefOrig = files.find(f => matchesOrig(f, normalizedPref));
+    if (prefOrig) return prefOrig;
+  }
+
+  // Jika ada videoLang dari metadata YouTube, cek *-orig yang match videoLang
+  if (normalizedVideo && normalizedVideo !== 'auto' && normalizedVideo !== 'unknown') {
+    const videoOrig = files.find(f => matchesOrig(f, normalizedVideo));
+    if (videoOrig) return videoOrig;
+  }
+
+  // Jika ada *-orig file apapun (YouTube spoken audio caption)
+  const anyOrig = files.find(f => f.includes('-orig.'));
+  if (anyOrig) return anyOrig;
+
+  // 2. Manual subtitles (atau non-orig subtitles)
+  if (normalizedPref === 'en') {
+    return files.find(f => matchesLang(f, 'en')) ||
+           files.find(f => matchesLang(f, 'id')) ||
+           files[0];
+  } else if (normalizedPref === 'id') {
+    return files.find(f => matchesLang(f, 'id')) ||
+           files.find(f => matchesLang(f, 'en')) ||
+           files[0];
+  }
+
+  // preferredLang adalah 'auto'
+  // Jika videoLang terdeteksi (misal 'en'), utamakan subtitle bahasa video!
+  if (normalizedVideo && normalizedVideo !== 'auto' && normalizedVideo !== 'unknown') {
+    const videoLangMatch = files.find(f => matchesLang(f, normalizedVideo));
+    if (videoLangMatch) return videoLangMatch;
+  }
+
+  // Auto fallback jika tidak ada videoLang spesifik
+  return files.find(f => matchesLang(f, 'id')) ||
+         files.find(f => matchesLang(f, 'en')) ||
+         files[0];
+}
+
+/**
+ * Mengambil subtitle/caption langsung dari YouTube tanpa transkripsi manual (hemat waktu 95%).
+ * Memprioritaskan track audio lisan original (*-orig) dan memverifikasi bahasa menggunakan analisis teks.
+ *
+ * @param {string} rawUrl
+ * @param {string} jobId
+ * @param {Object} [options={}]
+ * @param {string} [options.videoLang]
+ * @param {string} [options.videoTitle]
+ * @returns {Promise<{ words: Array, language: string } | null>}
+ */
+export async function fetchYouTubeSubtitles(rawUrl, jobId, options = {}) {
+  const url = normalizeYouTubeUrl(rawUrl);
+  const outputDir = path.resolve(UPLOAD_DIR);
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+  const outTemplate = path.join(outputDir, `${jobId}_sub.%(ext)s`);
+  const videoLang = (options.videoLang || '').toLowerCase();
+
+  // Step 1: Coba ambil track subtitle auto-caption original (*-orig).
+  // Menggunakan regex ".*-orig" agar hanya mengunduh bahasa lisan asli dan TIDAK memicu terjemahan mesin (anti HTTP 429).
+  const origCmd = `yt-dlp --no-update --js-runtimes node --no-playlist --skip-download --write-auto-sub --sub-lang ".*-orig" --sub-format json3 -o "${outTemplate}" "${url}"`;
+
+  try {
+    console.log(`⚡ Mencoba ambil transkrip instan dari YouTube...`);
+    await execAsync(origCmd, { timeout: 25000 });
+  } catch (_) {}
+
+  let files = fs.readdirSync(outputDir).filter(f => f.startsWith(`${jobId}_sub.`) && f.endsWith('.json3'));
+
+  // Step 2: Jika tidak ada auto-captions original (*-orig), coba ambil manual subtitles yang diunggah pembuat video.
+  // Gunakan --no-write-auto-sub agar tidak mengunduh auto-translations YouTube.
+  if (files.length === 0) {
+    const manualCmd = `yt-dlp --no-update --js-runtimes node --no-playlist --skip-download --write-sub --no-write-auto-sub --sub-lang "all" --sub-format json3 -o "${outTemplate}" "${url}"`;
+    try {
+      await execAsync(manualCmd, { timeout: 25000 });
+    } catch (_) {}
+    files = fs.readdirSync(outputDir).filter(f => f.startsWith(`${jobId}_sub.`) && f.endsWith('.json3'));
+  }
+
+  // Step 3: Jika tidak ada *-orig dan tidak ada manual subtitles, coba auto-caption standar untuk bahasa video / en / id
+  // Tanpa --sub-lang "all" sehingga TIDAK memicu 429
+  if (files.length === 0) {
+    const targetLangs = [...new Set([videoLang, 'en', 'id'].filter(Boolean))].join(',');
+    const fallbackAutoCmd = `yt-dlp --no-update --js-runtimes node --no-playlist --skip-download --write-auto-sub --sub-lang "${targetLangs}" --sub-format json3 -o "${outTemplate}" "${url}"`;
+    try {
+      await execAsync(fallbackAutoCmd, { timeout: 25000 });
+    } catch (_) {}
+    files = fs.readdirSync(outputDir).filter(f => f.startsWith(`${jobId}_sub.`) && f.endsWith('.json3'));
+  }
+
+  if (files.length === 0) return null;
+
+  try {
+    const preferredLang = (process.env.TRANSCRIBE_LANGUAGE || 'auto').toLowerCase();
+    const targetFile = selectTargetSubtitleFile(files, preferredLang, videoLang);
+    if (!targetFile) return null;
+
+    const raw = JSON.parse(fs.readFileSync(path.join(outputDir, targetFile), 'utf-8'));
+    const words = [];
+
+    for (const ev of raw.events || []) {
+      const baseStart = (ev.tStartMs || 0) / 1000;
+      for (const seg of ev.segs || []) {
+        const text = (seg.utf8 || '').trim();
+        if (!text || text === '\n') continue;
+        const offset = (seg.tOffsetMs || 0) / 1000;
+        const start = parseFloat((baseStart + offset).toFixed(3));
+        const duration = (seg.dDurationMs || 300) / 1000;
+        const end = parseFloat((start + duration).toFixed(3));
+        words.push({ word: text, start, end });
+      }
+    }
+
+    // Extract raw language tag from filename: jobId_sub.<tag>.json3
+    const match = targetFile.match(/_sub\.([^.]+)\.json3$/);
+    const rawTag = match ? match[1] : '';
+    let isoLang = normalizeLanguageCode(rawTag);
+
+    // Cross-verify dengan deteksi stopword teks transkrip
+    const sampleText = words.slice(0, 150).map(w => w.word).join(' ');
+    const textLang = detectLanguageFromText(sampleText, videoLang || 'id');
+
+    if (!isoLang || isoLang === 'unknown' || isoLang === 'auto') {
+      isoLang = textLang;
+    } else if (isoLang !== textLang && words.length >= 20) {
+      if (textLang === videoLang || !targetFile.includes('-orig.')) {
+        isoLang = textLang;
+      }
+    }
+
+    for (const f of files) {
+      try { fs.unlinkSync(path.join(outputDir, f)); } catch (_) {}
+    }
+
+    if (words.length >= 10) {
+      console.log(`⚡ Berhasil mengambil transkrip instan (${words.length} kata, bahasa: ${isoLang.toUpperCase()})`);
+      return { words, language: isoLang };
+    }
+  } catch (err) {
+    console.warn(`⚠️ Gagal memproses transkrip YouTube, fallback: ${err.message}`);
+  } finally {
+    try {
+      const remainingFiles = fs.readdirSync(outputDir).filter(f => f.startsWith(`${jobId}_sub.`) && f.endsWith('.json3'));
+      for (const f of remainingFiles) {
+        try { fs.unlinkSync(path.join(outputDir, f)); } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  return null;
+}
+
+/**
+ * Download HANYA potongan/section video tertentu (misal detik 60 s/d 105).
+ * Sangat hemat kuota & cepat (hanya unduh ~10-20MB per klip).
+ *
+ * @param {string} rawUrl - YouTube URL
+ * @param {number} start - Detik mulai
+ * @param {number} end - Detik selesai
+ * @param {string} outputPath - File output .mp4
+ */
+export async function downloadClipSection(rawUrl, start, end, outputPath) {
+  const url = normalizeYouTubeUrl(rawUrl);
+  const startTime = formatSectionTimestamp(start);
+  const endTime = formatSectionTimestamp(end);
+  const sectionSpec = `*${startTime}-${endTime}`;
+
+  console.log(`📥 Downloading video section only [${sectionSpec}]: ${url}`);
+  const formatChain = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/bestvideo[height<=720]+bestaudio/best[height<=720]/best';
+  
+  const sectionStrategies = [
+    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 --extractor-args "youtube:player_client=web,default" --download-sections "${sectionSpec}" -f "${formatChain}" --merge-output-format mp4 -o "${outputPath}" "${url}" --force-keyframes-at-cuts`,
+    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 --download-sections "${sectionSpec}" -f "${formatChain}" --merge-output-format mp4 -o "${outputPath}" "${url}" --force-keyframes-at-cuts`,
+    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 --extractor-args "youtube:player_client=android,web" --download-sections "${sectionSpec}" -f "best[height<=720]/best" --merge-output-format mp4 -o "${outputPath}" "${url}" --force-keyframes-at-cuts`
+  ];
+
+  let success = false;
+  let lastErr = null;
+
+  for (let i = 0; i < sectionStrategies.length; i++) {
+    const cmd = sectionStrategies[i];
+    try {
+      if (i > 0) {
+        console.log(`🔄 Retrying section download with fallback strategy #${i + 1}...`);
+      }
+      await execAsync(cmd, { timeout: 180000 });
+      if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 1000) {
+        success = true;
+        break;
+      }
+    } catch (err) {
+      lastErr = err;
+      console.warn(`⚠️ Section download strategy #${i + 1} notice: ${err.message.substring(0, 100)}...`);
+    }
+  }
+
+  if (!success) {
+    throw new Error(`Gagal mengunduh bagian video (${sectionSpec}): ${lastErr ? lastErr.message : 'Unknown error'}`);
+  }
+
+  return outputPath;
+}
+
+/**
+ * Download video YouTube menggunakan yt-dlp (Legacy fallback)
+ */
+export async function downloadVideo(url, jobId, options = {}) {
+  const outputDir = path.resolve(UPLOAD_DIR);
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+  const audioOutput = path.join(outputDir, `${jobId}_audio.mp3`);
+
+  // Download audio & info (atau hanya info jika skipAudioDownload aktif)
+  const info = await downloadAudioAndInfo(url, jobId, options);
+
+  return {
+    videoPath: url, // simpan URL agar clipper bisa download per section
+    audioPath: info.audioPath,
+    title: info.title,
+    duration: info.duration,
+    subtitles: info.subtitles,
+    language: info.language,
   };
 }
 
@@ -61,7 +414,7 @@ export async function downloadVideo(url, jobId) {
 export function cleanupFiles(...filePaths) {
   for (const filePath of filePaths) {
     try {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
     } catch (_) {}
   }
 }

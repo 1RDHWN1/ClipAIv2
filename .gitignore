@@ -45,6 +45,20 @@ env/
 coverage/
 .nyc_output/
 
+# Redis database dump
+dump.rdb
+*.rdb
+
+# Test temp
+tests/fixtures/temp/
+
+# Agent scratch and logs
+.agents/
+
+# Subtitles generated
+*.ass
+
 # Misc
 tmp/
 temp/
+

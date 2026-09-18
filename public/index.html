@@ -388,6 +388,25 @@
       box-shadow: none;
     }
 
+    /* Switch toggle */
+    .switch-toggle input:checked + .slider {
+      background-color: var(--accent);
+    }
+    .switch-toggle input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+    .switch-toggle .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
     /* Progress section */
     #progressSection { display: none; }
 
@@ -518,26 +537,28 @@
 
     .clips-grid {
       display: grid;
-      gap: 16px;
+      gap: 24px;
     }
 
     .clip-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 20px 24px;
+      border-radius: 20px;
+      padding: 24px;
       display: flex;
-      align-items: center;
-      gap: 20px;
-      transition: all 0.2s;
+      flex-direction: row;
+      align-items: stretch;
+      gap: 24px;
+      transition: all 0.25s ease;
       animation: slideUp 0.4s ease forwards;
       opacity: 0;
+      position: relative;
     }
 
     .clip-card:hover {
       border-color: var(--border-glow);
       transform: translateY(-2px);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
     }
 
     @keyframes slideUp {
@@ -545,12 +566,70 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
+    .clip-preview-wrap {
+      position: relative;
+      flex-shrink: 0;
+      width: 210px;
+      background: #04060a;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+      aspect-ratio: 9 / 16;
+    }
+
+    .clip-preview-wrap[data-ar="1:1"] {
+      width: 240px;
+      aspect-ratio: 1 / 1;
+    }
+
+    .clip-preview-wrap[data-ar="16:9"] {
+      width: 280px;
+      aspect-ratio: 16 / 9;
+    }
+
+    .clip-video-player {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #000;
+      border-radius: 13px;
+    }
+
+    .clip-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-width: 0;
+    }
+
+    .clip-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 12px;
+    }
+
     .clip-number {
       font-family: var(--font-head);
-      font-size: 28px;
+      font-size: 26px;
       font-weight: 800;
-      color: var(--border);
+      color: var(--accent);
       min-width: 36px;
+      line-height: 1;
+    }
+
+    .clip-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
     .clip-info { flex: 1; min-width: 0; }
@@ -558,61 +637,131 @@
     .clip-title {
       font-family: var(--font-head);
       font-weight: 700;
-      font-size: 15px;
-      margin-bottom: 4px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 17px;
+      line-height: 1.35;
+      margin-bottom: 8px;
+      color: #fff;
     }
 
     .clip-reason {
-      font-size: 12px;
+      font-size: 13px;
       color: var(--text2);
-      line-height: 1.5;
-      margin-bottom: 8px;
+      line-height: 1.55;
+      margin-bottom: 12px;
+    }
+
+    .clip-hook-quote {
+      background: rgba(79, 142, 255, 0.05);
+      border-left: 3px solid var(--accent);
+      padding: 8px 12px;
+      border-radius: 0 8px 8px 0;
+      font-size: 12px;
+      color: #d1dcfa;
+      font-style: italic;
+      margin-bottom: 14px;
     }
 
     .clip-meta {
       display: flex;
-      gap: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
     }
 
     .meta-tag {
       font-size: 10px;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 6px;
       background: var(--surface2);
       color: var(--text2);
     }
 
     .meta-tag.score {
-      background: rgba(46,204,136,0.1);
+      background: rgba(46, 204, 136, 0.12);
+      border: 1px solid rgba(46, 204, 136, 0.25);
       color: var(--success);
+      font-weight: 600;
+    }
+
+    .meta-tag.hook {
+      background: rgba(124, 92, 252, 0.15);
+      border: 1px solid rgba(124, 92, 252, 0.3);
+      color: #bfa5ff;
+      text-transform: capitalize;
+    }
+
+    .clip-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: auto;
     }
 
     .btn-download {
       padding: 10px 20px;
-      background: rgba(79,142,255,0.1);
-      border: 1px solid rgba(79,142,255,0.3);
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
       border-radius: 10px;
-      color: var(--accent);
+      color: #fff;
       font-family: var(--font-mono);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
       text-decoration: none;
       transition: all 0.2s;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
-      white-space: nowrap;
-      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(79, 142, 255, 0.25);
     }
 
     .btn-download:hover {
-      background: rgba(79,142,255,0.2);
+      box-shadow: 0 6px 22px rgba(79, 142, 255, 0.4);
+      transform: translateY(-1px);
+      color: #fff;
+    }
+
+    .btn-preview-toggle {
+      padding: 9px 16px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-preview-toggle:hover {
+      background: rgba(255, 255, 255, 0.12);
       border-color: var(--accent);
-      box-shadow: 0 4px 16px rgba(79,142,255,0.2);
+      color: #fff;
+    }
+
+    .btn-tab-link {
+      padding: 9px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text2);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+
+    .btn-tab-link:hover {
+      border-color: var(--text2);
+      color: var(--text);
     }
 
     /* Error */
@@ -682,12 +831,30 @@
     }
     .feature-sub { font-size: 11px; color: var(--text2); }
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       .features { grid-template-columns: 1fr; }
       .options-row { grid-template-columns: 1fr; }
       .url-group { flex-direction: column; }
-      .clip-card { flex-direction: column; align-items: flex-start; }
-      .btn-download { width: 100%; justify-content: center; }
+      .clip-card {
+        flex-direction: column;
+        align-items: center;
+        padding: 20px 16px;
+      }
+      .clip-preview-wrap {
+        width: 100%;
+        max-width: 260px;
+      }
+      .clip-content {
+        width: 100%;
+      }
+      .clip-actions {
+        flex-direction: column;
+        width: 100%;
+      }
+      .btn-download, .btn-preview-toggle, .btn-tab-link {
+        width: 100%;
+        justify-content: center;
+      }
     }
   </style>
 </head>
@@ -748,6 +915,38 @@
           </div>
         </div>
 
+        <!-- Tanya Gemini Transcript Accordion (Fast Path) -->
+        <div class="transcript-box-wrap" style="margin-bottom: 20px;">
+          <div
+            id="transcriptHeader"
+            onclick="toggleTranscriptInput()"
+            style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; padding:12px 16px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; transition:all 0.2s;"
+          >
+            <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text);">
+              <span>✨</span>
+              <span style="font-weight:600;">Punya Transkrip YouTube / Tanya Gemini?</span>
+              <span style="font-size:10px; background:rgba(79,142,255,0.15); color:var(--accent); padding:2px 8px; border-radius:4px; font-weight:600;">MODE INSTAN</span>
+            </div>
+            <span id="transcriptToggleIcon" style="color:var(--text2); font-size:12px;">▼ Buka</span>
+          </div>
+          <div id="transcriptInputContainer" style="display:none; margin-top:12px;">
+            <div style="font-size:11px; color:var(--text2); margin-bottom:8px; line-height:1.5;">
+              💡 <em>Salin hasil transkrip langsung dari tombol <strong>"Tanya"</strong> di YouTube atau teks ber-timestamp. Sistem akan <strong>melewati unduh audio & Whisper 100%</strong> sehingga proses menjadi super cepat!</em>
+            </div>
+            <textarea
+              id="transcriptText"
+              rows="6"
+              style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:var(--font-mono); font-size:12px; padding:12px; outline:none; resize:vertical; line-height:1.4;"
+              placeholder="Tempel transkrip di sini. Contoh format Tanya YouTube:&#10;([0:00](https://www.youtube.com/watch?t=0s)) Katanya manusia itu kan diciptakan dari tanah ya, Bib.&#10;([0:03](https://www.youtube.com/watch?t=3s)) Heeh.&#10;([0:04](https://www.youtube.com/watch?t=4s)) Berarti kita saudara sama brokoli. Kok bisa, Pak?"
+              oninput="handleTranscriptChange()"
+            ></textarea>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:11px; color:var(--text3);">
+              <span id="transcriptCharCount">0 karakter</span>
+              <button type="button" onclick="clearTranscript()" style="background:transparent; border:none; color:var(--danger); cursor:pointer; font-size:11px; font-family:var(--font-mono);">✕ Hapus Teks</button>
+            </div>
+          </div>
+        </div>
+
         <div class="options-row">
           <div class="option-group">
             <label>Aspect Ratio</label>
@@ -774,6 +973,87 @@
               <span id="clipCountDisplay">3</span>
               <span class="label">clips</span>
               <button id="btnPlus" onclick="changeClipCount(1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Auto Subtitle Customization Panel -->
+        <div class="subtitle-card" style="margin-bottom: 24px; padding: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 18px;">💬</span>
+              <div>
+                <div style="font-family: var(--font-head); font-size: 13px; font-weight: 700; color: var(--text);">
+                  Auto Subtitles (Burn-in)
+                </div>
+                <div style="font-size: 11px; color: var(--text2);">
+                  Animasi teks per kata (Karaoke/Viral Pop ala Opus Clip & Submagic)
+                </div>
+              </div>
+            </div>
+            <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+              <input type="checkbox" id="subtitlesEnabled" checked onchange="toggleSubtitleSettings()" style="opacity: 0; width: 0; height: 0;">
+              <span class="slider" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--border); transition: .3s; border-radius: 24px;"></span>
+            </label>
+          </div>
+
+          <div id="subtitleOptionsWrap" style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div>
+                <label style="display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); margin-bottom: 6px;">
+                  Gaya Preset Viral
+                </label>
+                <select id="subtitlePreset" onchange="applySubtitlePreset()" style="width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 8px 10px; outline: none;">
+                  <option value="hormozi" selected>⚡ Hormozi Yellow (Populer)</option>
+                  <option value="mrbeast">🔥 MrBeast Green (High Contrast)</option>
+                  <option value="cyber">💎 Cyber Cyan (Modern Glow)</option>
+                  <option value="minimal">✨ Clean Minimal (Putih)</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); margin-bottom: 6px;">
+                  Posisi Vertikal
+                </label>
+                <select id="subtitlePosition" style="width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 8px 10px; outline: none;">
+                  <option value="bottom" selected>Bawah (Rekomendasi 9:16)</option>
+                  <option value="center">Tengah Layar</option>
+                  <option value="top">Atas Layar</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Advanced Styling Accordion -->
+            <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 6px 0; font-size: 11px; color: var(--text2);" onclick="toggleAdvancedSubtitleSettings()">
+              <span>⚙️ Kustomisasi Lanjutan (Font & Warna Highlight)</span>
+              <span id="advSubToggleIcon">▼</span>
+            </div>
+
+            <div id="advSubtitleOptions" style="display: none; margin-top: 10px; padding: 12px; background: var(--bg2); border-radius: 10px; border: 1px solid var(--border);">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                <div>
+                  <label style="display: block; font-size: 10px; color: var(--text2); margin-bottom: 4px;">Pilihan Font</label>
+                  <select id="subtitleFont" style="width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font-mono); font-size: 11px; padding: 6px 8px; outline: none;">
+                    <option value="Impact" selected>Impact (Bold Punchy)</option>
+                    <option value="Arial">Arial Black (Clean Bold)</option>
+                    <option value="Montserrat, Arial">Montserrat (Modern)</option>
+                    <option value="Trebuchet MS, Arial">Trebuchet MS (Stylized)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display: block; font-size: 10px; color: var(--text2); margin-bottom: 4px;">Warna Kata Aktif</label>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="color" id="subtitleHighlightColor" value="#FFE600" style="width: 28px; height: 28px; border: none; border-radius: 6px; cursor: pointer; background: transparent;">
+                    <span id="highlightColorHex" style="font-size: 11px; color: var(--text2);">#FFE600</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text2); margin-bottom: 4px;">
+                  <span>Ukuran Font</span>
+                  <span id="fontSizeDisplay">80px</span>
+                </div>
+                <input type="range" id="subtitleFontSize" min="50" max="110" value="80" oninput="document.getElementById('fontSizeDisplay').textContent = this.value + 'px'" style="width: 100%; accent-color: var(--accent);">
+              </div>
             </div>
           </div>
         </div>
@@ -879,6 +1159,93 @@
       document.getElementById('clipCountDisplay').textContent = clipCount;
     }
 
+    // ── Transcript UI Helpers ──────────────────────────────────
+    function toggleTranscriptInput() {
+      const container = document.getElementById('transcriptInputContainer');
+      const icon = document.getElementById('transcriptToggleIcon');
+      if (container.style.display === 'none') {
+        container.style.display = 'block';
+        icon.textContent = '▲ Tutup';
+      } else {
+        container.style.display = 'none';
+        icon.textContent = '▼ Buka';
+      }
+    }
+
+    function handleTranscriptChange() {
+      const val = document.getElementById('transcriptText').value;
+      const countEl = document.getElementById('transcriptCharCount');
+      const btnProcess = document.getElementById('btnProcess');
+      if (countEl) countEl.textContent = `${val.length} karakter`;
+      if (val.trim().length > 20) {
+        btnProcess.innerHTML = '⚡ Generate Clips Instan (Fast Path)';
+      } else {
+        btnProcess.innerHTML = '✨ Generate Clips dengan AI';
+      }
+    }
+
+    function clearTranscript() {
+      const el = document.getElementById('transcriptText');
+      if (el) {
+        el.value = '';
+        handleTranscriptChange();
+      }
+    }
+
+    // ── Auto Subtitles Controls ──────────────────────────────
+    function toggleSubtitleSettings() {
+      const enabled = document.getElementById('subtitlesEnabled')?.checked;
+      const wrap = document.getElementById('subtitleOptionsWrap');
+      if (wrap) wrap.style.display = enabled ? 'block' : 'none';
+    }
+
+    function toggleAdvancedSubtitleSettings() {
+      const adv = document.getElementById('advSubtitleOptions');
+      const icon = document.getElementById('advSubToggleIcon');
+      if (!adv || !icon) return;
+      if (adv.style.display === 'none') {
+        adv.style.display = 'block';
+        icon.textContent = '▲';
+      } else {
+        adv.style.display = 'none';
+        icon.textContent = '▼';
+      }
+    }
+
+    function applySubtitlePreset() {
+      const preset = document.getElementById('subtitlePreset')?.value;
+      const highlightInput = document.getElementById('subtitleHighlightColor');
+      const fontInput = document.getElementById('subtitleFont');
+      const hexSpan = document.getElementById('highlightColorHex');
+
+      if (!highlightInput || !fontInput || !hexSpan) return;
+
+      if (preset === 'hormozi') {
+        highlightInput.value = '#FFE600';
+        fontInput.value = 'Impact';
+      } else if (preset === 'mrbeast') {
+        highlightInput.value = '#00FF66';
+        fontInput.value = 'Impact';
+      } else if (preset === 'cyber') {
+        highlightInput.value = '#00E5FF';
+        fontInput.value = 'Montserrat, Arial';
+      } else if (preset === 'minimal') {
+        highlightInput.value = '#FFFFFF';
+        fontInput.value = 'Arial';
+      }
+      hexSpan.textContent = highlightInput.value;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const colorInput = document.getElementById('subtitleHighlightColor');
+      if (colorInput) {
+        colorInput.addEventListener('input', (e) => {
+          const hexSpan = document.getElementById('highlightColorHex');
+          if (hexSpan) hexSpan.textContent = e.target.value.toUpperCase();
+        });
+      }
+    });
+
     // ── Process ───────────────────────────────────────────────
     async function startProcess() {
       const url = document.getElementById('youtubeUrl').value.trim();
@@ -886,6 +1253,25 @@
         alert('Masukkan URL YouTube terlebih dahulu!');
         return;
       }
+
+      const transcriptText = document.getElementById('transcriptText')?.value?.trim() || null;
+
+      // Extract subtitle configuration
+      const subtitlesEnabled = document.getElementById('subtitlesEnabled')?.checked ?? true;
+      const subtitlePreset = document.getElementById('subtitlePreset')?.value || 'hormozi';
+      const subtitlePosition = document.getElementById('subtitlePosition')?.value || 'bottom';
+      const subtitleFont = document.getElementById('subtitleFont')?.value || 'Impact';
+      const subtitleHighlightColor = document.getElementById('subtitleHighlightColor')?.value || '#FFE600';
+      const subtitleFontSize = parseInt(document.getElementById('subtitleFontSize')?.value, 10) || 80;
+
+      const subtitleConfig = {
+        enabled: subtitlesEnabled,
+        preset: subtitlePreset,
+        position: subtitlePosition,
+        fontFamily: subtitleFont,
+        highlightColor: subtitleHighlightColor,
+        fontSize: subtitleFontSize,
+      };
 
       // Hide form, show progress
       document.getElementById('formSection').style.display = 'none';
@@ -897,7 +1283,13 @@
         const res = await fetch('/api/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, aspectRatio: selectedAR, clipCount }),
+          body: JSON.stringify({
+            url,
+            aspectRatio: selectedAR,
+            clipCount,
+            transcriptText,
+            subtitleConfig,
+          }),
         });
 
         const data = await res.json();
@@ -979,34 +1371,126 @@
       document.getElementById('progressSection').style.display = 'none';
       document.getElementById('resultsSection').style.display = 'block';
 
-      document.getElementById('resultsTitle').textContent = `${result.clips.length} Clips Berhasil Dibuat! 🎉`;
+      const totalClips = result.clips ? result.clips.length : 0;
+      const countLabel = totalClips === 1 ? '1 Clip' : `${totalClips} Clips`;
+      document.getElementById('resultsTitle').textContent = `${countLabel} Berhasil Dibuat! 🎉`;
       document.getElementById('resultsSub').textContent =
-        `Dari "${result.videoTitle}" (${Math.round(result.videoDuration / 60)} menit) · Bahasa: ${result.language?.toUpperCase()}`;
+        `Dari "${result.videoTitle || 'Video'}" (${Math.round((result.videoDuration || 0) / 60)} menit) · Bahasa: ${(result.language || 'ID').toUpperCase()}`;
 
       const grid = document.getElementById('clipsGrid');
       grid.innerHTML = '';
 
+      const effectiveAR = result.aspectRatio || selectedAR || '9:16';
+
       result.clips.forEach((clip, i) => {
+        const videoSrc = clip.downloadUrl || `/outputs/${encodeURIComponent(clip.filename)}`;
+
         const card = document.createElement('div');
         card.className = 'clip-card';
         card.style.animationDelay = `${i * 0.1}s`;
+
+        const hookLabel = clip.hookClassification ? formatHookName(clip.hookClassification) : '';
+        const hookBadgeHtml = hookLabel
+          ? `<span class="meta-tag hook">🎯 ${escapeHtml(hookLabel)}</span>`
+          : '';
+
+        const hookQuoteHtml = clip.hookText
+          ? `<div class="clip-hook-quote"><strong>Hook:</strong> "${escapeHtml(clip.hookText)}"</div>`
+          : '';
+
         card.innerHTML = `
-          <div class="clip-number">0${clip.index}</div>
-          <div class="clip-info">
+          <div class="clip-preview-wrap" data-ar="${effectiveAR}">
+            <video
+              id="clipVideo_${i}"
+              class="clip-video-player"
+              controls
+              playsinline
+              preload="metadata"
+              src="${videoSrc}">
+              Browser Anda tidak mendukung preview video tag HTML5.
+            </video>
+          </div>
+          <div class="clip-content">
+            <div class="clip-header">
+              <div class="clip-number">0${clip.index}</div>
+              <div class="clip-badges">
+                <span class="meta-tag score">🔥 ${clip.score || 85}/100</span>
+                ${hookBadgeHtml}
+              </div>
+            </div>
             <div class="clip-title">${escapeHtml(clip.title)}</div>
-            <div class="clip-reason">${escapeHtml(clip.reason)}</div>
+            <div class="clip-reason">${escapeHtml(clip.reason || clip.narrativeRationale || '')}</div>
+            ${hookQuoteHtml}
             <div class="clip-meta">
               <span class="meta-tag">⏱ ${clip.duration}s</span>
               <span class="meta-tag">💾 ${clip.fileSizeMB}MB</span>
-              <span class="meta-tag score">🔥 ${clip.score}/100</span>
+              <span class="meta-tag">📐 ${effectiveAR}</span>
+            </div>
+            <div class="clip-actions">
+              <a class="btn-download" href="${videoSrc}" download="${clip.filename}">
+                ⬇ Download Video
+              </a>
+              <button class="btn-preview-toggle" id="playBtn_${i}" onclick="togglePlayPreview(${i})">
+                ▶ Putar Preview
+              </button>
+              <a class="btn-tab-link" href="${videoSrc}" target="_blank" rel="noopener">
+                ↗ Buka di Tab Baru
+              </a>
             </div>
           </div>
-          <a class="btn-download" href="${clip.downloadUrl}" download="${clip.filename}">
-            ⬇ Download
-          </a>
         `;
         grid.appendChild(card);
+
+        // Sync video playback events
+        const videoEl = card.querySelector(`#clipVideo_${i}`);
+        const playBtn = card.querySelector(`#playBtn_${i}`);
+
+        if (videoEl && playBtn) {
+          videoEl.addEventListener('play', () => {
+            playBtn.innerHTML = '⏸ Jeda Preview';
+            // Auto-pause any other clip currently playing
+            document.querySelectorAll('.clip-video-player').forEach(otherVideo => {
+              if (otherVideo !== videoEl && !otherVideo.paused) {
+                otherVideo.pause();
+              }
+            });
+          });
+
+          videoEl.addEventListener('pause', () => {
+            playBtn.innerHTML = '▶ Putar Preview';
+          });
+
+          videoEl.addEventListener('ended', () => {
+            playBtn.innerHTML = '🔄 Putar Ulang';
+          });
+        }
       });
+    }
+
+    // Explicitly expose on window
+    window.showResults = showResults;
+    window.togglePlayPreview = togglePlayPreview;
+
+    function togglePlayPreview(index) {
+      const video = document.getElementById(`clipVideo_${index}`);
+      if (!video) return;
+      if (video.paused) {
+        video.play().catch(err => console.warn('Play interrupted:', err));
+      } else {
+        video.pause();
+      }
+    }
+
+    function formatHookName(type) {
+      const map = {
+        question: 'Question Hook',
+        bold_statement: 'Bold Statement',
+        negative_hook: 'Negative Warning',
+        story_anecdote: 'Story / Anecdote',
+        shocking_fact: 'Shocking Fact',
+        action_instruction: 'Action Instruction',
+      };
+      return map[type] || type.replace(/_/g, ' ');
     }
 
     // ── Show Error ────────────────────────────────────────────
@@ -1024,6 +1508,7 @@
       document.getElementById('resultsSection').style.display = 'none';
       document.getElementById('errorSection').style.display = 'none';
       document.getElementById('youtubeUrl').value = '';
+      clearTranscript();
       currentJobId = null;
     }
 

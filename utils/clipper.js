@@ -4,6 +4,9 @@ import path from 'path';
 import fs from 'fs';
 import { spawn } from 'child_process';
 import 'dotenv/config';
+import { buildAudioCrossfadeFilter } from './boundarySnapper.js';
+import { downloadClipSection } from './downloader.js';
+import { generateAssSubtitles } from './subtitleGenerator.js';
 
 const OUTPUT_DIR = process.env.OUTPUT_DIR || './outputs';
 const SPEAKER_TRACKING_ENABLED = process.env.SPEAKER_TRACKING_ENABLED !== 'false';
@@ -35,50 +38,142 @@ export async function processClips(videoPath, clips, jobId, aspectRatio = '9:16'
   console.log(`📐 Source video: ${srcWidth}x${srcHeight}, AR: ${aspectRatio}`);
 
   const results = [];
-
   for (let i = 0; i < clips.length; i++) {
     const clip = clips[i];
     const safeTitle = clip.title.replace(/[^a-zA-Z0-9\u00C0-\u024F\s]/g, '').trim().replace(/\s+/g, '_');
     const outputFilename = `${jobId}_clip${i + 1}_${safeTitle}.mp4`;
     const outputPath = path.join(outputDir, outputFilename);
 
-    console.log(`✂️  Processing clip ${i + 1}/${clips.length}: ${clip.start}s - ${clip.end}s`);
+    console.log(`\n✂️  Processing clip ${i + 1}/${clips.length}: ${clip.start}s - ${clip.end}s`);
 
-    const faceTrackingPlan = await getFaceTrackingPlan({
-      videoPath,
-      clip,
-      speakerTurns,
-      aspectRatio,
-    });
+    let sourceForProcessing = videoPath;
+    let clipForProcessing = clip;
+    let tempSectionFile = null;
+    let tempAssFile = null;
 
-    await clipVideo(videoPath, outputPath, clip, srcWidth, srcHeight, aspectRatio, {
-      speakerTurns,
-      speakerOrder,
-      faceTrackingPlan,
-    });
+    try {
+      if (typeof videoPath === 'string' && (videoPath.startsWith('http://') || videoPath.startsWith('https://'))) {
+        tempSectionFile = path.join(outputDir, `${jobId}_temp_sec_${i + 1}.mp4`);
+        await downloadClipSection(videoPath, clip.start, clip.end, tempSectionFile);
+        sourceForProcessing = tempSectionFile;
+        const duration = Math.max(0.1, clip.end - clip.start);
+        clipForProcessing = { ...clip, start: 0, end: duration };
+      }
 
-    const fileSize = fs.statSync(outputPath).size;
-    results.push({
+      let currentWidth = srcWidth;
+      let currentHeight = srcHeight;
+      if (tempSectionFile) {
+        try {
+          const secInfo = await getVideoInfo(tempSectionFile);
+          currentWidth = secInfo.width || srcWidth;
+          currentHeight = secInfo.height || srcHeight;
+        } catch (_) {}
+      }
+
+      // Check if subtitles enabled and words available
+      const subtitleConfig = options.subtitleConfig;
+      if (subtitleConfig?.enabled) {
+        const candidateWords = (Array.isArray(clip.words) && clip.words.length > 0)
+          ? clip.words
+          : (Array.isArray(options.words) ? options.words : []);
+
+        const isAlreadyRelative = clip.start > 0 && candidateWords.every(
+          (w) => (w.start || 0) < clip.start && (w.end || 0) <= (clip.end - clip.start) + 1.0
+        );
+
+        const clipWords = isAlreadyRelative
+          ? candidateWords
+          : candidateWords.filter(
+              (w) => w && typeof w.word === 'string' && w.end > clip.start && w.start < clip.end
+            );
+
+        if (clipWords.length > 0) {
+          const assContent = generateAssSubtitles(
+            clipWords,
+            clip.start,
+            clip.end,
+            subtitleConfig
+          );
+
+          if (assContent && assContent.includes('Dialogue:')) {
+            const assFilename = `${jobId || 'clip'}_subs_${i + 1}.ass`;
+            tempAssFile = path.join(outputDir, assFilename);
+            fs.writeFileSync(tempAssFile, assContent, 'utf-8');
+            console.log(`   📝 Subtitles generated: ${assFilename} (${clipWords.length} words)`);
+          }
+        }
+      }
+
+      const faceTrackingPlan = await getFaceTrackingPlan({
+        videoPath: sourceForProcessing,
+        clip: clipForProcessing,
+        speakerTurns,
+        aspectRatio,
+      });
+
+      await clipVideo(sourceForProcessing, outputPath, clipForProcessing, currentWidth, currentHeight, aspectRatio, {
+        speakerTurns,
+        speakerOrder,
+        faceTrackingPlan,
+        subtitleAssPath: tempAssFile,
+      });
+    } finally {
+      if (tempSectionFile && fs.existsSync(tempSectionFile)) {
+        try { fs.unlinkSync(tempSectionFile); } catch (_) {}
+      }
+      if (tempAssFile && fs.existsSync(tempAssFile)) {
+        try { fs.unlinkSync(tempAssFile); } catch (_) {}
+      }
+    }
+
+    const fileSize = fs.existsSync(outputPath) ? fs.statSync(outputPath).size : 0;
+    const res = {
       ...clip,
       clipIndex: i + 1,
       filename: outputFilename,
       outputPath,
       fileSizeMB: (fileSize / 1024 / 1024).toFixed(2),
       duration: Math.round(clip.end - clip.start),
-    });
+    };
 
-    console.log(`   ✅ Clip ${i + 1} done: ${outputFilename} (${(fileSize / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`   ✅ Clip ${i + 1} done: ${outputFilename} (${res.fileSizeMB}MB)`);
+    results.push(res);
   }
 
   return results;
 }
 
 /**
- * Proses satu clip dengan FFmpeg
+ * Proses satu clip dengan FFmpeg (dilengkapi fallback otomatis jika filter kompleks gagal)
  */
-function clipVideo(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio, options = {}) {
+async function clipVideo(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio, options = {}) {
+  try {
+    await executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio, options);
+  } catch (err) {
+    // Jika FFmpeg gagal saat menggunakan filter face-tracking, fallback otomatis ke center crop
+    if (options.faceTrackingPlan && options.faceTrackingPlan.length > 0) {
+      console.warn(`⚠️ [clipper] FFmpeg gagal pada filter face-tracking (${err.message}). Merender ulang dengan center crop stabil...`);
+      await executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio, {
+        ...options,
+        faceTrackingPlan: [],
+      });
+    } else {
+      throw err;
+    }
+  }
+}
+
+function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio, options = {}) {
   return new Promise((resolve, reject) => {
     const duration = clip.end - clip.start;
+    let afFilter = null;
+    if (duration > 0) {
+      try {
+        afFilter = buildAudioCrossfadeFilter(duration);
+      } catch (err) {
+        console.warn(`[clipper] Audio crossfade filter skipped: ${err.message}`);
+      }
+    }
 
     // Hitung filter untuk reframe
     const vfFilter = buildVideoFilter({
@@ -89,6 +184,7 @@ function clipVideo(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio
       speakerTurns: options.speakerTurns || [],
       speakerOrder: options.speakerOrder || [],
       faceTrackingPlan: options.faceTrackingPlan || [],
+      subtitleAssPath: options.subtitleAssPath,
     });
 
     let cmd = ffmpeg(inputPath)
@@ -99,7 +195,7 @@ function clipVideo(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio
       .audioBitrate('128k')
       .videoBitrate('2000k')
       .outputOptions([
-        '-preset fast',
+        '-preset veryfast',
         '-crf 23',
         '-movflags +faststart', // streaming-friendly
         '-pix_fmt yuv420p',
@@ -107,6 +203,9 @@ function clipVideo(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio
 
     if (vfFilter) {
       cmd = cmd.videoFilters(vfFilter);
+    }
+    if (afFilter) {
+      cmd = cmd.audioFilters(afFilter);
     }
 
     cmd
@@ -133,7 +232,7 @@ function clipVideo(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio
 /**
  * Buat video filter untuk reframe aspect ratio
  */
-function buildVideoFilter({ srcWidth, srcHeight, aspectRatio, clip, speakerTurns, speakerOrder, faceTrackingPlan }) {
+function buildVideoFilter({ srcWidth, srcHeight, aspectRatio, clip, speakerTurns, speakerOrder, faceTrackingPlan, subtitleAssPath }) {
   const filters = [];
 
   if (aspectRatio === '9:16') {
@@ -171,6 +270,11 @@ function buildVideoFilter({ srcWidth, srcHeight, aspectRatio, clip, speakerTurns
   } else {
     filters.push(`scale=1280:720:force_original_aspect_ratio=decrease`);
     filters.push(`pad=1280:720:(ow-iw)/2:(oh-ih)/2:black`);
+  }
+
+  if (subtitleAssPath) {
+    const escapedAssPath = subtitleAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    filters.push(`ass='${escapedAssPath}'`);
   }
 
   return filters.join(',');
@@ -221,6 +325,7 @@ function buildFaceTrackedCropX({ srcWidth, cropWidth, defaultX, faceTrackingPlan
     .map((segment) => ({
       start: Number(segment.start),
       end: Number(segment.end),
+      is_cut: Boolean(segment.is_cut),
       x: calculateSafeFaceCropX({
         centerX: Number(segment.center_x),
         faceWidth: Number(segment.face_width || 0),
@@ -228,20 +333,80 @@ function buildFaceTrackedCropX({ srcWidth, cropWidth, defaultX, faceTrackingPlan
         maxX,
       }),
     }))
-    .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && Number.isFinite(segment.x));
+    .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && Number.isFinite(segment.x))
+    .sort((a, b) => a.start - b.start);
 
   if (normalizedPlan.length === 0) {
     return null;
   }
 
-  if (normalizedPlan.length === 1) {
-    return `${normalizedPlan[0].x}`;
+  // 1. Gabungkan segmen berdekatan yang koordinat X-nya mirip (|x1 - x2| < 30px) jika bukan scene cut
+  const merged = [];
+  for (const seg of normalizedPlan) {
+    const prev = merged[merged.length - 1];
+    if (prev && !seg.is_cut && Math.abs(prev.x - seg.x) < 30) {
+      prev.end = Math.max(prev.end, seg.end);
+      prev.x = Math.round((prev.x + seg.x) / 2);
+    } else {
+      merged.push({ ...seg });
+    }
   }
 
-  let expression = `${defaultX}`;
-  for (let i = normalizedPlan.length - 1; i >= 0; i--) {
-    const segment = normalizedPlan[i];
-    expression = `if(lt(t\\,${formatExprNumber(segment.end)})\\,${segment.x}\\,${expression})`;
+  // 2. Haluskan segmen jitter sangat pendek (< 0.5 detik) jika bukan scene cut
+  const smoothed = [];
+  for (const seg of merged) {
+    const prev = smoothed[smoothed.length - 1];
+    if (prev && !seg.is_cut && (seg.end - seg.start) < 0.5) {
+      prev.end = Math.max(prev.end, seg.end);
+    } else {
+      smoothed.push({ ...seg });
+    }
+  }
+
+  // 3. Batasi maksimal 16 segmen agar tidak melebihi batas kedalaman ekspresi FFmpeg (eval stack overflow)
+  const MAX_EXPR_SEGMENTS = 16;
+  while (smoothed.length > MAX_EXPR_SEGMENTS) {
+    let minDiff = Infinity;
+    let mergeIdx = 0;
+    for (let i = 0; i < smoothed.length - 1; i++) {
+      const diff = Math.abs(smoothed[i].x - smoothed[i + 1].x);
+      if (diff < minDiff) {
+        minDiff = diff;
+        mergeIdx = i;
+      }
+    }
+    const dur1 = smoothed[mergeIdx].end - smoothed[mergeIdx].start;
+    const dur2 = smoothed[mergeIdx + 1].end - smoothed[mergeIdx + 1].start;
+    smoothed[mergeIdx].end = smoothed[mergeIdx + 1].end;
+    smoothed[mergeIdx].x = dur1 >= dur2 ? smoothed[mergeIdx].x : smoothed[mergeIdx + 1].x;
+    smoothed.splice(mergeIdx + 1, 1);
+  }
+
+  if (smoothed.length === 1) {
+    return `${smoothed[0].x}`;
+  }
+
+  // Smooth pan animation with EASING_DURATION = 0.50 (500ms) with anticipatory timing
+  const EASING_DURATION = 0.50;
+  let expression = `${smoothed[smoothed.length - 1].x}`;
+
+  for (let i = smoothed.length - 2; i >= 0; i--) {
+    const current = smoothed[i];
+    const next = smoothed[i + 1];
+    const currentX = current.x;
+    const nextX = next.x;
+
+    if (currentX === nextX || next.is_cut) {
+      // Hard cut tanpa delay saat pergantian kamera (scene cut) atau bila posisi sama
+      expression = `if(lt(t\\,${formatExprNumber(current.end)})\\,${currentX}\\,${expression})`;
+    } else {
+      // Panning halus antisipatif: mulai bergerak 250ms sebelum waktu bicara agar tiba tepat waktu
+      const halfEase = EASING_DURATION / 2;
+      const tStart = Math.max(0, current.end - halfEase);
+      const tEnd = current.end + halfEase;
+      const easingPart = buildFFmpegEasingCropX(currentX, nextX, tStart, tEnd);
+      expression = `if(lt(t\\,${formatExprNumber(tStart)})\\,${currentX}\\,if(lt(t\\,${formatExprNumber(tEnd)})\\,${easingPart}\\,${expression}))`;
+    }
   }
 
   return expression;
@@ -252,24 +417,9 @@ function calculateSafeFaceCropX({ centerX, faceWidth, cropWidth, maxX }) {
     return 0;
   }
 
-  if (!Number.isFinite(faceWidth) || faceWidth <= 0) {
-    return clamp(Math.round(centerX - (cropWidth / 2)), 0, maxX);
-  }
-
-  const safeMargin = cropWidth * FACE_TRACKING_SAFE_MARGIN_RATIO;
-  const desiredHalfFace = Math.max(faceWidth * 0.8, faceWidth / 2);
-  const leftBound = centerX - desiredHalfFace - safeMargin;
-  const rightBound = centerX + desiredHalfFace + safeMargin;
-
-  let cropX = centerX - (cropWidth / 2);
-  if (cropX > leftBound) {
-    cropX = leftBound;
-  }
-  if ((cropX + cropWidth) < rightBound) {
-    cropX = rightBound - cropWidth;
-  }
-
-  return clamp(Math.round(cropX), 0, maxX);
+  // Precisely centers the face horizontally in the crop frame
+  const cropX = Math.round(centerX - (cropWidth / 2));
+  return clamp(cropX, 0, maxX);
 }
 
 function buildSpeakerFocusPlan(clip, speakerTurns) {
@@ -369,13 +519,117 @@ function buildSpeakerAnchorMap({ speakerOrder, focusPlan, srcWidth, cropWidth, d
   return anchorMap;
 }
 
-function buildTimedCropExpression(focusPlan, anchorMap, defaultX) {
-  let expression = `${defaultX}`;
+/**
+ * Evaluates cosine easing for progress p in [0, 1].
+ */
+export function cosineEase(p) {
+  const clamped = Math.max(0, Math.min(1, p));
+  return 0.5 - 0.5 * Math.cos(Math.PI * clamped);
+}
 
-  for (let i = focusPlan.length - 1; i >= 0; i--) {
-    const turn = focusPlan[i];
-    const x = anchorMap.get(turn.speaker) ?? defaultX;
-    expression = `if(lt(t\\,${formatExprNumber(turn.end)})\\,${x}\\,${expression})`;
+/**
+ * Evaluates smoothstep easing for progress p in [0, 1].
+ */
+export function smoothstepEase(p) {
+  const clamped = Math.max(0, Math.min(1, p));
+  return clamped * clamped * (3 - 2 * clamped);
+}
+
+/**
+ * Builds an FFmpeg crop expression string for a smooth camera transition with cosine easing.
+ */
+export function buildFFmpegEasingCropX(x1, x2, tStart, tEnd) {
+  const dur = (tEnd - tStart).toFixed(3);
+  const tStartStr = tStart.toFixed(3);
+  const tEndStr = tEnd.toFixed(3);
+  const dx = (x2 - x1).toFixed(1);
+
+  return `if(lt(t\\,${tStartStr})\\,${x1}\\,if(lt(t\\,${tEndStr})\\,${x1}+(${dx})*(0.5-0.5*cos(3.14159265*(t-${tStartStr})/${dur}))\\,${x2}))`;
+}
+
+/**
+ * Builds stacked split-screen filter graph for multi-speaker dialogue
+ */
+export function buildStackedSplitFilterGraph({
+  srcWidth = 1920,
+  srcHeight = 1080,
+  x1,
+  x2,
+} = {}) {
+  const panelCropW = 608;
+  const panelCropH = Math.min(srcHeight, 540);
+
+  const posX1 = typeof x1 === 'number'
+    ? (x1 <= 1.0 ? Math.floor(x1 * srcWidth) : x1)
+    : Math.floor(srcWidth * 0.28);
+
+  const posX2 = typeof x2 === 'number'
+    ? (x2 <= 1.0 ? Math.floor(x2 * srcWidth) : x2)
+    : Math.floor(srcWidth * 0.72);
+
+  const cropX1 = Math.max(0, Math.min(srcWidth - panelCropW, Math.floor(posX1 - panelCropW / 2)));
+  const cropX2 = Math.max(0, Math.min(srcWidth - panelCropW, Math.floor(posX2 - panelCropW / 2)));
+  const cropY = Math.max(0, Math.floor((srcHeight - panelCropH) / 2));
+
+  const evenX1 = Math.floor(cropX1 / 2) * 2;
+  const evenX2 = Math.floor(cropX2 / 2) * 2;
+  const evenY = Math.floor(cropY / 2) * 2;
+
+  const filterComplex = [
+    `[0:v]crop=${panelCropW}:${panelCropH}:${evenX1}:${evenY},scale=1080:960[top]`,
+    `[0:v]crop=${panelCropW}:${panelCropH}:${evenX2}:${evenY},scale=1080:960[bottom]`,
+    `[top][bottom]vstack=inputs=2[v]`,
+  ].join(';');
+
+  return {
+    filterComplex,
+    outputMap: '[v]',
+    renderWidth: 1080,
+    renderHeight: 1920,
+    panelWidth: 1080,
+    panelHeight: 960,
+  };
+}
+
+function buildTimedCropExpression(focusPlan, anchorMap, defaultX) {
+  if (!focusPlan || focusPlan.length === 0) return `${defaultX}`;
+  if (focusPlan.length === 1) return `${anchorMap.get(focusPlan[0].speaker) ?? defaultX}`;
+
+  const MAX_EXPR_SEGMENTS = 16;
+  const plan = focusPlan.map((turn) => ({ ...turn }));
+  while (plan.length > MAX_EXPR_SEGMENTS) {
+    let minDiff = Infinity;
+    let mergeIdx = 0;
+    for (let i = 0; i < plan.length - 1; i++) {
+      const diff = Math.abs((anchorMap.get(plan[i].speaker) ?? defaultX) - (anchorMap.get(plan[i + 1].speaker) ?? defaultX));
+      if (diff < minDiff) {
+        minDiff = diff;
+        mergeIdx = i;
+      }
+    }
+    plan[mergeIdx].end = plan[mergeIdx + 1].end;
+    plan.splice(mergeIdx + 1, 1);
+  }
+
+  // Build smooth transition expression across consecutive speaker turns
+  const EASING_DURATION = 0.5; // 500ms smooth camera pan
+  let expression = `${anchorMap.get(plan[plan.length - 1].speaker) ?? defaultX}`;
+
+  for (let i = plan.length - 2; i >= 0; i--) {
+    const currentTurn = plan[i];
+    const nextTurn = plan[i + 1];
+    const currentX = anchorMap.get(currentTurn.speaker) ?? defaultX;
+    const nextX = anchorMap.get(nextTurn.speaker) ?? defaultX;
+
+    if (currentX === nextX) {
+      expression = `if(lt(t\\,${formatExprNumber(currentTurn.end)})\\,${currentX}\\,${expression})`;
+    } else {
+      const halfEase = EASING_DURATION / 2;
+      const tStart = Math.max(0, currentTurn.end - halfEase);
+      const tEnd = currentTurn.end + halfEase;
+      const easingPart = buildFFmpegEasingCropX(currentX, nextX, tStart, tEnd);
+      expression = `if(lt(t\\,${formatExprNumber(tStart)})\\,${currentX}\\,if(lt(t\\,${formatExprNumber(tEnd)})\\,${easingPart}\\,${expression}))`;
+    }
   }
 
   return expression;
@@ -484,6 +738,15 @@ function runFaceTrackingScript(payload) {
  * Dapatkan informasi video menggunakan ffprobe
  */
 function getVideoInfo(videoPath) {
+  if (typeof videoPath === 'string' && (videoPath.startsWith('http://') || videoPath.startsWith('https://'))) {
+    return Promise.resolve({
+      width: 1280,
+      height: 720,
+      duration: 0,
+      bitrate: 0,
+    });
+  }
+
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(videoPath, (err, metadata) => {
       if (err) return reject(new Error(`ffprobe error: ${err.message}`));
@@ -498,3 +761,5 @@ function getVideoInfo(videoPath) {
     });
   });
 }
+
+export { buildFaceTrackedCropX, calculateSafeFaceCropX };

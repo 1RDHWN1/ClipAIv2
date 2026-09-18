@@ -1,4 +1,5 @@
 import json
+import os
 import statistics
 import sys
 
@@ -7,12 +8,12 @@ import mediapipe as mp
 import numpy as np
 
 
-FRAME_SAMPLE_FPS = 4.0
-MIN_TRACK_HITS = 3
-MIN_FACE_RATIO = 0.08
-MAX_TRACK_DISTANCE_RATIO = 0.18
-MEDIAPIPE_MIN_CONFIDENCE = 0.45
-BOX_EXPAND_RATIO = 0.18
+FRAME_SAMPLE_FPS = 5.0          # 5 FPS temporal resolution (0.2s step)
+MIN_FACE_RATIO = 0.03           # Minimum face size relative to frame (3% to catch wide shots)
+BOX_EXPAND_RATIO = 0.12         # Bounding box padding
+FACE_ASPECT_RATIO_MAX = 2.0     # Max w/h or h/w ratio for valid human face
+FACE_Y_BAND_RATIO = 0.72        # Faces should be in top 72% of frame (not floor/desk)
+MIN_HOLD_SAME_SHOT = 0.8        # 0.8s responsive hold time between speaker shifts in wide shot
 
 
 def main():
@@ -32,80 +33,105 @@ def main():
     if width <= 0 or height <= 0:
         raise RuntimeError("Dimensi video tidak valid untuk face tracking")
 
-    frontal = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-    profile = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_profileface.xml")
-    mp_face_detection = mp.solutions.face_detection.FaceDetection(
-        model_selection=1,
-        min_detection_confidence=MEDIAPIPE_MIN_CONFIDENCE,
-    )
+    yunet_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "face_detection_yunet_2023mar.onnx")
+    yunet_detector = None
+    if os.path.exists(yunet_model) and hasattr(cv2, "FaceDetectorYN"):
+        try:
+            yunet_detector = cv2.FaceDetectorYN.create(
+                yunet_model,
+                "",
+                (width, height),
+                score_threshold=0.50,
+                nms_threshold=0.35,
+                top_k=20,
+            )
+        except Exception:
+            yunet_detector = None
 
-    sample_step = max(1.0 / FRAME_SAMPLE_FPS, 0.25)
-    min_face_size = max(48, int(min(width, height) * MIN_FACE_RATIO))
-    max_track_distance = width * MAX_TRACK_DISTANCE_RATIO
+    mp_face_detection = None
+    if yunet_detector is None and hasattr(mp, "solutions") and hasattr(mp.solutions, "face_detection"):
+        try:
+            mp_face_detection = mp.solutions.face_detection.FaceDetection(
+                model_selection=1,
+                min_detection_confidence=0.50,
+            )
+        except Exception:
+            mp_face_detection = None
 
-    tracks = []
-    samples = []
-    next_track_id = 1
+    sample_step = max(1.0 / FRAME_SAMPLE_FPS, 0.20)
+    min_face_size = max(20, int(min(width, height) * MIN_FACE_RATIO))
+    video_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+    frames_per_step = max(1, int(round(video_fps * sample_step)))
+
+    cap.set(cv2.CAP_PROP_POS_MSEC, max(0, clip_start * 1000.0))
+
+    frame_records = []
+    prev_gray = None
 
     t = clip_start
     while t < clip_end:
-        frame = read_frame_at(cap, t)
-        if frame is None:
-            t += sample_step
-            continue
+        ok, frame = cap.read()
+        if not ok:
+            break
 
-        detections = detect_faces(frame, frontal, profile, mp_face_detection, min_face_size)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # 1. Camera scene cut detection:
+        # High diff_mean combined with low histogram correlation marks true camera cuts.
+        is_scene_cut = False
+        if prev_gray is not None:
+            diff = cv2.absdiff(prev_gray, gray)
+            diff_mean = float(diff.mean())
+            if diff_mean > 45.0:
+                h1 = cv2.calcHist([prev_gray], [0], None, [32], [0, 256])
+                h2 = cv2.calcHist([gray], [0], None, [32], [0, 256])
+                corr = cv2.compareHist(h1, h2, cv2.HISTCMP_CORREL)
+                if corr < 0.70:
+                    is_scene_cut = True
+        prev_gray = gray.copy()
+
+        # 2. Robust face detection (YuNet with landmark-derived mouth patches)
+        faces = detect_faces(frame, gray, yunet_detector, mp_face_detection, min_face_size, width, height)
         active_speaker = get_active_speaker(speaker_turns, t - clip_start)
-        assignments, next_track_id = assign_detections_to_tracks(
-            frame,
-            detections,
-            tracks,
-            next_track_id,
-            max_track_distance,
-        )
 
-        sample_visible = []
-        for track, det, motion in assignments:
-            sample_visible.append(
-                {
-                    "track_id": track["id"],
-                    "speaker": active_speaker,
-                    "center_x": det["center_x"],
-                    "size": det["w"] * det["h"],
-                    "motion": motion,
-                    "x": det["x"],
-                    "w": det["w"],
-                }
-            )
+        frame_records.append({
+            "time": round(t - clip_start, 2),
+            "is_cut": is_scene_cut,
+            "speaker": active_speaker,
+            "faces": faces,
+        })
 
-        samples.append(
-            {
-                "time": round(t - clip_start, 2),
-                "speaker": active_speaker,
-                "visible": sample_visible,
-            }
-        )
+        for _ in range(frames_per_step - 1):
+            if not cap.grab():
+                break
         t += sample_step
 
     cap.release()
-    mp_face_detection.close()
+    if mp_face_detection is not None:
+        try:
+            mp_face_detection.close()
+        except Exception:
+            pass
 
-    stable_tracks = [track for track in tracks if len(track["centers"]) >= MIN_TRACK_HITS]
-    if not stable_tracks:
-        json.dump({"plan": [], "debug": {"tracks": 0, "samples": len(samples), "detector": "none"}}, sys.stdout)
+    if not frame_records:
+        json.dump({"plan": [], "debug": {"tracks": 0, "samples": 0, "detector": "none"}}, sys.stdout)
         return
 
-    speaker_map = map_speakers_to_tracks(speaker_turns, stable_tracks, samples)
-    plan = build_focus_plan(samples, stable_tracks, speaker_map, width)
+    total_detections = sum(len(fr["faces"]) for fr in frame_records)
+    if total_detections == 0:
+        json.dump({"plan": [], "debug": {"tracks": 0, "samples": len(frame_records), "detector": "none"}}, sys.stdout)
+        return
+
+    # 3. Build intelligent shot-aware plan
+    plan = build_shot_aware_plan(frame_records, width, height, speaker_turns)
 
     json.dump(
         {
             "plan": plan,
             "debug": {
-                "tracks": len(stable_tracks),
-                "samples": len(samples),
-                "speakerMap": speaker_map,
-                "detector": "mediapipe+haar",
+                "tracks": len(plan),
+                "samples": len(frame_records),
+                "detector": "yunet" if yunet_detector is not None else ("mediapipe" if mp_face_detection is not None else "none"),
             },
         },
         sys.stdout,
@@ -118,75 +144,137 @@ def read_frame_at(cap, time_seconds):
     return frame if ok else None
 
 
-def detect_faces(frame, frontal, profile, mp_face_detection, min_face_size):
-    height, width = frame.shape[:2]
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    mp_result = mp_face_detection.process(rgb)
-
+def detect_faces(frame, gray, yunet_detector, mp_face_detection, min_face_size, frame_width, frame_height):
     detected = []
-    if mp_result.detections:
-        for detection in mp_result.detections:
-            relative = detection.location_data.relative_bounding_box
-            x = int(relative.xmin * width)
-            y = int(relative.ymin * height)
-            w = int(relative.width * width)
-            h = int(relative.height * height)
-            expanded = expand_box(x, y, w, h, width, height, BOX_EXPAND_RATIO)
-            if expanded[2] >= min_face_size and expanded[3] >= min_face_size:
-                detected.append(expanded)
+
+    # 1. Primary: YuNet Deep Learning (superior for angles, side profiles, tilted faces)
+    if yunet_detector is not None:
+        try:
+            yunet_detector.setInputSize((frame_width, frame_height))
+            res = yunet_detector.detect(frame)[1]
+            if res is not None:
+                for f in res:
+                    score = float(f[14])
+                    if score < 0.50:
+                        continue
+
+                    x, y, fw, fh = int(f[0]), int(f[1]), int(f[2]), int(f[3])
+                    if fw <= 0 or fh <= 0:
+                        continue
+
+                    # Aspect ratio filter: human faces are roughly 1:1.3, never > 2.0
+                    aspect = max(fw / fh, fh / fw)
+                    if aspect > FACE_ASPECT_RATIO_MAX:
+                        continue
+
+                    # Y-position filter: faces must be in top 72% of frame
+                    face_center_y = y + fh / 2.0
+                    if face_center_y > frame_height * FACE_Y_BAND_RATIO:
+                        continue
+
+                    if min(fw, fh) < min_face_size:
+                        continue
+
+                    # Landmark extraction for mouth: f[10:12] right mouth, f[12:14] left mouth
+                    rm_x, rm_y = float(f[10]), float(f[11])
+                    lm_x, lm_y = float(f[12]), float(f[13])
+                    mouth_cx = (rm_x + lm_x) / 2.0
+                    mouth_cy = (rm_y + lm_y) / 2.0
+                    mouth_dist = float(np.hypot(lm_x - rm_x, lm_y - rm_y))
+                    mouth_w = max(12, int(mouth_dist * 1.5))
+                    mouth_h = max(10, int(mouth_w * 0.8))
+
+                    mx1 = max(0, int(mouth_cx - mouth_w / 2.0))
+                    my1 = max(0, int(mouth_cy - mouth_h / 2.0))
+                    mx2 = min(frame_width, mx1 + mouth_w)
+                    my2 = min(frame_height, my1 + mouth_h)
+                    mouth_roi = gray[my1:my2, mx1:mx2]
+                    mouth_patch = cv2.resize(mouth_roi, (24, 18)) if mouth_roi.size > 0 else None
+
+                    expanded = expand_box(x, y, fw, fh, frame_width, frame_height, BOX_EXPAND_RATIO)
+                    center_x = float(expanded[0] + expanded[2] / 2.0)
+                    detected.append({
+                        "box": expanded,
+                        "score": score,
+                        "center_x": center_x,
+                        "center_y": float(expanded[1] + expanded[3] / 2.0),
+                        "w": expanded[2],
+                        "h": expanded[3],
+                        "mouth_patch": mouth_patch,
+                        "bucket": "left" if center_x < frame_width * 0.5 else "right",
+                    })
+        except Exception:
+            pass
+
+    # 2. Secondary: MediaPipe (only if YuNet failed to detect anything)
+    if not detected and mp_face_detection is not None:
+        try:
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            mp_result = mp_face_detection.process(rgb)
+            if mp_result and mp_result.detections:
+                for detection in mp_result.detections:
+                    score = float(detection.score[0]) if detection.score else 0.5
+                    relative = detection.location_data.relative_bounding_box
+                    x = int(relative.xmin * frame_width)
+                    y = int(relative.ymin * frame_height)
+                    fw = int(relative.width * frame_width)
+                    fh = int(relative.height * frame_height)
+
+                    if (y + fh / 2.0) > frame_height * FACE_Y_BAND_RATIO:
+                        continue
+
+                    expanded = expand_box(x, y, fw, fh, frame_width, frame_height, BOX_EXPAND_RATIO)
+                    if expanded[2] >= min_face_size and expanded[3] >= min_face_size:
+                        my = expanded[1] + int(expanded[3] * 0.55)
+                        mh = int(expanded[3] * 0.45)
+                        mroi = gray[my:my + mh, expanded[0]:expanded[0] + expanded[2]]
+                        mpatch = cv2.resize(mroi, (24, 18)) if mroi.size > 0 else None
+                        center_x = float(expanded[0] + expanded[2] / 2.0)
+
+                        detected.append({
+                            "box": expanded,
+                            "score": score,
+                            "center_x": center_x,
+                            "center_y": float(expanded[1] + expanded[3] / 2.0),
+                            "w": expanded[2],
+                            "h": expanded[3],
+                            "mouth_patch": mpatch,
+                            "bucket": "left" if center_x < frame_width * 0.5 else "right",
+                        })
+        except Exception:
+            pass
 
     if not detected:
-        detected.extend(detect_faces_with_haar(frame, frontal, profile, min_face_size))
+        return []
 
-    suppressed = non_max_suppression(detected)
-    faces = []
-    for x, y, w, h in suppressed:
-        faces.append(
-            {
-                "x": int(x),
-                "y": int(y),
-                "w": int(w),
-                "h": int(h),
-                "center_x": float(x + (w / 2.0)),
-            }
-        )
+    # Apply Non-Maximum Suppression to eliminate duplicate bounding boxes on the same face
+    boxes = [d["box"] for d in detected]
+    scores = [d["score"] for d in detected]
+    indices = cv2.dnn.NMSBoxes(
+        [list(b) for b in boxes],
+        scores,
+        score_threshold=0.45,
+        nms_threshold=0.35,
+    )
 
-    faces.sort(key=lambda face: face["w"] * face["h"], reverse=True)
-    return faces[:3]
+    kept_faces = []
+    if len(indices) > 0:
+        for idx in indices.flatten():
+            d = detected[idx]
+            kept_faces.append({
+                "x": d["box"][0],
+                "y": d["box"][1],
+                "w": d["w"],
+                "h": d["h"],
+                "center_x": d["center_x"],
+                "center_y": d["center_y"],
+                "score": d["score"],
+                "mouth_patch": d["mouth_patch"],
+                "bucket": d["bucket"],
+            })
 
-
-def detect_faces_with_haar(frame, frontal, profile, min_face_size):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    gray = cv2.equalizeHist(gray)
-
-    detected = []
-    for x, y, w, h in frontal.detectMultiScale(
-        gray,
-        scaleFactor=1.1,
-        minNeighbors=5,
-        minSize=(min_face_size, min_face_size),
-    ):
-        detected.append((x, y, w, h))
-
-    for x, y, w, h in profile.detectMultiScale(
-        gray,
-        scaleFactor=1.1,
-        minNeighbors=4,
-        minSize=(min_face_size, min_face_size),
-    ):
-        detected.append((x, y, w, h))
-
-    mirrored = cv2.flip(gray, 1)
-    for x, y, w, h in profile.detectMultiScale(
-        mirrored,
-        scaleFactor=1.1,
-        minNeighbors=4,
-        minSize=(min_face_size, min_face_size),
-    ):
-        real_x = gray.shape[1] - x - w
-        detected.append((real_x, y, w, h))
-
-    return detected
+    kept_faces.sort(key=lambda item: item["score"], reverse=True)
+    return kept_faces[:3]
 
 
 def expand_box(x, y, w, h, frame_width, frame_height, ratio):
@@ -199,108 +287,6 @@ def expand_box(x, y, w, h, frame_width, frame_height, ratio):
     return (new_x, new_y, new_w, new_h)
 
 
-def non_max_suppression(boxes, iou_threshold=0.35):
-    if not boxes:
-        return []
-
-    boxes_np = np.array(boxes, dtype=np.float32)
-    x1 = boxes_np[:, 0]
-    y1 = boxes_np[:, 1]
-    x2 = x1 + boxes_np[:, 2]
-    y2 = y1 + boxes_np[:, 3]
-    areas = boxes_np[:, 2] * boxes_np[:, 3]
-    order = areas.argsort()[::-1]
-
-    keep = []
-    while order.size > 0:
-        i = order[0]
-        keep.append(tuple(map(int, boxes_np[i])))
-
-        xx1 = np.maximum(x1[i], x1[order[1:]])
-        yy1 = np.maximum(y1[i], y1[order[1:]])
-        xx2 = np.minimum(x2[i], x2[order[1:]])
-        yy2 = np.minimum(y2[i], y2[order[1:]])
-
-        inter_w = np.maximum(0.0, xx2 - xx1)
-        inter_h = np.maximum(0.0, yy2 - yy1)
-        intersection = inter_w * inter_h
-        union = areas[i] + areas[order[1:]] - intersection
-        iou = np.divide(intersection, union, out=np.zeros_like(intersection), where=union > 0)
-
-        remaining = np.where(iou <= iou_threshold)[0]
-        order = order[remaining + 1]
-
-    return keep
-
-
-def assign_detections_to_tracks(frame, detections, tracks, next_track_id, max_track_distance):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    assignments = []
-    used_track_ids = set()
-
-    for detection in sorted(detections, key=lambda item: item["center_x"]):
-        best_track = None
-        best_distance = None
-
-        for track in tracks:
-            if track["id"] in used_track_ids:
-                continue
-            if track["misses"] > 4:
-                continue
-
-            distance = abs(track["last_center_x"] - detection["center_x"])
-            if distance > max_track_distance:
-                continue
-
-            if best_distance is None or distance < best_distance:
-                best_track = track
-                best_distance = distance
-
-        if best_track is None:
-            best_track = {
-                "id": next_track_id,
-                "centers": [],
-                "sizes": [],
-                "last_center_x": detection["center_x"],
-                "misses": 0,
-                "prev_patch": None,
-            }
-            tracks.append(best_track)
-            next_track_id += 1
-
-        patch = extract_patch(gray, detection)
-        motion = compare_motion(best_track.get("prev_patch"), patch)
-
-        best_track["centers"].append(detection["center_x"])
-        best_track["sizes"].append(detection["w"] * detection["h"])
-        best_track["last_center_x"] = detection["center_x"]
-        best_track["misses"] = 0
-        best_track["prev_patch"] = patch
-        used_track_ids.add(best_track["id"])
-        assignments.append((best_track, detection, motion))
-
-    for track in tracks:
-        if track["id"] not in used_track_ids:
-            track["misses"] += 1
-
-    return assignments, next_track_id
-
-
-def extract_patch(gray, detection):
-    x, y, w, h = detection["x"], detection["y"], detection["w"], detection["h"]
-    roi = gray[y:y + h, x:x + w]
-    if roi.size == 0:
-        return None
-    return cv2.resize(roi, (48, 48), interpolation=cv2.INTER_AREA)
-
-
-def compare_motion(prev_patch, patch):
-    if prev_patch is None or patch is None:
-        return 0.0
-    diff = cv2.absdiff(prev_patch, patch)
-    return float(diff.mean())
-
-
 def get_active_speaker(speaker_turns, clip_relative_time):
     best_turn = None
     for turn in speaker_turns:
@@ -310,142 +296,246 @@ def get_active_speaker(speaker_turns, clip_relative_time):
     return best_turn["speaker"] if best_turn else None
 
 
-def map_speakers_to_tracks(speaker_turns, stable_tracks, samples):
-    speakers = []
-    for turn in speaker_turns:
-        speaker = turn.get("speaker")
-        if speaker and speaker not in speakers:
-            speakers.append(speaker)
 
-    tracks_by_id = {track["id"]: track for track in stable_tracks}
-    scores = {speaker: {track["id"]: 0.0 for track in stable_tracks} for speaker in speakers}
-
-    for sample in samples:
-        speaker = sample.get("speaker")
-        if speaker not in scores:
-            continue
-
-        for visible in sample.get("visible", []):
-            track_id = visible["track_id"]
-            if track_id not in tracks_by_id:
-                continue
-            base_score = visible["motion"] + 0.5
-            scores[speaker][track_id] += base_score
-
-    assigned_tracks = set()
-    mapping = {}
-
-    ranked_pairs = []
-    for speaker, track_scores in scores.items():
-        for track_id, score in track_scores.items():
-            ranked_pairs.append((score, speaker, track_id))
-
-    ranked_pairs.sort(reverse=True)
-    for score, speaker, track_id in ranked_pairs:
-        if score <= 0:
-            continue
-        if speaker in mapping or track_id in assigned_tracks:
-            continue
-        mapping[speaker] = track_id
-        assigned_tracks.add(track_id)
-
-    remaining_tracks = sorted(
-        (track for track in stable_tracks if track["id"] not in assigned_tracks),
-        key=lambda track: statistics.median(track["centers"]),
-    )
-
-    for speaker in speakers:
-        if speaker in mapping or not remaining_tracks:
-            continue
-        mapping[speaker] = remaining_tracks.pop(0)["id"]
-
-    return mapping
-
-
-def build_focus_plan(samples, stable_tracks, speaker_map, frame_width):
-    track_centers = {
-        track["id"]: statistics.median(track["centers"])
-        for track in stable_tracks
-    }
-
-    plan_points = []
-    previous_center = frame_width / 2.0
-
-    for sample in samples:
-        visible = sample.get("visible", [])
-        active_speaker = sample.get("speaker")
-        target_center = None
-        target_width = 0.0
-
-        if active_speaker in speaker_map:
-            desired_track = speaker_map[active_speaker]
-            for item in visible:
-                if item["track_id"] == desired_track:
-                    target_center = item["center_x"]
-                    target_width = item["w"]
-                    break
-            if target_center is None and desired_track in track_centers:
-                target_center = track_centers[desired_track]
-
-        if target_center is None and visible:
-            largest = max(visible, key=lambda item: item["size"])
-            target_center = largest["center_x"]
-            target_width = largest["w"]
-
-        if target_center is None:
-            target_center = previous_center
-
-        target_center = (previous_center * 0.30) + (target_center * 0.70)
-        previous_center = target_center
-        plan_points.append(
-            {
-                "time": sample["time"],
-                "center_x": round(target_center, 2),
-                "face_width": round(float(target_width), 2),
-            }
-        )
-
-    if not plan_points:
+def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turns):
+    if not frame_records:
         return []
 
-    segments = []
-    current = {
-        "start": 0.0,
-        "end": plan_points[0]["time"],
-        "centers": [plan_points[0]["center_x"]],
-        "widths": [plan_points[0]["face_width"]],
-    }
+    # Filter out tiny background poster faces when a dominant human speaker is present
+    for fr in frame_records:
+        raw_faces = fr["faces"]
+        if len(raw_faces) > 1:
+            raw_faces.sort(key=lambda f: f["w"] * f["h"], reverse=True)
+            primary = raw_faces[0]
+            valid_faces = [primary]
+            for f in raw_faces[1:]:
+                # Real co-host in a 2-person wide shot is >= 38% of primary width
+                # Posters/pictures on background walls are typically < 25% of subject width
+                if f["w"] >= primary["w"] * 0.38 and abs(f["center_y"] - primary["center_y"]) < frame_height * 0.30:
+                    valid_faces.append(f)
+            fr["faces"] = valid_faces
 
-    for i in range(1, len(plan_points)):
-        point = plan_points[i]
-        previous_point = plan_points[i - 1]
-        movement = abs(point["center_x"] - previous_point["center_x"])
+    # 1. Scan forward for the first confirmed human face.
+    # NEVER default to frame_width / 2 (which points at the tripod/equipment in the center of the table!)
+    initial_focus_x = None
+    initial_focus_bucket = None
+    initial_face_w = frame_width * 0.12
 
-        if movement > frame_width * 0.045:
-            segments.append(finalize_segment(current, point["time"]))
-            current = {
-                "start": previous_point["time"],
-                "end": point["time"],
-                "centers": [point["center_x"]],
-                "widths": [point["face_width"]],
-            }
+    for fr in frame_records:
+        if fr["faces"]:
+            if len(fr["faces"]) > 1:
+                # In wide shot, prefer the speaker with highest confidence/size
+                chosen = max(fr["faces"], key=lambda f: f["score"] * f["w"])
+            else:
+                chosen = fr["faces"][0]
+            initial_focus_x = chosen["center_x"]
+            initial_focus_bucket = chosen["bucket"]
+            initial_face_w = chosen["w"]
+            break
+
+    if initial_focus_x is None:
+        initial_focus_x = frame_width * 0.5
+        initial_focus_bucket = "left"
+
+    current_focus_x = initial_focus_x
+    current_focus_bucket = initial_focus_bucket
+    current_face_w = initial_face_w
+    last_switch_time = 0.0
+    MIN_HOLD_SAME_SHOT = 0.8
+    MAX_SEGMENTS = 16
+
+    prev_mouth_left = None
+    prev_mouth_right = None
+    act_left = 0.0
+    act_right = 0.0
+
+    targets = []
+
+    for fr in frame_records:
+        time = fr["time"]
+        faces = fr["faces"]
+        is_cut = fr["is_cut"]
+
+        # Reset hold on scene cuts: camera cuts in original video MUST snap instantly!
+        if is_cut:
+            prev_mouth_left = None
+            prev_mouth_right = None
+            act_left = 0.0
+            act_right = 0.0
+            last_switch_time = time
+
+        # Cluster into left and right faces for wide-shot tracking
+        left_face = None
+        right_face = None
+        for f in faces:
+            if f["bucket"] == "left" and (left_face is None or f["score"] > left_face["score"]):
+                left_face = f
+            elif f["bucket"] == "right" and (right_face is None or f["score"] > right_face["score"]):
+                right_face = f
+
+        # Track mouth motion via landmark-anchored patches, rolling activity act = act * 0.6 + motion * 0.4
+        if left_face is not None:
+            if prev_mouth_left is not None and left_face["mouth_patch"] is not None:
+                diff_l = float(cv2.absdiff(prev_mouth_left, left_face["mouth_patch"]).mean())
+            else:
+                diff_l = 0.0
+            if left_face["mouth_patch"] is not None:
+                prev_mouth_left = left_face["mouth_patch"]
+            act_left = act_left * 0.6 + diff_l * 0.4
+            left_face["motion"] = diff_l
+            left_face["activity"] = act_left
         else:
-            current["end"] = point["time"]
-            current["centers"].append(point["center_x"])
-            current["widths"].append(point["face_width"])
+            act_left *= 0.6
 
-    segments.append(finalize_segment(current, plan_points[-1]["time"] + 0.35))
-    return segments
+        if right_face is not None:
+            if prev_mouth_right is not None and right_face["mouth_patch"] is not None:
+                diff_r = float(cv2.absdiff(prev_mouth_right, right_face["mouth_patch"]).mean())
+            else:
+                diff_r = 0.0
+            if right_face["mouth_patch"] is not None:
+                prev_mouth_right = right_face["mouth_patch"]
+            act_right = act_right * 0.6 + diff_r * 0.4
+            right_face["motion"] = diff_r
+            right_face["activity"] = act_right
+        else:
+            act_right *= 0.6
 
+        if not faces:
+            # Maintain current speaker focus during pauses/silences (never snap to center equipment)
+            targets.append({
+                "time": time,
+                "center_x": current_focus_x,
+                "face_width": current_face_w,
+                "is_cut": is_cut,
+            })
+            continue
 
-def finalize_segment(segment, fallback_end):
-    end_value = max(segment["start"] + 0.2, segment["end"], fallback_end)
-    return {
-        "start": round(segment["start"], 2),
-        "end": round(end_value, 2),
-        "center_x": round(statistics.mean(segment["centers"]), 2),
-        "face_width": round(max(segment["widths"]) if segment["widths"] else 0, 2),
-    }
+        if len(faces) == 1:
+            # Single face visible (close-up of speaker) -> lock on immediately with 100% precision!
+            chosen_face = faces[0]
+            if is_cut:
+                current_focus_x = chosen_face["center_x"]
+                current_focus_bucket = chosen_face["bucket"]
+                current_face_w = chosen_face["w"]
+                last_switch_time = time
+            elif chosen_face["bucket"] == current_focus_bucket:
+                current_focus_x = chosen_face["center_x"]
+                current_face_w = chosen_face["w"]
+            else:
+                can_switch = (time - last_switch_time) >= MIN_HOLD_SAME_SHOT
+                if can_switch:
+                    current_focus_x = chosen_face["center_x"]
+                    current_focus_bucket = chosen_face["bucket"]
+                    current_face_w = chosen_face["w"]
+                    last_switch_time = time
+
+            targets.append({
+                "time": time,
+                "center_x": current_focus_x,
+                "face_width": current_face_w,
+                "is_cut": is_cut,
+            })
+            continue
+
+        # Multi-person shot (e.g. 2-person wide):
+        desired_face = None
+        can_switch = (time - last_switch_time) >= MIN_HOLD_SAME_SHOT or is_cut
+
+        if left_face and right_face:
+            # Responsive switching: switch when competing speaker has active mouth motion (> 1.0)
+            # exceeding current speaker by at least 0.4 margin (fast, eliminates delay!)
+            if current_focus_bucket == "left":
+                if right_face["activity"] > left_face["activity"] + 0.4 and right_face["activity"] > 1.0 and can_switch:
+                    desired_face = right_face
+                else:
+                    desired_face = left_face
+            elif current_focus_bucket == "right":
+                if left_face["activity"] > right_face["activity"] + 0.4 and left_face["activity"] > 1.0 and can_switch:
+                    desired_face = left_face
+                else:
+                    desired_face = right_face
+            else:
+                desired_face = left_face if left_face["activity"] >= right_face["activity"] else right_face
+        elif left_face:
+            desired_face = left_face
+        elif right_face:
+            desired_face = right_face
+        else:
+            desired_face = faces[0]
+
+        if desired_face:
+            if desired_face["bucket"] != current_focus_bucket:
+                last_switch_time = time
+                current_focus_bucket = desired_face["bucket"]
+            current_focus_x = desired_face["center_x"]
+            current_face_w = desired_face["w"]
+
+        targets.append({
+            "time": time,
+            "center_x": current_focus_x,
+            "face_width": current_face_w,
+            "is_cut": is_cut,
+        })
+
+    # Group timeline targets into segments
+    segments = []
+    for tgt in targets:
+        if not segments:
+            segments.append({
+                "start": tgt["time"],
+                "end": tgt["time"],
+                "center_x": tgt["center_x"],
+                "face_width": tgt["face_width"],
+                "is_cut": tgt["is_cut"],
+            })
+            continue
+
+        prev = segments[-1]
+        pos_diff = abs(prev["center_x"] - tgt["center_x"])
+        # Trigger new segment on camera cut or significant position shift (> 8% frame width)
+        if tgt["is_cut"] or pos_diff > frame_width * 0.08:
+            prev["end"] = tgt["time"]
+            segments.append({
+                "start": tgt["time"],
+                "end": tgt["time"],
+                "center_x": tgt["center_x"],
+                "face_width": tgt["face_width"],
+                "is_cut": tgt["is_cut"],
+            })
+        else:
+            prev["end"] = tgt["time"]
+            # Smooth coordinate slightly within same continuous segment
+            prev["center_x"] = round((prev["center_x"] * 0.8) + (tgt["center_x"] * 0.2), 1)
+
+    if segments:
+        segments[-1]["end"] = round(targets[-1]["time"] + 0.20, 2)
+
+    # Filter out micro-jitter (< 0.5s) unless it is an explicit scene cut
+    filtered = []
+    for s in segments:
+        dur = s["end"] - s["start"]
+        if filtered and dur < 0.5 and not s["is_cut"]:
+            filtered[-1]["end"] = s["end"]
+        else:
+            filtered.append(s)
+
+    # Cap maximum segments to 16 for FFmpeg eval depth
+    while len(filtered) > MAX_SEGMENTS:
+        min_diff = float("inf")
+        merge_idx = 0
+        for i in range(len(filtered) - 1):
+            diff = abs(filtered[i]["center_x"] - filtered[i + 1]["center_x"])
+            if diff < min_diff:
+                min_diff = diff
+                merge_idx = i
+        dur1 = filtered[merge_idx]["end"] - filtered[merge_idx]["start"]
+        dur2 = filtered[merge_idx + 1]["end"] - filtered[merge_idx + 1]["start"]
+        filtered[merge_idx]["end"] = filtered[merge_idx + 1]["end"]
+        filtered[merge_idx]["center_x"] = filtered[merge_idx]["center_x"] if dur1 >= dur2 else filtered[merge_idx + 1]["center_x"]
+        filtered[merge_idx]["face_width"] = max(filtered[merge_idx]["face_width"], filtered[merge_idx + 1]["face_width"])
+        filtered.pop(merge_idx + 1)
+
+    return filtered
 
 
 if __name__ == "__main__":

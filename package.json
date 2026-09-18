@@ -8,7 +8,10 @@
     "start": "node scripts/start-all.js",
     "server": "node server.js",
     "worker": "node workers/videoWorker.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "node --test tests/unit/*.test.js tests/integration/*.test.js",
+    "verify": "node scripts/verify-pipeline.js",
+    "clean-queue": "node scripts/clean-queue.js"
   },
   "dependencies": {
     "axios": "^1.7.2",
