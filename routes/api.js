@@ -28,7 +28,7 @@ function isValidYouTubeUrl(url) {
  */
 router.post('/process', async (req, res) => {
   try {
-    const { url, aspectRatio = '9:16', clipCount = 3, transcriptText, subtitleConfig } = req.body;
+    const { url, aspectRatio = '9:16', clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard' } = req.body;
 
     if (!url) {
       return res.status(400).json({ error: 'URL YouTube wajib diisi' });
@@ -41,6 +41,9 @@ router.post('/process', async (req, res) => {
     if (!['9:16', '1:1', '16:9'].includes(aspectRatio)) {
       return res.status(400).json({ error: 'Aspect ratio harus: 9:16, 1:1, atau 16:9' });
     }
+
+    const validLayouts = ['standard', 'split_screen', 'gaming_streamer'];
+    const cleanLayoutMode = validLayouts.includes(layoutMode) ? layoutMode : 'standard';
 
     const count = Math.min(5, Math.max(1, parseInt(clipCount) || 3));
     const jobId = uuidv4();
@@ -73,6 +76,7 @@ router.post('/process', async (req, res) => {
         transcriptText: cleanTranscript,
         jobId,
         subtitleConfig: cleanSubtitleConfig,
+        layoutMode: cleanLayoutMode,
       },
       { jobId }
     );

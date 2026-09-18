@@ -19,7 +19,7 @@ console.log('🚀 Video Worker starting...');
 const worker = new Worker(
   'video-processing',
   async (job) => {
-    const { url, aspectRatio, clipCount, jobId, transcriptText, subtitleConfig } = job.data;
+    const { url, aspectRatio, clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard' } = job.data;
 
     console.log(`\n${'='.repeat(50)}`);
     console.log(`🎬 Processing job: ${jobId}`);
@@ -213,6 +213,7 @@ const worker = new Worker(
         speakerTurns,
         words: transcriptData.words,
         subtitleConfig,
+        layoutMode,
       });
 
       await job.updateProgress({

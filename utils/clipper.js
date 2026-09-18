@@ -17,6 +17,60 @@ const FACE_TRACKING_PYTHON = process.env.FACE_TRACKING_PYTHON || 'python';
 const FACE_TRACKING_SAFE_MARGIN_RATIO = parseFloat(process.env.FACE_TRACKING_SAFE_MARGIN_RATIO || '0.18');
 
 /**
+ * Builds stacked gaming streamer filter graph:
+ * Top panel: Facecam zoom (1080x800)
+ * Bottom panel: Full 16:9 gameplay fitted (1080x1120)
+ * Total: 1080x1920 (9:16)
+ */
+export function buildGamingStreamerFilterGraph({
+  srcWidth = 1920,
+  srcHeight = 1080,
+  camX,
+  camY,
+  camW,
+  camH,
+  subtitleAssPath,
+} = {}) {
+  const defaultCamW = Math.min(srcWidth, Math.floor(srcWidth * 0.35));
+  const defaultCamH = Math.min(srcHeight, Math.floor(srcHeight * 0.45));
+
+  const targetCamW = camW || defaultCamW;
+  const targetCamH = camH || defaultCamH;
+
+  const targetCamX = typeof camX === 'number'
+    ? Math.max(0, Math.min(srcWidth - targetCamW, Math.floor(camX)))
+    : 0;
+  const targetCamY = typeof camY === 'number'
+    ? Math.max(0, Math.min(srcHeight - targetCamH, Math.floor(camY)))
+    : 0;
+
+  const filterParts = [
+    `[0:v]crop=${targetCamW}:${targetCamH}:${targetCamX}:${targetCamY},scale=1080:800:force_original_aspect_ratio=increase,crop=1080:800[cam]`,
+    `[0:v]scale=1080:1120:force_original_aspect_ratio=decrease,pad=1080:1120:(ow-iw)/2:(oh-ih)/2:black[game]`,
+    `[cam][game]vstack=inputs=2[vraw]`,
+  ];
+
+  let outputMap = '[vraw]';
+  if (subtitleAssPath) {
+    const escapedAss = subtitleAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    filterParts.push(`[vraw]ass='${escapedAss}'[v]`);
+    outputMap = '[v]';
+  } else {
+    filterParts[2] = `[cam][game]vstack=inputs=2[v]`;
+    outputMap = '[v]';
+  }
+
+  return {
+    filterComplex: filterParts.join(';'),
+    outputMap,
+    renderWidth: 1080,
+    renderHeight: 1920,
+    camHeight: 800,
+    gameHeight: 1120,
+  };
+}
+
+/**
  * Potong video berdasarkan timestamp dan reframe ke aspect ratio yang diinginkan
  * @param {string} videoPath - Path source video
  * @param {Array} clips - Array clip dari AI analyzer [{start, end, title, ...}]
@@ -175,18 +229,6 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       }
     }
 
-    // Hitung filter untuk reframe
-    const vfFilter = buildVideoFilter({
-      srcWidth,
-      srcHeight,
-      aspectRatio,
-      clip,
-      speakerTurns: options.speakerTurns || [],
-      speakerOrder: options.speakerOrder || [],
-      faceTrackingPlan: options.faceTrackingPlan || [],
-      subtitleAssPath: options.subtitleAssPath,
-    });
-
     let cmd = ffmpeg(inputPath)
       .seekInput(clip.start)
       .duration(duration)
@@ -201,9 +243,44 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         '-pix_fmt yuv420p',
       ]);
 
-    if (vfFilter) {
-      cmd = cmd.videoFilters(vfFilter);
+    const layoutMode = options.layoutMode || 'standard';
+
+    if (layoutMode === 'gaming_streamer' && aspectRatio === '9:16') {
+      const graph = buildGamingStreamerFilterGraph({
+        srcWidth,
+        srcHeight,
+        subtitleAssPath: options.subtitleAssPath,
+      });
+      cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap);
+    } else if (layoutMode === 'split_screen' && aspectRatio === '9:16') {
+      const graph = buildStackedSplitFilterGraph({
+        srcWidth,
+        srcHeight,
+      });
+      let filterComplex = graph.filterComplex;
+      let outMap = graph.outputMap;
+      if (options.subtitleAssPath) {
+        const escapedAss = options.subtitleAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+        filterComplex += `;${graph.outputMap}ass='${escapedAss}'[vout]`;
+        outMap = '[vout]';
+      }
+      cmd = cmd.complexFilter(filterComplex, outMap);
+    } else {
+      const vfFilter = buildVideoFilter({
+        srcWidth,
+        srcHeight,
+        aspectRatio,
+        clip,
+        speakerTurns: options.speakerTurns || [],
+        speakerOrder: options.speakerOrder || [],
+        faceTrackingPlan: options.faceTrackingPlan || [],
+        subtitleAssPath: options.subtitleAssPath,
+      });
+      if (vfFilter) {
+        cmd = cmd.videoFilters(vfFilter);
+      }
     }
+
     if (afFilter) {
       cmd = cmd.audioFilters(afFilter);
     }
