@@ -14,6 +14,14 @@ try:
 except ImportError:
     HAS_SCENEDETECT = False
 
+# YOLOv8-Pose ONNX for cinematic body-aware framing (Milestone 2)
+try:
+    import onnxruntime as ort
+    HAS_ONNXRUNTIME = True
+except ImportError:
+    ort = None
+    HAS_ONNXRUNTIME = False
+
 # MediaPipe is optional secondary face detector (fallback if YuNet fails)
 try:
     import mediapipe as mp
@@ -29,6 +37,21 @@ BOX_EXPAND_RATIO = 0.12         # Bounding box padding
 FACE_ASPECT_RATIO_MAX = 2.0     # Max w/h or h/w ratio for valid human face
 FACE_Y_BAND_RATIO = 0.72        # Faces should be in top 72% of frame (not floor/desk)
 MIN_HOLD_SAME_SHOT = 0.8        # 0.8s responsive hold time between speaker shifts in wide shot
+
+# YOLOv8-Pose keypoint indices (COCO 17-keypoint format)
+KP_NOSE = 0
+KP_LEFT_EYE = 1
+KP_RIGHT_EYE = 2
+KP_LEFT_EAR = 3
+KP_RIGHT_EAR = 4
+KP_LEFT_SHOULDER = 5
+KP_RIGHT_SHOULDER = 6
+
+# Cinematic framing constants
+HEADROOM_RATIO = 0.13           # 13% of crop height above top of head
+EYE_LINE_TARGET = 0.33          # Rule of Thirds: eyes at 1/3 from top
+POSE_CONF_THRESHOLD = 0.35      # Minimum keypoint confidence
+PERSON_CONF_THRESHOLD = 0.40    # Minimum person detection confidence
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -144,6 +167,17 @@ def main():
                       f"{[round(t, 2) for t in cut_times[:10]]}", file=sys.stderr)
 
     # ── Face Detector Setup ────────────────────────────────────────────────
+    # Milestone 2: YOLOv8-Pose ONNX (primary), YuNet (secondary), MediaPipe (tertiary)
+    yolo_pose_session = None
+    yolo_pose_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "yolov8n-pose.onnx")
+    if HAS_ONNXRUNTIME and os.path.exists(yolo_pose_model):
+        try:
+            yolo_pose_session = ort.InferenceSession(yolo_pose_model, providers=["CPUExecutionProvider"])
+            print(f"[face_tracking] YOLOv8-Pose ONNX loaded ({os.path.getsize(yolo_pose_model) / 1024 / 1024:.1f} MB)", file=sys.stderr)
+        except Exception as exc:
+            print(f"[face_tracking] YOLOv8-Pose ONNX load failed: {exc}", file=sys.stderr)
+            yolo_pose_session = None
+
     yunet_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "face_detection_yunet_2023mar.onnx")
     yunet_detector = None
     if os.path.exists(yunet_model) and hasattr(cv2, "FaceDetectorYN"):
@@ -198,7 +232,8 @@ def main():
         prev_gray = gray.copy()
 
         # ── Face Detection ─────────────────────────────────────────────────
-        faces = detect_faces(frame, gray, yunet_detector, mp_face_detection, min_face_size, width, height)
+        faces = detect_faces(frame, gray, yunet_detector, mp_face_detection, min_face_size, width, height,
+                             yolo_pose_session=yolo_pose_session)
         active_speaker = get_active_speaker(speaker_turns, clip_relative_time)
 
         frame_records.append({
@@ -241,7 +276,7 @@ def main():
             "debug": {
                 "tracks": len(plan),
                 "samples": len(frame_records),
-                "detector": "yunet" if yunet_detector is not None else ("mediapipe" if mp_face_detection is not None else "none"),
+                "detector": "yolo_pose" if yolo_pose_session is not None else ("yunet" if yunet_detector is not None else ("mediapipe" if mp_face_detection is not None else "none")),
                 "scene_detector": scene_detector_name,
                 "scene_cuts_found": total_cuts,
             },
@@ -256,11 +291,161 @@ def read_frame_at(cap, time_seconds):
     return frame if ok else None
 
 
-def detect_faces(frame, gray, yunet_detector, mp_face_detection, min_face_size, frame_width, frame_height):
+def detect_yolo_pose(frame, gray, session, min_face_size, frame_width, frame_height):
+    """
+    Milestone 2: YOLOv8-Pose ONNX Body & Keypoint Detector.
+    Detects humans and 17 COCO keypoints (eyes, nose, ears, shoulders, etc.).
+    Computes body-aware center_x combining head and torso positions to ensure
+    smooth, cinematic bust-shot framing without drifting on head rotations.
+    """
+    if session is None:
+        return []
+
+    try:
+        # Preprocess: 640x640 resize, BGR -> RGB, CHW, normalized [0, 1]
+        input_img = cv2.resize(frame, (640, 640))
+        blob = input_img[:, :, ::-1].transpose(2, 0, 1).astype(np.float32) / 255.0
+        blob = np.expand_dims(blob, axis=0)
+
+        outs = session.run(None, {"images": blob})[0]
+        preds = outs[0].T  # (8400, 56)
+
+        # Filter by person confidence threshold
+        conf_mask = preds[:, 4] >= PERSON_CONF_THRESHOLD
+        candidates = preds[conf_mask]
+        if len(candidates) == 0:
+            return []
+
+        scale_x = frame_width / 640.0
+        scale_y = frame_height / 640.0
+
+        boxes = []
+        scores = []
+        for c in candidates:
+            cx = float(c[0]) * scale_x
+            cy = float(c[1]) * scale_y
+            bw = float(c[2]) * scale_x
+            bh = float(c[3]) * scale_y
+            bx = cx - bw / 2.0
+            by = cy - bh / 2.0
+            boxes.append([int(bx), int(by), int(bw), int(bh)])
+            scores.append(float(c[4]))
+
+        indices = cv2.dnn.NMSBoxes(boxes, scores, score_threshold=PERSON_CONF_THRESHOLD, nms_threshold=0.45)
+        if len(indices) == 0:
+            return []
+
+        results = []
+        for idx in indices.flatten():
+            c = candidates[idx]
+            score = float(c[4])
+            kps = c[5:]  # 17 keypoints * 3 (x, y, conf)
+
+            # Keypoints:
+            # 0: nose, 1: left_eye, 2: right_eye, 3: left_ear, 4: right_ear
+            # 5: left_shoulder, 6: right_shoulder
+            nose = (float(kps[0]) * scale_x, float(kps[1]) * scale_y, float(kps[2]))
+            left_eye = (float(kps[3]) * scale_x, float(kps[4]) * scale_y, float(kps[5]))
+            right_eye = (float(kps[6]) * scale_x, float(kps[7]) * scale_y, float(kps[8]))
+            left_ear = (float(kps[9]) * scale_x, float(kps[10]) * scale_y, float(kps[11]))
+            right_ear = (float(kps[12]) * scale_x, float(kps[13]) * scale_y, float(kps[14]))
+            left_shoulder = (float(kps[15]) * scale_x, float(kps[16]) * scale_y, float(kps[17]))
+            right_shoulder = (float(kps[18]) * scale_x, float(kps[19]) * scale_y, float(kps[20]))
+
+            # Collect valid head keypoints
+            head_pts_x = []
+            head_pts_y = []
+            for kp in [nose, left_eye, right_eye, left_ear, right_ear]:
+                if kp[2] >= POSE_CONF_THRESHOLD:
+                    head_pts_x.append(kp[0])
+                    head_pts_y.append(kp[1])
+
+            has_shoulders = (left_shoulder[2] >= POSE_CONF_THRESHOLD and right_shoulder[2] >= POSE_CONF_THRESHOLD)
+            shoulder_cx = (left_shoulder[0] + right_shoulder[0]) / 2.0 if has_shoulders else None
+            shoulder_w = abs(right_shoulder[0] - left_shoulder[0]) if has_shoulders else 0
+
+            if head_pts_x:
+                head_cx = sum(head_pts_x) / len(head_pts_x)
+                head_cy = sum(head_pts_y) / len(head_pts_y)
+            elif shoulder_cx is not None:
+                head_cx = shoulder_cx
+                head_cy = (left_shoulder[1] + right_shoulder[1]) / 2.0 - max(50.0, shoulder_w * 0.5)
+            else:
+                bx, by, bw, bh = boxes[idx]
+                head_cx = bx + bw / 2.0
+                head_cy = by + bh * 0.2
+
+            # Y-position filter: faces/heads must be in top 72% of frame
+            if head_cy > frame_height * FACE_Y_BAND_RATIO:
+                continue
+
+            # Weighted subject center X: combines head (65%) and torso (35%)
+            if shoulder_cx is not None:
+                subject_cx = float(0.65 * head_cx + 0.35 * shoulder_cx)
+            else:
+                subject_cx = float(head_cx)
+
+            # Estimate face bounding box from keypoints/shoulders
+            if shoulder_w > 0:
+                fw = max(min_face_size, int(shoulder_w * 0.55))
+            elif head_pts_x and len(head_pts_x) >= 2:
+                spread_x = max(head_pts_x) - min(head_pts_x)
+                fw = max(min_face_size, int(spread_x * 2.2))
+            else:
+                fw = max(min_face_size, int(boxes[idx][2] * 0.40))
+
+            fh = int(fw * 1.25)
+            fx = int(subject_cx - fw / 2.0)
+            fy = int(head_cy - fh / 2.0)
+
+            expanded = expand_box(fx, fy, fw, fh, frame_width, frame_height, BOX_EXPAND_RATIO)
+
+            # Extract mouth patch for voice activity tracking
+            if nose[2] >= POSE_CONF_THRESHOLD and has_shoulders:
+                mouth_cy = nose[1] + 0.30 * (((left_shoulder[1] + right_shoulder[1]) / 2.0) - nose[1])
+            elif nose[2] >= POSE_CONF_THRESHOLD:
+                mouth_cy = nose[1] + fh * 0.20
+            else:
+                mouth_cy = head_cy + fh * 0.25
+
+            mouth_w = max(16, int(fw * 0.45))
+            mouth_h = max(12, int(mouth_w * 0.75))
+            mx1 = max(0, int(subject_cx - mouth_w / 2.0))
+            my1 = max(0, int(mouth_cy - mouth_h / 2.0))
+            mx2 = min(frame_width, mx1 + mouth_w)
+            my2 = min(frame_height, my1 + mouth_h)
+
+            mouth_roi = gray[my1:my2, mx1:mx2]
+            mouth_patch = cv2.resize(mouth_roi, (24, 18)) if mouth_roi.size > 0 else None
+
+            results.append({
+                "box": expanded,
+                "score": score,
+                "center_x": float(subject_cx),
+                "center_y": float(head_cy),
+                "w": expanded[2],
+                "h": expanded[3],
+                "mouth_patch": mouth_patch,
+                "bucket": "left" if subject_cx < frame_width * 0.5 else "right",
+            })
+
+        results.sort(key=lambda item: item["score"], reverse=True)
+        return results[:3]
+    except Exception as exc:
+        print(f"[face_tracking] YOLOv8-Pose warning: {exc}", file=sys.stderr)
+        return []
+
+
+def detect_faces(frame, gray, yunet_detector, mp_face_detection, min_face_size, frame_width, frame_height,
+                 yolo_pose_session=None):
     detected = []
 
-    # 1. Primary: YuNet Deep Learning (superior for angles, side profiles, tilted faces)
-    if yunet_detector is not None:
+    # 1. Primary (Milestone 2): YOLOv8-Pose Body & Keypoint Estimation
+    if yolo_pose_session is not None:
+        detected = detect_yolo_pose(frame, gray, yolo_pose_session, min_face_size, frame_width, frame_height)
+
+    # 2. Secondary: YuNet Deep Learning (superior for angles, side profiles, tilted faces)
+    if not detected and yunet_detector is not None:
         try:
             yunet_detector.setInputSize((frame_width, frame_height))
             res = yunet_detector.detect(frame)[1]

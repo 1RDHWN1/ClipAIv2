@@ -368,6 +368,40 @@ test('Tier 3: F12 - Face Tracked Crop & Panning Invariants', async (t) => {
 
     assert.strictEqual(result.code, 0, `FFmpeg must exit 0, err: ${result.err}`);
   });
+
+  await t.test('Case 9: YOLOv8-Pose ONNX model loads and runs inference cleanly via Python', async () => {
+    const pythonExe = process.env.FACE_TRACKING_PYTHON || 'python';
+    const testScript = `
+import os, sys, json
+import numpy as np
+try:
+    import onnxruntime as ort
+    model_path = os.path.join(os.getcwd(), "scripts", "models", "yolov8n-pose.onnx")
+    if not os.path.exists(model_path):
+        print(json.dumps({"status": "skipped", "reason": "model not found"}))
+        sys.exit(0)
+    sess = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+    dummy = np.zeros((1, 3, 640, 640), dtype=np.float32)
+    out = sess.run(None, {"images": dummy})[0]
+    print(json.dumps({"status": "ok", "shape": list(out.shape)}))
+except Exception as e:
+    print(json.dumps({"status": "error", "error": str(e)}))
+    sys.exit(1)
+`;
+    const result = await new Promise((resolve) => {
+      const proc = spawn(pythonExe, ['-c', testScript], { stdio: ['pipe', 'pipe', 'pipe'] });
+      let out = '';
+      let err = '';
+      proc.stdout.on('data', (d) => { out += d.toString(); });
+      proc.stderr.on('data', (d) => { err += d.toString(); });
+      proc.on('close', (code) => resolve({ code, out, err }));
+    });
+
+    assert.strictEqual(result.code, 0, `Python test must exit 0, err: ${result.err}`);
+    const res = JSON.parse(result.out.trim());
+    assert.strictEqual(res.status, 'ok', `YOLOv8-Pose must run ok: ${JSON.stringify(res)}`);
+    assert.deepStrictEqual(res.shape, [1, 56, 8400], 'Output shape must be [1, 56, 8400]');
+  });
 });
 
 
