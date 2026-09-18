@@ -352,6 +352,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
  */
 export function formatFfmpegSubFilter(assFilePath) {
   if (!assFilePath) return '';
-  const normalized = path.resolve(assFilePath).replace(/\\/g, '/').replace(/:/g, '\\:');
+  let cleanPath = String(assFilePath).trim();
+  if (!/^[a-zA-Z]:[\\/]/.test(cleanPath)) {
+    cleanPath = path.resolve(cleanPath);
+  }
+  const normalized = cleanPath.replace(/\\/g, '/').replace(/:/g, '\\:');
   return `ass='${normalized}'`;
 }
