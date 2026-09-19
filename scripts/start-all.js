@@ -61,25 +61,39 @@ function startProcess(name, script) {
     env: process.env,
   });
 
+  let settled = false;
+
   child.on('exit', (code, signal) => {
+    if (settled) return;
+    settled = true;
+    children.delete(name);
+
+    // During an intentional shutdown we just let the shutdown() routine
+    // finish its own bookkeeping.
     if (shuttingDown) return;
 
     const reason = signal ? `signal ${signal}` : `code ${code}`;
     console.error(`\n[${name}] stopped with ${reason}`);
 
-    // Only shutdown if the OTHER process also died, or if this was unexpected
-    children.delete(name);
-    if (children.size === 0) {
-      console.error(`\nAll processes exited. Shutting down.`);
-      process.exit(code ?? 1);
+    // A child died unexpectedly. The server and worker are a coupled pair:
+    // running the worker without the API (or vice-versa) leaves a half-alive
+    // stack that silently accepts no requests. Tear everything down.
+    if (code === 0) {
+      // Clean exit — shut down the sibling too and exit 0.
+      console.error(`[${name}] exited cleanly. Shutting down the stack.`);
+      shutdown(0);
+    } else {
+      console.error(`[${name}] exited with a non-zero code. Shutting down the stack.`);
+      shutdown(1);
     }
   });
 
   child.on('error', (err) => {
-    if (shuttingDown) return;
+    if (settled) return;
+    settled = true;
 
     console.error(`\n[${name}] failed to start: ${err.message}`);
-    shutdown(1);
+    if (!shuttingDown) shutdown(1);
   });
 
   children.set(name, child);

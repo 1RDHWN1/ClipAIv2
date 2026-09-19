@@ -90,3 +90,20 @@ function shutdown(signal) {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+// ── Listen error handling ────────────────────────────────────
+// A raw EADDRINUSE dump is unhelpful and hides the real cause (usually a
+// stale instance still holding :3000). Print an actionable message instead.
+httpServer.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(
+      `\n❌ Port ${PORT} sudah dipakai proses lain.\n` +
+      `   Kemungkinan ada instance ClipAIv2 yang masih jalan.\n` +
+      `   Cek dengan:  ss -tlnp | grep :${PORT}   atau   lsof -i :${PORT}\n` +
+      `   Matikan dulu, lalu jalankan ulang.\n`
+    );
+  } else {
+    console.error(`\n❌ HTTP server error: ${err.message}`);
+  }
+  process.exit(1);
+});
