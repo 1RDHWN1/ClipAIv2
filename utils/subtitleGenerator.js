@@ -313,16 +313,37 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   const chunks = chunkWords(clipWords, start, end, config);
   const events = [];
 
-  for (const chunk of chunks) {
+  for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
+    const chunk = chunks[cIdx];
     if (!chunk || chunk.length === 0) continue;
+
+    // Find the start time of the next valid chunk to strictly prevent overlapping dialogue events
+    let nextChunkStartSec = Infinity;
+    for (let k = cIdx + 1; k < chunks.length; k++) {
+      if (chunks[k] && chunks[k].length > 0 && Number.isFinite(chunks[k][0].start)) {
+        nextChunkStartSec = chunks[k][0].start;
+        break;
+      }
+    }
 
     for (let j = 0; j < chunk.length; j++) {
       const activeWord = chunk[j];
       const startSec = activeWord.start;
+
+      const nextWordStartSec = (j < chunk.length - 1)
+        ? chunk[j + 1].start
+        : nextChunkStartSec;
+
       // Word stays illuminated until next word starts or until chunk ends
-      const endSec = (j === chunk.length - 1)
+      let endSec = (j === chunk.length - 1)
         ? Math.max(startSec + 0.08, activeWord.end)
         : Math.max(startSec + 0.08, chunk[j + 1].start);
+
+      // HARD INVARIANT: endSec cannot exceed nextWordStartSec!
+      // This strictly prevents multiple subtitle events from colliding and stacking upwards in ASS!
+      if (Number.isFinite(nextWordStartSec) && nextWordStartSec > startSec) {
+        endSec = Math.min(endSec, nextWordStartSec);
+      }
 
       const startStr = formatAssTime(startSec);
       const endStr = formatAssTime(endSec);
