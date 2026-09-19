@@ -23,7 +23,7 @@ const TRANSCRIBE_RATE_LIMIT_MAX_WAIT_SECONDS = parseInt(process.env.TRANSCRIBE_R
 const ASSEMBLYAI_BASE_URL = process.env.ASSEMBLYAI_BASE_URL || 'https://api.assemblyai.com';
 const ASSEMBLYAI_POLL_INTERVAL_MS = parseInt(process.env.ASSEMBLYAI_POLL_INTERVAL_MS || '3000', 10);
 const ASSEMBLYAI_UPLOAD_TIMEOUT_MS = parseInt(process.env.ASSEMBLYAI_UPLOAD_TIMEOUT_MS || '180000', 10);
-const ASSEMBLYAI_TRANSCRIPT_TIMEOUT_MS = parseInt(process.env.ASSEMBLYAI_TRANSCRIPT_TIMEOUT_MS || '600000', 10);
+const ASSEMBLYAI_TRANSCRIPT_TIMEOUT_MS = parseInt(process.env.ASSEMBLYAI_TRANSCRIPT_TIMEOUT_MS || '180000', 10); // 3 min default (was 10 min)
 
 /**
  * Normalizes any language string (full name, BCP-47 tag, or YouTube sub-tag)
@@ -534,6 +534,9 @@ async function submitAssemblyAITranscript(audioUrl, headers) {
 async function pollAssemblyAITranscript(transcriptId, headers, options = {}) {
   const startedAt = Date.now();
   let pollCount = 0;
+  let pollInterval = ASSEMBLYAI_POLL_INTERVAL_MS;
+  const maxPollInterval = 30000; // Cap at 30 seconds
+  const basePollInterval = ASSEMBLYAI_POLL_INTERVAL_MS || 3000;
 
   while (Date.now() - startedAt < ASSEMBLYAI_TRANSCRIPT_TIMEOUT_MS) {
     const response = await axios.get(
@@ -556,16 +559,19 @@ async function pollAssemblyAITranscript(transcriptId, headers, options = {}) {
     }
 
     if (typeof options.onStatus === 'function' && (pollCount === 1 || pollCount % 3 === 0)) {
+      const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
       await options.onStatus({
-        message: 'AssemblyAI sedang memproses transcript...',
+        message: `AssemblyAI sedang memproses transcript... (${elapsedSec}s elapsed)`,
         percent: 40,
       });
     }
 
-    await sleep(ASSEMBLYAI_POLL_INTERVAL_MS);
+    // Exponential backoff: 3s -> 6s -> 12s -> 24s -> 30s (capped)
+    pollInterval = Math.min(pollInterval * 2, maxPollInterval);
+    await sleep(pollInterval);
   }
 
-  throw new Error('Transkripsi gagal: timeout menunggu hasil dari AssemblyAI');
+  throw new Error(`Transkripsi gagal: timeout ${Math.round(ASSEMBLYAI_TRANSCRIPT_TIMEOUT_MS / 1000)}s menunggu hasil dari AssemblyAI`);
 }
 
 async function transcribeChunks(chunkPaths, options = {}) {
