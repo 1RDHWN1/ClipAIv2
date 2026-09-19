@@ -1,7 +1,59 @@
 import { spawn } from 'child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 
 const children = new Map();
 let shuttingDown = false;
+
+// ---------------------------------------------------------------------------
+// Singleton guard: prevent multiple `start-all.js` stacks from stacking up.
+// Without this, repeated invocations spawn duplicate server+worker pairs that
+// fight over the same BullMQ queue (double-processing) and leak Redis conns.
+// ---------------------------------------------------------------------------
+const LOCK_FILE = path.join(os.tmpdir(), 'clipaiv2-start-all.lock');
+
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function acquireLock() {
+  if (fs.existsSync(LOCK_FILE)) {
+    const raw = fs.readFileSync(LOCK_FILE, 'utf-8').trim();
+    const existingPid = parseInt(raw, 10);
+
+    if (Number.isInteger(existingPid) && existingPid !== process.pid && isProcessAlive(existingPid)) {
+      console.error(
+        `\n[lock] Another start-all.js instance is already running (PID ${existingPid}).\n` +
+        `[lock] Refusing to start a duplicate stack. Stop it first, or remove ${LOCK_FILE} if it is stale.`
+      );
+      process.exit(1);
+    }
+
+    console.warn(`[lock] Removing stale lock file (PID ${raw} is not running).`);
+    fs.unlinkSync(LOCK_FILE);
+  }
+
+  fs.writeFileSync(LOCK_FILE, String(process.pid), { mode: 0o644 });
+  console.log(`[lock] Acquired singleton lock (PID ${process.pid}).`);
+}
+
+function releaseLock() {
+  try {
+    if (fs.existsSync(LOCK_FILE)) {
+      const raw = fs.readFileSync(LOCK_FILE, 'utf-8').trim();
+      if (parseInt(raw, 10) === process.pid) {
+        fs.unlinkSync(LOCK_FILE);
+        console.log('[lock] Released singleton lock.');
+      }
+    }
+  } catch (_) {}
+}
 
 function startProcess(name, script) {
   const child = spawn(process.execPath, [script], {
@@ -69,8 +121,17 @@ async function shutdown(exitCode = 0) {
     }, 100);
   });
 
+  releaseLock();
   process.exit(exitCode);
 }
+
+// ---------------------------------------------------------------------------
+// Boot sequence
+// ---------------------------------------------------------------------------
+acquireLock();
+
+// Always release the lock no matter how we exit.
+process.on('exit', releaseLock);
 
 console.log('Starting API server and video worker...');
 startProcess('server', 'server.js');
@@ -78,8 +139,3 @@ startProcess('worker', 'workers/videoWorker.js');
 
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
-
-// Handle child exit to clean up map
-for (const [name, child] of children) {
-  child.on('exit', () => children.delete(name));
-}

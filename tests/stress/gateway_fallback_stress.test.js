@@ -76,7 +76,9 @@ test('Suite 1: Model Defaults & resolveModelConfiguration Empirical Oracle', asy
   });
 
   await t.test('1.1 DEFAULT_AI_MODEL and DEFAULT_AI_BASE_URL constant invariants', () => {
-    assert.strictEqual(DEFAULT_AI_MODEL, 'ag/gemini-3.8-flash-high', 'DEFAULT_AI_MODEL must strictly be ag/gemini-3.8-flash-high');
+    // Model is provider-neutral (env-driven); only the base URL has a fixed default.
+    assert.strictEqual(typeof DEFAULT_AI_MODEL, 'string');
+    assert.ok(DEFAULT_AI_MODEL.length > 0, 'DEFAULT_AI_MODEL must be a non-empty placeholder string');
     assert.strictEqual(DEFAULT_AI_BASE_URL, 'http://localhost:20128/v1', 'DEFAULT_AI_BASE_URL must be local 9Router port 20128');
   });
 
@@ -90,11 +92,12 @@ test('Suite 1: Model Defaults & resolveModelConfiguration Empirical Oracle', asy
     delete process.env.AI_FALLBACK_MODEL;
 
     const cfg = resolveModelConfiguration();
-    assert.strictEqual(cfg.model, 'ag/gemini-3.8-flash-high');
+    assert.strictEqual(cfg.model, DEFAULT_AI_MODEL, 'Unconfigured model falls back to DEFAULT_AI_MODEL placeholder');
     assert.strictEqual(cfg.baseUrl, 'http://localhost:20128/v1');
     assert.strictEqual(cfg.apiKey, 'dummy');
     assert.strictEqual(cfg.fallbackBaseUrl, null);
-    assert.strictEqual(cfg.fallbackModel, 'ag/gemini-3.8-flash');
+    // No hardcoded provider fallback: fallbackModel mirrors the primary model.
+    assert.strictEqual(cfg.fallbackModel, DEFAULT_AI_MODEL, 'fallbackModel defaults to the primary model');
   });
 
   await t.test('1.3 Precedence hierarchy: DEFAULT_MODEL overrides AI_MODEL', () => {

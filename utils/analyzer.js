@@ -4,7 +4,24 @@ import { buildSentenceMap } from './sentenceSegmenter.js';
 import { snapBoundary } from './boundarySnapper.js';
 import { normalizeLanguageCode, detectLanguageFromText } from './transcriber.js';
 
-export const DEFAULT_AI_MODEL = 'ag/gemini-3.8-flash-high';
+// ---------------------------------------------------------------------------
+// Provider-neutral AI configuration.
+//
+// This project does NOT hardcode an AI provider/model. The model is chosen
+// entirely through environment variables so it can be swapped freely between
+// gateways (local 9Router, OpenRouter, or any OpenAI-compatible endpoint).
+//
+//   DEFAULT_MODEL / AI_MODEL   -> model id, e.g. 'vendor/model-name'
+//   AI_BASE_URL                -> OpenAI-compatible base URL (…/v1)
+//   AI_API_KEY                 -> credential for that gateway
+//   AI_FALLBACK_BASE_URL       -> optional secondary gateway
+//   AI_FALLBACK_MODEL          -> optional secondary model
+//
+// See README.md → "Mengganti Model AI" for a step-by-step guide.
+// The placeholder below is only a last-resort literal when nothing is
+// configured; it is intentionally provider-neutral.
+// ---------------------------------------------------------------------------
+export const DEFAULT_AI_MODEL = process.env.AI_DEFAULT_MODEL_PLACEHOLDER || 'default-model';
 export const DEFAULT_AI_BASE_URL = 'http://localhost:20128/v1';
 
 const AI_ANALYSIS_MAX_SEGMENTS = parseInt(process.env.AI_ANALYSIS_MAX_SEGMENTS || '400', 10);
@@ -23,6 +40,11 @@ export const VALID_HOOK_TAXONOMY = [
 
 /**
  * Resolve AI model and gateway configuration with multi-tier fallback support.
+ *
+ * The resolved model is whatever `DEFAULT_MODEL` / `AI_MODEL` points to; no
+ * provider is assumed. `fallbackModel` defaults to the primary model unless a
+ * separate `AI_FALLBACK_MODEL` is configured.
+ *
  * @returns {{ model: string, baseUrl: string, apiKey: string, fallbackBaseUrl: string|null, fallbackModel: string }}
  */
 export function resolveModelConfiguration() {
@@ -32,7 +54,8 @@ export function resolveModelConfiguration() {
   const fallbackBaseUrl = process.env.AI_FALLBACK_BASE_URL
     ? process.env.AI_FALLBACK_BASE_URL.replace(/\/+$/, '')
     : (process.env.OPENROUTER_API_KEY ? 'https://openrouter.ai/api/v1' : null);
-  const fallbackModel = process.env.AI_FALLBACK_MODEL || 'ag/gemini-3.8-flash';
+  // No hardcoded provider fallback: reuse the primary model unless explicitly set.
+  const fallbackModel = process.env.AI_FALLBACK_MODEL || model;
 
   return {
     model,

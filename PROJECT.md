@@ -67,10 +67,12 @@ Every feature from ORIGINAL_REQUEST.md (specifically 2026-09-18T20:23:27Z) is ma
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|---|---|---|---|
-| M1 | AI Model Upgrade & High-Virality Narrative Engine | F1, F2, F3, F4, F5: `ag/gemini-3.8-flash-high`, viral prompt engine, high-CTR titles, virality scoring, gateway fallback | None | DONE |
-| M2 | Animated Auto-Subtitle Rendering Engine | F6, F7, F8, F9, F10, F11: `utils/subtitleGenerator.js`, active highlighting, 2-4 words/frame, `utils/clipper.js` FFmpeg filter chaining | None | PLANNED |
-| M3 | Viral Presets, Web UI Controls & API Integration | F12, F13, F14: 4 viral presets, `public/index.html` UI controls, `routes/api.js` validation, `videoWorker.js` payload forwarding | M2 | PLANNED |
-| M4 | Automated Verification Suite & Zero-Regression | F15, F16, F17: unit tests, FFmpeg burn-in fixture test, 285 tests passing, `npm run verify` passing 6/6 | M1, M2, M3 | PLANNED |
+| M1 | AI Model Upgrade & High-Virality Narrative Engine | F1, F2, F3, F4, F5: provider-neutral model config, viral prompt engine, high-CTR titles, virality scoring, gateway fallback | None | DONE |
+| M2 | Animated Auto-Subtitle Rendering Engine | F6, F7, F8, F9, F10, F11: `utils/subtitleGenerator.js`, active highlighting, 2-4 words/frame, `utils/clipper.js` FFmpeg filter chaining | None | DONE |
+| M3 | Viral Presets, Web UI Controls & API Integration | F12, F13, F14: 4 viral presets, `public/index.html` UI controls, `routes/api.js` validation, `videoWorker.js` payload forwarding | M2 | DONE |
+| M4 | Automated Verification Suite & Zero-Regression | F15, F16, F17: unit tests, FFmpeg burn-in fixture test, 391 tests passing, `npm run verify` passing 6/6 | M1, M2, M3 | DONE |
+| M5 | Vision & Adaptive Layout Engine | YOLOv8-Pose ONNX body-aware framing, PySceneDetect scene cuts, EBU R128 audio peak detection, adaptive split-screen (wide-shot only), OTS silhouette rejection, panel crop isolation | M1–M4 | DONE |
+| M6 | Provider-Neutral AI Config & Runtime Hardening | Remove all hardcoded provider names from code/docs/tests; `DEFAULT_AI_MODEL` becomes env-driven placeholder; `start-all.js` singleton lock to stop worker stack duplication; README "Mengganti Model AI" guide | M1–M5 | DONE |
 
 ## Interface Contracts
 

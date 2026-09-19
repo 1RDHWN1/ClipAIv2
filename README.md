@@ -202,15 +202,81 @@ REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 GROQ_API_KEY=...
 OPENROUTER_API_KEY=...
-AI_MODEL=deepseek/deepseek-chat-v3-0324
 AI_ANALYSIS_MAX_SEGMENTS=400
 AI_ANALYSIS_WINDOW_SECONDS=30
 BASE_URL=http://localhost:3000
 TRANSCRIBE_CHUNK_TARGET_MB=22
 TRANSCRIBE_AUDIO_BITRATE=32k
 TRANSCRIBE_AUDIO_SAMPLE_RATE=16000
-TRANSCRIBE_LANGUAGE=id
+TRANSCRIBE_LANGUAGE=auto
 ```
+
+## 🤖 Mengganti Model AI
+
+ClipAIv2 **tidak mengunci provider AI tertentu**. Model apa pun yang
+kompatibel dengan API OpenAI (`/chat/completions`) bisa dipakai — cukup ubah
+environment variable. Tidak ada nama provider yang di-hardcode di kode.
+
+### Variabel yang terlibat
+
+| Variabel | Wajib | Fungsi |
+|---|---|---|
+| `DEFAULT_MODEL` | ✅ | ID model utama, mis. `vendor/model-name`. Menang atas `AI_MODEL`. |
+| `AI_MODEL` | — | ID model cadangan bila `DEFAULT_MODEL` kosong. |
+| `AI_BASE_URL` | ✅ | Base URL gateway OpenAI-compatible (harus diakhiri `/v1`). |
+| `AI_API_KEY` | ✅ | Kredensial gateway. Untuk OpenRouter bisa pakai `OPENROUTER_API_KEY`. |
+| `AI_FALLBACK_BASE_URL` | — | Gateway sekunder (opsional). |
+| `AI_FALLBACK_MODEL` | — | Model sekunder (opsional). Bila kosong, otomatis memakai model utama. |
+
+### Contoh 1 — Gateway lokal (9Router, port 20128)
+
+```env
+AI_BASE_URL=http://localhost:20128/v1
+AI_API_KEY=dummy
+DEFAULT_MODEL=vendor/model-name
+AI_MODEL=vendor/model-name
+```
+
+> Cek model apa saja yang tersedia di gateway kamu:
+> `curl http://localhost:20128/v1/models`
+
+### Contoh 2 — OpenRouter langsung
+
+```env
+AI_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_API_KEY=sk-or-xxxxxxxx
+DEFAULT_MODEL=vendor/model-name
+```
+
+### Contoh 3 — Gateway lain (Ollama, vLLM, LM Studio, dsb.)
+
+```env
+AI_BASE_URL=http://192.168.1.50:11434/v1
+AI_API_KEY=dummy
+DEFAULT_MODEL=llama3.1:8b
+```
+
+### Cara verifikasi model yang aktif
+
+Jalankan server, lalu lihat banner startup:
+
+```bash
+npm run server
+# ...
+#   🤖 AI Model: vendor/model-name
+#   🔌 AI Gateway: http://localhost:20128/v1
+```
+
+### Urutan fallback gateway
+
+Saat request AI gagal, sistem mencoba berurutan:
+1. **Primary gateway** (`AI_BASE_URL`)
+2. **Local loopback alias** (`127.0.0.1`) — hanya bila base URL memakai `localhost`
+3. **Fallback gateway** (`AI_FALLBACK_BASE_URL` / OpenRouter)
+4. **Model fallback** (`AI_FALLBACK_MODEL`) — hanya bila berbeda dari model utama
+
+Kandidat yang punya kombinasi `baseUrl + model` identik otomatis dideduplikasi,
+jadi tidak ada request dobel ke endpoint yang sama.
 
 ## 💡 Tips
 

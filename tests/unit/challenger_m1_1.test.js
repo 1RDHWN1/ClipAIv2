@@ -507,12 +507,19 @@ test('Challenger 1 Suite: validateClips and resolveSentenceIds Boundary Conditio
 // TEST GROUP 4: Architectural & Model Configuration Verification
 // =========================================================================
 test('Challenger 1 Suite: Architectural Export & Model Configuration Conformance', async (t) => {
-  await t.test('4.1 AI Model defaults to ag/gemini-3.8-flash-high', () => {
-    assert.strictEqual(DEFAULT_AI_MODEL, 'ag/gemini-3.8-flash-high');
+  await t.test('4.1 AI model resolves from configuration (provider-neutral)', () => {
+    // DEFAULT_AI_MODEL is a provider-neutral placeholder; the effective model
+    // always comes from env configuration.
+    assert.strictEqual(typeof DEFAULT_AI_MODEL, 'string');
+    assert.ok(DEFAULT_AI_MODEL.length > 0, 'DEFAULT_AI_MODEL must be a non-empty string');
+
     const config = resolveModelConfiguration();
-    assert.ok(
-      config.model === 'ag/gemini-3.8-flash-high' || config.model === process.env.AI_MODEL,
-      `Resolved model (${config.model}) should match DEFAULT_AI_MODEL or env override`
+    const expectedModel =
+      process.env.DEFAULT_MODEL || process.env.AI_MODEL || DEFAULT_AI_MODEL;
+    assert.strictEqual(
+      config.model,
+      expectedModel,
+      `Resolved model (${config.model}) must match env override or DEFAULT_AI_MODEL`
     );
   });
 
@@ -521,7 +528,23 @@ test('Challenger 1 Suite: Architectural Export & Model Configuration Conformance
     assert.ok(Array.isArray(candidates));
     assert.ok(candidates.length >= 1, 'Should have at least 1 gateway candidate');
     assert.strictEqual(candidates[0].label, 'primary-gateway');
-    assert.ok(candidates[0].model.includes('gemini'));
+
+    // Primary candidate MUST resolve to the effective configured model — which is
+    // process.env.DEFAULT_MODEL (env override) when set, otherwise DEFAULT_AI_MODEL.
+    // Do NOT hardcode a provider name here: the model is user-configurable.
+    const expectedPrimaryModel =
+      process.env.DEFAULT_MODEL || process.env.AI_MODEL || DEFAULT_AI_MODEL;
+    assert.strictEqual(
+      candidates[0].model,
+      expectedPrimaryModel,
+      `Primary gateway model (${candidates[0].model}) must match resolved config (${expectedPrimaryModel})`
+    );
+
+    // Every candidate must carry a usable model identifier (non-empty string).
+    for (const c of candidates) {
+      assert.strictEqual(typeof c.model, 'string');
+      assert.ok(c.model.length > 0, 'Each candidate must have a non-empty model');
+    }
   });
 
   await t.test('4.3 Architectural Finding: Check exported helper functions', () => {
