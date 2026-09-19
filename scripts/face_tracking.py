@@ -266,7 +266,7 @@ def main():
 
     # 3. Build intelligent shot-aware plan
     plan = build_shot_aware_plan(frame_records, width, height, speaker_turns)
-    wide_intervals = extract_wide_intervals(frame_records, min_duration=0.8)
+    wide_intervals = extract_wide_intervals(frame_records, min_duration=1.6, frame_width=width)
 
     scene_detector_name = "pyscenedetect" if use_pyscenedetect else "legacy"
     total_cuts = sum(1 for fr in frame_records if fr["is_cut"])
@@ -847,42 +847,130 @@ def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turn
     return filtered
 
 
-def extract_wide_intervals(frame_records, min_duration=0.8):
+def faces_are_same_person(face_a, face_b, frame_width):
+    """
+    Decide whether two detections almost certainly describe the SAME person.
+
+    YOLOv8-Pose frequently emits two boxes for one human (full body + head, or
+    a duplicate at a different scale). Those duplicates pass the horizontal
+    separation test and were the main cause of false two-person wide shots.
+
+    Two detections are treated as the same person when either:
+      a) their boxes overlap significantly (IoU or containment), or
+      b) their centres are close relative to the size of the boxes — i.e. two
+         boxes that sit on top of each other cannot be two seated subjects.
+
+    @param {{center_x:number, center_y:number, w:number, h:number}} face_a
+    @param {{center_x:number, center_y:number, w:number, h:number}} face_b
+    @param {number} frame_width
+    @returns {boolean}
+    """
+    try:
+        ax1 = face_a["center_x"] - face_a.get("w", 0) / 2.0
+        ax2 = face_a["center_x"] + face_a.get("w", 0) / 2.0
+        ay1 = face_a["center_y"] - face_a.get("h", 0) / 2.0
+        ay2 = face_a["center_y"] + face_a.get("h", 0) / 2.0
+
+        bx1 = face_b["center_x"] - face_b.get("w", 0) / 2.0
+        bx2 = face_b["center_x"] + face_b.get("w", 0) / 2.0
+        by1 = face_b["center_y"] - face_b.get("h", 0) / 2.0
+        by2 = face_b["center_y"] + face_b.get("h", 0) / 2.0
+
+        iw = max(0.0, min(ax2, bx2) - max(ax1, bx1))
+        ih = max(0.0, min(ay2, by2) - max(ay1, by1))
+        inter = iw * ih
+
+        if inter > 0:
+            area_a = max(1.0, (ax2 - ax1) * (ay2 - ay1))
+            area_b = max(1.0, (bx2 - bx1) * (by2 - by1))
+            union = area_a + area_b - inter
+            iou = inter / union if union > 0 else 0.0
+            # Containment: one box mostly inside the other (head inside body).
+            containment = inter / min(area_a, area_b)
+
+            if iou >= 0.30 or containment >= 0.60:
+                return True
+
+        # Centre distance relative to the smaller box width. Two boxes sitting
+        # essentially on the same spot are the same subject.
+        min_box_w = max(1.0, min(face_a.get("w", 1), face_b.get("w", 1)))
+        centre_dist = abs(face_a["center_x"] - face_b["center_x"])
+        if centre_dist < min_box_w * 0.75:
+            return True
+
+        return False
+    except Exception:
+        return False
+
+
+def extract_wide_intervals(frame_records, min_duration=1.6, frame_width=None):
     """
     Extract continuous intervals where 2 or more people are present in a wide shot.
     Returns: list of { start, end, x1, x2 }
 
-    Guard rails against false positives (the old logic only checked "2 faces at
-    least 350px apart in a single frame", which fired split-screen on:
-      - multi-camera cuts, where a frame straddles two single-person shots
-      - one person detected twice (face + profile) far apart
-      - over-the-shoulder cutaways, where the foreground silhouette belongs to
-        the SAME person being interviewed
-    )
-
     A genuine two-person wide shot must show BOTH people present, facing the
-    camera, with a STABLE horizontal separation across consecutive samples.
+    camera, at a resolution-independent separation, with a stable pairing over
+    consecutive samples.
+
+    False positives this guards against:
+      - ONE person detected twice (body + head, or duplicate boxes)
+      - multi-camera cuts, where consecutive samples show different singles
+      - two faces whose separation collapses between samples (unstable pair)
+      - momentary blips shorter than `min_duration`
+
+    @param {Array} frame_records
+    @param {number} min_duration minimum seconds a wide shot must persist
     """
     if not frame_records:
         return []
 
-    # Minimum horizontal separation between the two subjects' face centres.
-    MIN_SUBJECT_SEPARATION_PX = 350.0
-    # Separation must not swing wildly between consecutive samples of the same
-    # interval — a stable pair stays put; camera cuts/silhouettes do not.
-    MAX_SEPARATION_JITTER_PX = 220.0
-    # Both faces must sit in the same vertical band (same shot). A cutaway with
-    # a huge vertical offset between faces is not a wide two-shot.
-    MAX_VERTICAL_OFFSET_RATIO = 0.28
+    # ---------------------------------------------------------------------
+    # Thresholds.
+    #
+    # Separation is expressed as a RATIO of frame width, never as an absolute
+    # pixel count. The previous hard-coded 350px meant a different real-world
+    # distance at every resolution (27% of a 720p frame but only 18% of 1080p),
+    # which is why the same video behaved differently after a resolution change.
+    # ---------------------------------------------------------------------
+    MIN_SEPARATION_RATIO = 0.34      # subjects must sit at least 34% of width apart
+    MAX_SEPARATION_JITTER_RATIO = 0.14  # allowed swing between consecutive samples
+    MAX_VERTICAL_OFFSET_RATIO = 0.28    # both faces in the same vertical band
+    MIN_FACES_PER_FRAME = 2             # a wide shot needs two people at once
+
+    # Resolve a frame width for ratio maths. Prefer the explicit parameter
+    # (passed from main() where the real video dimensions are known); fall back
+    # to any width recorded per frame, then to a sane default.
+    if not (isinstance(frame_width, (int, float)) and frame_width > 0):
+        widths = [fr["width"] for fr in frame_records if isinstance(fr.get("width"), (int, float)) and fr["width"] > 0]
+        frame_width = float(np.median(widths)) if widths else 1280.0
+    frame_width = float(frame_width)
 
     raw_intervals = []
     current_start = None
     last_t = 0.0
     accum_x1 = []
     accum_x2 = []
-    accum_sep = []
-    last_sep = None
+    last_sep_ratio = None
     last_center_y = None
+
+    def close_interval(end_time):
+        """Finalise the in-progress interval if it lasted long enough."""
+        nonlocal current_start, accum_x1, accum_x2, last_sep_ratio, last_center_y
+        if current_start is None:
+            return
+        duration = end_time - current_start
+        if duration >= min_duration and accum_x1 and accum_x2:
+            raw_intervals.append({
+                "start": round(current_start, 2),
+                "end": round(end_time + 0.20, 2),
+                "x1": round(float(np.median(accum_x1)), 1),
+                "x2": round(float(np.median(accum_x2)), 1),
+            })
+        current_start = None
+        accum_x1 = []
+        accum_x2 = []
+        last_sep_ratio = None
+        last_center_y = None
 
     for fr in frame_records:
         t = fr["time"]
@@ -894,13 +982,21 @@ def extract_wide_intervals(frame_records, min_duration=0.8):
 
         is_wide = False
         separation = None
+        separation_ratio = None
 
-        if left_face is not None and right_face is not None:
+        if left_face is not None and right_face is not None and len(faces) >= MIN_FACES_PER_FRAME:
             separation = abs(right_face["center_x"] - left_face["center_x"])
+            separation_ratio = separation / frame_width
 
-            # Vertical coherence: both subjects should occupy roughly the same
-            # horizontal band. A large mismatch means we are looking at two
-            # different shots glued into one sampled frame.
+            # ── GUARD 1: are these two detections actually the same person? ──
+            # YOLOv8-Pose commonly emits a body box and a head box for one
+            # seated human. Such duplicates are the single biggest source of
+            # false wide shots, so reject them before anything else.
+            same_person = faces_are_same_person(left_face, right_face, frame_width)
+
+            # ── GUARD 2: vertical coherence ──
+            # Both subjects should occupy roughly the same horizontal band.
+            # A large mismatch means two different shots glued into one sample.
             cy_left = left_face.get("center_y")
             cy_right = right_face.get("center_y")
             vertical_ok = True
@@ -909,58 +1005,37 @@ def extract_wide_intervals(frame_records, min_duration=0.8):
                 v_offset = abs(cy_right - cy_left) / float(frame_h)
                 vertical_ok = v_offset <= MAX_VERTICAL_OFFSET_RATIO
 
-            # Separation stability: consecutive samples of a real two-shot keep
-            # a similar distance. A sudden jump indicates a cut, not a wide shot.
+            # ── GUARD 3: separation stability ──
+            # A real two-shot keeps a similar distance across samples; a cut or
+            # a wandering duplicate does not.
             jitter_ok = True
-            if last_sep is not None:
-                jitter_ok = abs(separation - last_sep) <= MAX_SEPARATION_JITTER_PX
+            if last_sep_ratio is not None:
+                jitter_ok = abs(separation_ratio - last_sep_ratio) <= MAX_SEPARATION_JITTER_RATIO
 
             is_wide = (
-                separation >= MIN_SUBJECT_SEPARATION_PX
+                not same_person
+                and separation_ratio >= MIN_SEPARATION_RATIO
                 and vertical_ok
                 and jitter_ok
             )
 
-        if is_wide and left_face and right_face:
+        if is_wide and left_face is not None and right_face is not None:
             if current_start is None:
                 current_start = t
                 accum_x1 = [left_face["center_x"]]
                 accum_x2 = [right_face["center_x"]]
-                accum_sep = [separation]
             else:
                 accum_x1.append(left_face["center_x"])
                 accum_x2.append(right_face["center_x"])
-                accum_sep.append(separation)
             last_t = t
-            last_sep = separation
+            last_sep_ratio = separation_ratio
             if left_face.get("center_y") is not None and right_face.get("center_y") is not None:
                 last_center_y = (left_face["center_y"] + right_face["center_y"]) / 2.0
         else:
-            if current_start is not None:
-                dur = last_t - current_start
-                if dur >= min_duration:
-                    raw_intervals.append({
-                        "start": round(current_start, 2),
-                        "end": round(last_t + 0.20, 2),
-                        "x1": round(float(np.median(accum_x1)), 1),
-                        "x2": round(float(np.median(accum_x2)), 1),
-                    })
-                current_start = None
-                accum_x1 = []
-                accum_x2 = []
-                accum_sep = []
-            # Reset stability tracking on any non-wide sample so a new interval
-            # must re-establish a stable pair rather than inheriting stale state.
-            last_sep = None
-            last_center_y = None
+            close_interval(last_t)
 
-    if current_start is not None and (last_t - current_start) >= min_duration:
-        raw_intervals.append({
-            "start": round(current_start, 2),
-            "end": round(last_t + 0.20, 2),
-            "x1": round(float(np.median(accum_x1)), 1) if accum_x1 else None,
-            "x2": round(float(np.median(accum_x2)), 1) if accum_x2 else None,
-        })
+    # Flush a trailing interval that reached the end of the recording.
+    close_interval(last_t)
 
     # Merge nearby intervals separated by tiny gaps (< 0.6s)
     merged = []
