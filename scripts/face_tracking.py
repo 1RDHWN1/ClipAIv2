@@ -581,6 +581,7 @@ def detect_faces(frame, gray, yunet_detector, mp_face_detection, min_face_size, 
                 "score": d["score"],
                 "mouth_patch": d["mouth_patch"],
                 "bucket": d["bucket"],
+                "has_visible_face": d.get("has_visible_face", True),
             })
 
     kept_faces.sort(key=lambda item: item["score"], reverse=True)
