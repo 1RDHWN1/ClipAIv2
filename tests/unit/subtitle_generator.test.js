@@ -6,6 +6,7 @@ import {
   hexToAssColor,
   formatAssTime,
   chunkWords,
+  sanitizeAssFontName,
   generateAssSubtitles,
   formatFfmpegSubFilter,
 } from '../../utils/subtitleGenerator.js';
@@ -207,5 +208,47 @@ describe('Caption Continuity (regression)', () => {
     assert.equal(pauseLines.length, 2, 'Two isolated captions for a >20s silence');
     const first = pauseLines[0].split(',');
     assert.equal(first[2], '0:00:00.50', 'Caption must NOT hold across a 20s silence');
+  });
+});
+
+describe('ASS Font Name Sanitization (regression: silent no-render bug)', () => {
+  it('strips a CSS-style font stack down to a single family', () => {
+    // A comma in the font name shifts every ASS style field and makes libass
+    // render NO subtitles at all. Only the first family may be kept.
+    assert.equal(sanitizeAssFontName('Montserrat, Arial'), 'Montserrat');
+    assert.equal(sanitizeAssFontName('Montserrat, Trebuchet MS, Arial'), 'Montserrat');
+    assert.equal(sanitizeAssFontName('Arial;Helvetica'), 'Arial');
+  });
+
+  it('keeps a plain single-family name untouched', () => {
+    assert.equal(sanitizeAssFontName('Impact'), 'Impact');
+    assert.equal(sanitizeAssFontName('Trebuchet MS'), 'Trebuchet MS');
+  });
+
+  it('falls back to a safe default for empty or invalid input', () => {
+    assert.equal(sanitizeAssFontName(''), 'Arial');
+    assert.equal(sanitizeAssFontName('   '), 'Arial');
+    assert.equal(sanitizeAssFontName(null), 'Arial');
+    assert.equal(sanitizeAssFontName(undefined), 'Arial');
+    assert.equal(sanitizeAssFontName(123), 'Arial');
+  });
+
+  it('removes ASS-breaking and injectable characters', () => {
+    const out = sanitizeAssFontName('Foo{bar}');
+    assert.ok(!out.includes('{') && !out.includes('}'), 'braces must be stripped');
+    assert.ok(!out.includes(','), 'commas must never survive');
+  });
+
+  it('generated style line never contains a comma inside the font field', () => {
+    const words = [{ word: 'Hello', start: 0, end: 0.5 }];
+    const ass = generateAssSubtitles(words, 0, 1.0, {
+      preset: 'cyber',
+      fontFamily: 'Montserrat, Arial',
+    });
+    const styleLine = ass.split('\n').find((l) => l.startsWith('Style: Default'));
+    // Field 1 (index 1) is Fontname; it must be a clean single family.
+    const fontField = styleLine.split(',')[1];
+    assert.equal(fontField, 'Montserrat');
+    assert.ok(!fontField.includes(','));
   });
 });

@@ -36,7 +36,11 @@ export const VIRAL_PRESETS = {
   cyber: {
     id: 'cyber',
     name: 'Cyber Cyan',
-    fontFamily: 'Montserrat, Trebuchet MS, Arial',
+    // NOTE: ASS format separates style fields with commas, so a font name must
+    // NEVER contain a comma. A CSS-style stack like 'Montserrat, Arial' corrupts
+    // the whole style line and libass silently renders NO subtitles at all.
+    // Always specify a single font family here (see sanitizeAssFontName).
+    fontFamily: 'Montserrat',
     fontSize: 76,
     primaryColor: '#FFFFFF',
     highlightColor: '#00E5FF',
@@ -64,6 +68,42 @@ export const VIRAL_PRESETS = {
 };
 
 export const SUBTITLE_PRESETS = VIRAL_PRESETS;
+
+/**
+ * Sanitize a font family name for safe use inside an ASS style line.
+ *
+ * ASS styles are comma-delimited, so a font name containing a comma (e.g. a
+ * CSS-style stack like "Montserrat, Arial") shifts every following field and
+ * silently breaks rendering — libass then draws NO subtitles at all.
+ *
+ * Rules:
+ *  - keep only the FIRST family from a CSS-style comma/`;` separated stack
+ *  - strip characters that are illegal or dangerous inside an ASS style line
+ *  - collapse whitespace, cap length, and fall back to a safe default
+ *
+ * @param {string} name
+ * @returns {string}
+ */
+export function sanitizeAssFontName(name) {
+  const DEFAULT_FONT = 'Arial';
+  if (typeof name !== 'string' || name.trim() === '') return DEFAULT_FONT;
+
+  // Take the first family from a CSS-style stack: "Montserrat, Arial" -> "Montserrat"
+  let font = name.split(/[,;]/)[0];
+
+  // Remove characters that break ASS parsing or allow tag injection.
+  // ASS style fields must not contain commas; braces/newlines/slashes are unsafe.
+  font = font.replace(/[{}()\[\]\\/<>:"'\r\n\t]/g, '');
+
+  // Collapse repeated whitespace.
+  font = font.replace(/\s+/g, ' ').trim();
+
+  // Reject anything that is now empty or absurdly long.
+  if (font.length === 0) return DEFAULT_FONT;
+  if (font.length > 64) font = font.slice(0, 64).trim();
+
+  return font || DEFAULT_FONT;
+}
 
 /**
  * Resolves a preset by name or key with fallback to Hormozi Yellow
@@ -254,7 +294,7 @@ export function generateAssSubtitles(clipWords, clipStart = 0, clipEnd = Infinit
   const presetKey = config.preset || 'hormozi';
   const base = getPreset(presetKey);
 
-  const fontFamily = config.fontFamily || base.fontFamily;
+  const fontFamily = sanitizeAssFontName(config.fontFamily || base.fontFamily);
   const fontSize = Number(config.fontSize) || base.fontSize;
   const primaryColor = config.primaryColor || base.primaryColor;
   const highlightColor = config.highlightColor || base.highlightColor;
