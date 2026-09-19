@@ -30,6 +30,79 @@ const VIDEO_BITRATE = process.env.VIDEO_BITRATE || '8000k';
 const VIDEO_MAXRATE = process.env.VIDEO_MAXRATE || '10000k';
 const VIDEO_BUFSIZE = process.env.VIDEO_BUFSIZE || '12000k';
 
+// ---------------------------------------------------------------------------
+// FFmpeg expression limits (audit finding H2)
+//
+// The `overlay ... enable=` expression is evaluated by FFmpeg's expression
+// parser. Empirically, this build handles up to 100 `between(t,a,b)` terms and
+// then dies with:
+//
+//   [overlay] Error when evaluating the expression '...' for enable
+//   [AVFilterGraph] Error initializing filters
+//   Error : Cannot allocate memory
+//
+// Verified by real render against a 1920x1080 testsrc2 clip:
+//   99 terms  -> exit 0
+//   100 terms -> exit 0
+//   101 terms -> exit 244 (filter graph fails to initialize)
+//
+// Without a guard the whole clip silently falls back to a plain center crop
+// (see clipVideo's catch), so the user loses split-screen with no error shown.
+// We cap well below the cliff and merge excess intervals down to the cap.
+// ---------------------------------------------------------------------------
+const MAX_OVERLAY_ENABLE_TERMS = parseInt(process.env.MAX_OVERLAY_ENABLE_TERMS || '80', 10);
+
+/**
+ * Collapse an interval list to at most `maxTerms` entries.
+ *
+ * Adjacent/nearby intervals are joined (their union, averaged anchor) so that a
+ * genuinely long wide-shot region still produces split-screen instead of being
+ * dropped. Intervals that are far apart are merged only as a last resort, and
+ * always merges the *closest pair* first to lose the least precision.
+ *
+ * @param {Array<{start:number,end:number,x1?:number,x2?:number}>} intervals
+ * @param {number} maxTerms
+ * @returns {Array<{start:number,end:number,x1?:number,x2?:number}>}
+ */
+export function capWideIntervals(intervals, maxTerms = MAX_OVERLAY_ENABLE_TERMS) {
+  if (!Array.isArray(intervals) || intervals.length <= maxTerms) return intervals;
+
+  // Work on a sorted copy so "closest pair" means closest in time.
+  const sorted = intervals
+    .map((i) => ({ start: Number(i.start), end: Number(i.end), x1: Number(i.x1), x2: Number(i.x2) }))
+    .filter((i) => Number.isFinite(i.start) && Number.isFinite(i.end))
+    .sort((a, b) => a.start - b.start);
+
+  while (sorted.length > maxTerms) {
+    // Find the adjacent pair with the smallest gap; merge it.
+    let bestIdx = 0;
+    let bestGap = Infinity;
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const gap = sorted[i + 1].start - sorted[i].end;
+      if (gap < bestGap) {
+        bestGap = gap;
+        bestIdx = i;
+      }
+    }
+
+    const a = sorted[bestIdx];
+    const b = sorted[bestIdx + 1];
+    const mergedStart = Math.min(a.start, b.start);
+    const mergedEnd = Math.max(a.end, b.end);
+    const wA = Math.max(1e-6, a.end - a.start);
+    const wB = Math.max(1e-6, b.end - b.start);
+
+    sorted.splice(bestIdx, 2, {
+      start: mergedStart,
+      end: mergedEnd,
+      x1: Math.round((a.x1 * wA + b.x1 * wB) / (wA + wB)),
+      x2: Math.round((a.x2 * wA + b.x2 * wB) / (wA + wB)),
+    });
+  }
+
+  return sorted;
+}
+
 /**
  * Builds dynamic adaptive filter graph:
  * Uses Solo Face-Tracked crop for single-person shots, and
@@ -52,8 +125,17 @@ export function buildAdaptiveSplitFilterGraph({
   ];
 
   if (Array.isArray(wideIntervals) && wideIntervals.length > 0) {
-    const avgX1 = wideIntervals.reduce((acc, i) => acc + (i.x1 || srcWidth * 0.22), 0) / wideIntervals.length;
-    const avgX2 = wideIntervals.reduce((acc, i) => acc + (i.x2 || srcWidth * 0.78), 0) / wideIntervals.length;
+    // Guard against FFmpeg's ~100-term expression cliff (audit finding H2).
+    const safeIntervals = capWideIntervals(wideIntervals);
+    if (safeIntervals.length !== wideIntervals.length) {
+      console.warn(
+        `[clipper] wideIntervals capped: ${wideIntervals.length} -> ${safeIntervals.length} ` +
+        `(FFmpeg enable expression limit is ~100 terms)`
+      );
+    }
+
+    const avgX1 = safeIntervals.reduce((acc, i) => acc + (i.x1 || srcWidth * 0.22), 0) / safeIntervals.length;
+    const avgX2 = safeIntervals.reduce((acc, i) => acc + (i.x2 || srcWidth * 0.78), 0) / safeIntervals.length;
 
     // Each stacked panel renders at 1080x960, i.e. aspect ratio 1.125 (landscape).
     // The crop MUST match that ratio, otherwise FFmpeg stretches the image and
@@ -91,7 +173,7 @@ export function buildAdaptiveSplitFilterGraph({
     filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX2}:${evenY},scale=${PANEL_OUT_W}:${PANEL_OUT_H},setsar=1[bottom]`);
     filterParts.push(`[top][bottom]vstack=inputs=2[split]`);
 
-    const enableExpr = wideIntervals
+    const enableExpr = safeIntervals
       .map((intv) => `between(t\\,${Number(intv.start).toFixed(2)}\\,${Number(intv.end).toFixed(2)})`)
       .join('+');
 
@@ -144,8 +226,8 @@ export function buildGamingStreamerFilterGraph({
     : 0;
 
   const filterParts = [
-    `[0:v]crop=${targetCamW}:${targetCamH}:${targetCamX}:${targetCamY},scale=1080:800:force_original_aspect_ratio=increase,crop=1080:800[cam]`,
-    `[0:v]scale=1080:1120:force_original_aspect_ratio=decrease,pad=1080:1120:(ow-iw)/2:(oh-ih)/2:black[game]`,
+    `[0:v]crop=${targetCamW}:${targetCamH}:${targetCamX}:${targetCamY},scale=1080:800:force_original_aspect_ratio=increase,crop=1080:800,setsar=1[cam]`,
+    `[0:v]scale=1080:1120:force_original_aspect_ratio=decrease,pad=1080:1120:(ow-iw)/2:(oh-ih)/2:black,setsar=1[game]`,
     `[cam][game]vstack=inputs=2[vraw]`,
   ];
 
