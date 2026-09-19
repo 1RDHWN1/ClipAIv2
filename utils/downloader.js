@@ -1,35 +1,90 @@
 // utils/downloader.js
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
 import 'dotenv/config';
 import { normalizeLanguageCode, detectLanguageFromText } from './transcriber.js';
 
-const execAsync = promisify(exec);
+// SECURITY: `execFile` never invokes a shell, so arguments are passed to the
+// binary verbatim. This is the entire reason the downloader no longer uses
+// `exec` + template-literal command strings: a crafted query string such as
+//   https://youtube.com/watch?v=x$(touch /tmp/pwned)
+// used to interpolate straight into `/bin/sh -c` and execute. With execFile the
+// same payload arrives as a literal argv entry that yt-dlp simply rejects.
+const execFileAsync = promisify(execFile);
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+const YTDLP_BIN = process.env.YTDLP_PATH || 'yt-dlp';
+
+// Baseline flags shared by every yt-dlp invocation.
+const YTDLP_BASE_ARGS = ['--no-update', '--js-runtimes', 'node', '--no-playlist'];
 
 /**
- * Normalisasi URL YouTube (menghapus tracking token seperti ?si=... yang dapat mengacaukan CDN)
+ * Validate a YouTube video id.
+ *
+ * YouTube ids are exactly 11 characters from [A-Za-z0-9_-]. Validating this
+ * shape means the only thing that ever reaches argv is a fixed known-safe
+ * token set — a second line of defence behind execFile.
+ *
+ * @param {unknown} id
+ * @returns {string|null} the id if valid, otherwise null
+ */
+export function sanitizeVideoId(id) {
+  if (typeof id !== 'string') return null;
+  const candidate = id.trim();
+  return /^[A-Za-z0-9_-]{11}$/.test(candidate) ? candidate : null;
+}
+
+/**
+ * Normalisasi URL YouTube (menghapus tracking token seperti ?si=... yang dapat mengacaukan CDN).
+ *
+ * Returns a canonical `https://www.youtube.com/watch?v=<id>` when a valid video
+ * id can be extracted, otherwise null. Callers MUST refuse to run yt-dlp when
+ * this returns null — an unparseable URL is untrusted input.
  */
 export function normalizeYouTubeUrl(rawUrl) {
   try {
-    const u = new URL(rawUrl);
+    const u = new URL(String(rawUrl));
+    const supportedHost = /(^|\.)(youtube\.com|youtu\.be)$/i.test(u.hostname);
+    if (!supportedHost) return null;
+
     let videoId = '';
-    if (u.hostname.includes('youtu.be')) {
+    if (u.hostname.toLowerCase().includes('youtu.be')) {
       videoId = u.pathname.replace(/^\//, '').split('/')[0];
     } else if (u.searchParams.has('v')) {
       videoId = u.searchParams.get('v');
     } else if (u.pathname.includes('/shorts/')) {
       videoId = u.pathname.split('/shorts/')[1].split('/')[0];
+    } else if (u.pathname.includes('/live/')) {
+      videoId = u.pathname.split('/live/')[1].split('/')[0];
+    } else if (u.pathname.includes('/embed/')) {
+      videoId = u.pathname.split('/embed/')[1].split('/')[0];
     }
-    if (videoId) {
-      return `https://www.youtube.com/watch?v=${videoId}`;
-    }
-  } catch (_) {}
-  return rawUrl;
+
+    const safeId = sanitizeVideoId(videoId);
+    if (!safeId) return null;
+
+    return `https://www.youtube.com/watch?v=${safeId}`;
+  } catch (_) {
+    return null;
+  }
 }
+
+/**
+ * Resolve a raw URL to a canonical, validated YouTube URL or throw.
+ *
+ * @param {string} rawUrl
+ * @returns {string}
+ */
+function requireSafeUrl(rawUrl) {
+  const safe = normalizeYouTubeUrl(rawUrl);
+  if (!safe) {
+    throw new Error('URL YouTube tidak valid atau video ID tidak dapat diverifikasi.');
+  }
+  return safe;
+}
+
 
 /**
  * Format detik ke string waktu HH:MM:SS.xx untuk yt-dlp section
@@ -53,20 +108,24 @@ function formatSectionTimestamp(seconds) {
  * @returns {Promise<{audioPath: string, title: string, duration: number, subtitles: any}>}
  */
 export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
-  const url = normalizeYouTubeUrl(rawUrl);
+  const url = requireSafeUrl(rawUrl);
   const outputDir = path.resolve(UPLOAD_DIR);
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
   const audioOutput = path.join(outputDir, `${jobId}_audio.mp3`);
 
   console.log(`ℹ️ Fetching video info: ${url}`);
-  const infoCmd = `yt-dlp --no-update --js-runtimes node --no-playlist --print "%(title)s|||%(duration)s|||%(language)s" "${url}"`;
+  const infoArgs = [
+    ...YTDLP_BASE_ARGS,
+    '--print', '%(title)s|||%(duration)s|||%(language)s',
+    '--', url,
+  ];
   let title = 'Unknown Video';
   let duration = 0;
   let videoLang = null;
 
   try {
-    const { stdout } = await execAsync(infoCmd, { timeout: 45000 });
+    const { stdout } = await execFileAsync(YTDLP_BIN, infoArgs, { timeout: 45000 });
     const parts = stdout.trim().split('|||');
     title = parts[0] || 'Unknown Video';
     duration = parseInt(parts[1], 10) || 0;
@@ -115,22 +174,41 @@ export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
   console.log(`🎵 Downloading audio stream only (~5-10s): ${url}`);
   
   // Strategi fallback multi-client untuk mengatasi YouTube 403 Forbidden & SABR
+  // Setiap entri adalah ARRAY argv (bukan string shell) sehingga execFile
+  // meneruskannya ke yt-dlp tanpa pernah menyentuh shell.
   const downloadStrategies = [
-    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 -f "ba[ext=m4a]/ba/bestaudio/140/251" -x --audio-format mp3 --audio-quality 5 -o "${audioOutput}" "${url}"`,
-    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 --extractor-args "youtube:player_client=web,default" -f "ba/bestaudio/140/251" -x --audio-format mp3 --audio-quality 5 -o "${audioOutput}" "${url}"`,
-    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 --extractor-args "youtube:player_client=android,web" -f "ba/bestaudio" -x --audio-format mp3 --audio-quality 5 -o "${audioOutput}" "${url}"`,
+    [
+      ...YTDLP_BASE_ARGS, '--retries', '3', '--fragment-retries', '3',
+      '-f', 'ba[ext=m4a]/ba/bestaudio/140/251',
+      '-x', '--audio-format', 'mp3', '--audio-quality', '5',
+      '-o', audioOutput, '--', url,
+    ],
+    [
+      ...YTDLP_BASE_ARGS, '--retries', '3', '--fragment-retries', '3',
+      '--extractor-args', 'youtube:player_client=web,default',
+      '-f', 'ba/bestaudio/140/251',
+      '-x', '--audio-format', 'mp3', '--audio-quality', '5',
+      '-o', audioOutput, '--', url,
+    ],
+    [
+      ...YTDLP_BASE_ARGS, '--retries', '3', '--fragment-retries', '3',
+      '--extractor-args', 'youtube:player_client=android,web',
+      '-f', 'ba/bestaudio',
+      '-x', '--audio-format', 'mp3', '--audio-quality', '5',
+      '-o', audioOutput, '--', url,
+    ],
   ];
 
   let downloaded = false;
   let lastErr = null;
 
   for (let i = 0; i < downloadStrategies.length; i++) {
-    const cmd = downloadStrategies[i];
+    const args = downloadStrategies[i];
     try {
       if (i > 0) {
         console.log(`🔄 Retrying audio download with fallback strategy #${i + 1}...`);
       }
-      await execAsync(cmd, { timeout: 180000 });
+      await execFileAsync(YTDLP_BIN, args, { timeout: 180000 });
       if (fs.existsSync(audioOutput) && fs.statSync(audioOutput).size > 1000) {
         downloaded = true;
         break;
@@ -234,43 +312,58 @@ export function selectTargetSubtitleFile(files, preferredLang = 'auto', videoLan
  * @returns {Promise<{ words: Array, language: string } | null>}
  */
 export async function fetchYouTubeSubtitles(rawUrl, jobId, options = {}) {
-  const url = normalizeYouTubeUrl(rawUrl);
+  const url = requireSafeUrl(rawUrl);
   const outputDir = path.resolve(UPLOAD_DIR);
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
   const outTemplate = path.join(outputDir, `${jobId}_sub.%(ext)s`);
   const videoLang = (options.videoLang || '').toLowerCase();
 
+  const listSubFiles = () =>
+    fs.readdirSync(outputDir).filter(f => f.startsWith(`${jobId}_sub.`) && f.endsWith('.json3'));
+
   // Step 1: Coba ambil track subtitle auto-caption original (*-orig).
-  // Menggunakan regex ".*-orig" agar hanya mengunduh bahasa lisan asli dan TIDAK memicu terjemahan mesin (anti HTTP 429).
-  const origCmd = `yt-dlp --no-update --js-runtimes node --no-playlist --skip-download --write-auto-sub --sub-lang ".*-orig" --sub-format json3 -o "${outTemplate}" "${url}"`;
+  // Menggunakan pola ".*-orig" agar hanya mengunduh bahasa lisan asli dan TIDAK memicu terjemahan mesin (anti HTTP 429).
+  const origArgs = [
+    ...YTDLP_BASE_ARGS, '--skip-download',
+    '--write-auto-sub', '--sub-lang', '.*-orig', '--sub-format', 'json3',
+    '-o', outTemplate, '--', url,
+  ];
 
   try {
     console.log(`⚡ Mencoba ambil transkrip instan dari YouTube...`);
-    await execAsync(origCmd, { timeout: 25000 });
+    await execFileAsync(YTDLP_BIN, origArgs, { timeout: 25000 });
   } catch (_) {}
 
-  let files = fs.readdirSync(outputDir).filter(f => f.startsWith(`${jobId}_sub.`) && f.endsWith('.json3'));
+  let files = listSubFiles();
 
   // Step 2: Jika tidak ada auto-captions original (*-orig), coba ambil manual subtitles yang diunggah pembuat video.
   // Gunakan --no-write-auto-sub agar tidak mengunduh auto-translations YouTube.
   if (files.length === 0) {
-    const manualCmd = `yt-dlp --no-update --js-runtimes node --no-playlist --skip-download --write-sub --no-write-auto-sub --sub-lang "all" --sub-format json3 -o "${outTemplate}" "${url}"`;
+    const manualArgs = [
+      ...YTDLP_BASE_ARGS, '--skip-download',
+      '--write-sub', '--no-write-auto-sub', '--sub-lang', 'all', '--sub-format', 'json3',
+      '-o', outTemplate, '--', url,
+    ];
     try {
-      await execAsync(manualCmd, { timeout: 25000 });
+      await execFileAsync(YTDLP_BIN, manualArgs, { timeout: 25000 });
     } catch (_) {}
-    files = fs.readdirSync(outputDir).filter(f => f.startsWith(`${jobId}_sub.`) && f.endsWith('.json3'));
+    files = listSubFiles();
   }
 
   // Step 3: Jika tidak ada *-orig dan tidak ada manual subtitles, coba auto-caption standar untuk bahasa video / en / id
   // Tanpa --sub-lang "all" sehingga TIDAK memicu 429
   if (files.length === 0) {
     const targetLangs = [...new Set([videoLang, 'en', 'id'].filter(Boolean))].join(',');
-    const fallbackAutoCmd = `yt-dlp --no-update --js-runtimes node --no-playlist --skip-download --write-auto-sub --sub-lang "${targetLangs}" --sub-format json3 -o "${outTemplate}" "${url}"`;
+    const fallbackAutoArgs = [
+      ...YTDLP_BASE_ARGS, '--skip-download',
+      '--write-auto-sub', '--sub-lang', targetLangs, '--sub-format', 'json3',
+      '-o', outTemplate, '--', url,
+    ];
     try {
-      await execAsync(fallbackAutoCmd, { timeout: 25000 });
+      await execFileAsync(YTDLP_BIN, fallbackAutoArgs, { timeout: 25000 });
     } catch (_) {}
-    files = fs.readdirSync(outputDir).filter(f => f.startsWith(`${jobId}_sub.`) && f.endsWith('.json3'));
+    files = listSubFiles();
   }
 
   if (files.length === 0) return null;
@@ -345,30 +438,47 @@ export async function fetchYouTubeSubtitles(rawUrl, jobId, options = {}) {
  * @param {string} outputPath - File output .mp4
  */
 export async function downloadClipSection(rawUrl, start, end, outputPath) {
-  const url = normalizeYouTubeUrl(rawUrl);
+  const url = requireSafeUrl(rawUrl);
   const startTime = formatSectionTimestamp(start);
   const endTime = formatSectionTimestamp(end);
   const sectionSpec = `*${startTime}-${endTime}`;
 
   console.log(`📥 Downloading video section only [${sectionSpec}]: ${url}`);
   const formatChain = 'bestvideo[vcodec^=avc1][height<=720]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc][height<=720]+bestaudio/best[vcodec^=avc][height<=720]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best';
-  
+
   const sectionStrategies = [
-    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 --extractor-args "youtube:player_client=web,default" --download-sections "${sectionSpec}" -f "${formatChain}" --merge-output-format mp4 -o "${outputPath}" "${url}" --force-keyframes-at-cuts`,
-    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 --download-sections "${sectionSpec}" -f "${formatChain}" --merge-output-format mp4 -o "${outputPath}" "${url}" --force-keyframes-at-cuts`,
-    `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 --extractor-args "youtube:player_client=android,web" --download-sections "${sectionSpec}" -f "best[height<=720]/best" --merge-output-format mp4 -o "${outputPath}" "${url}" --force-keyframes-at-cuts`
+    [
+      ...YTDLP_BASE_ARGS, '--retries', '3', '--fragment-retries', '3',
+      '--extractor-args', 'youtube:player_client=web,default',
+      '--download-sections', sectionSpec,
+      '-f', formatChain, '--merge-output-format', 'mp4',
+      '-o', outputPath, '--force-keyframes-at-cuts', '--', url,
+    ],
+    [
+      ...YTDLP_BASE_ARGS, '--retries', '3', '--fragment-retries', '3',
+      '--download-sections', sectionSpec,
+      '-f', formatChain, '--merge-output-format', 'mp4',
+      '-o', outputPath, '--force-keyframes-at-cuts', '--', url,
+    ],
+    [
+      ...YTDLP_BASE_ARGS, '--retries', '3', '--fragment-retries', '3',
+      '--extractor-args', 'youtube:player_client=android,web',
+      '--download-sections', sectionSpec,
+      '-f', 'best[height<=720]/best', '--merge-output-format', 'mp4',
+      '-o', outputPath, '--force-keyframes-at-cuts', '--', url,
+    ],
   ];
 
   let success = false;
   let lastErr = null;
 
   for (let i = 0; i < sectionStrategies.length; i++) {
-    const cmd = sectionStrategies[i];
+    const args = sectionStrategies[i];
     try {
       if (i > 0) {
         console.log(`🔄 Retrying section download with fallback strategy #${i + 1}...`);
       }
-      await execAsync(cmd, { timeout: 180000 });
+      await execFileAsync(YTDLP_BIN, args, { timeout: 180000 });
       if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 1000) {
         success = true;
         break;

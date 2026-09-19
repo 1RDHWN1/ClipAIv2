@@ -2,21 +2,68 @@
 import express from 'express';
 import { videoQueue } from '../queues/videoQueue.js';
 import { v4 as uuidv4 } from 'uuid';
+import { sanitizeVideoId } from '../utils/downloader.js';
+import { createRateLimiter } from '../utils/rateLimiter.js';
 
 const router = express.Router();
 
-// Validasi YouTube URL
+// Rate limit untuk endpoint yang memicu kerja berat (unduh + render).
+// Job video itu mahal (CPU, bandwidth, disk), jadi satu klien tidak boleh
+// membanjiri queue. Nilai default sengaja longgar untuk pemakaian normal.
+const processRateLimiter = createRateLimiter({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
+  max: parseInt(process.env.RATE_LIMIT_MAX || '10', 10),
+  message: 'Terlalu banyak permintaan proses video. Tunggu sebentar lalu coba lagi.',
+});
+
+// Batas panjang transkrip yang diterima dari klien. Tanpa ini, payload raksasa
+// bisa dipakai untuk menghabiskan memori (body limit express.json menahan
+// ukuran request, tapi isi teks tetap perlu batas logis tersendiri).
+const MAX_TRANSCRIPT_CHARS = parseInt(process.env.MAX_TRANSCRIPT_CHARS || '200000', 10);
+
+// API key opsional. Bila API_KEY di-set, semua endpoint tulis wajib
+// melampirkan header x-api-key yang cocok. Bila tidak di-set (default dev),
+// server berjalan terbuka — TAPI ini harus diisi sebelum diekspos ke internet.
+const API_KEY = process.env.API_KEY || null;
+
+/**
+ * Middleware auth opsional. Aktif hanya bila API_KEY dikonfigurasi.
+ */
+function requireApiKey(req, res, next) {
+  if (!API_KEY) return next();
+  const provided = req.get('x-api-key');
+  if (provided && provided === API_KEY) return next();
+  return res.status(401).json({ error: 'Unauthorized: x-api-key tidak valid atau tidak ada.' });
+}
+
+/**
+ * Validasi YouTube URL.
+ *
+ * Sejak audit keamanan, validasi TIDAK lagi hanya mengecek hostname: kita
+ * mensyaratkan video id yang benar-benar dapat diekstrak dan berbentuk sah
+ * (11 karakter [A-Za-z0-9_-]). Ini mencegah string aneh lolos ke worker.
+ */
 function isValidYouTubeUrl(url) {
+  if (typeof url !== 'string' || url.length > 2048) return false;
   try {
     const u = new URL(url);
     const isYouTubeHost = /(^|\.)(youtube\.com|youtu\.be)$/i.test(u.hostname);
     if (!isYouTubeHost) return false;
-    return (
-      u.searchParams.has('v') ||
-      u.pathname.startsWith('/shorts/') ||
-      u.pathname.startsWith('/live/') ||
-      u.hostname.toLowerCase().includes('youtu.be')
-    );
+
+    let videoId = '';
+    if (u.hostname.toLowerCase().includes('youtu.be')) {
+      videoId = u.pathname.replace(/^\//, '').split('/')[0];
+    } else if (u.searchParams.has('v')) {
+      videoId = u.searchParams.get('v');
+    } else if (u.pathname.startsWith('/shorts/')) {
+      videoId = u.pathname.split('/shorts/')[1]?.split('/')[0] || '';
+    } else if (u.pathname.startsWith('/live/')) {
+      videoId = u.pathname.split('/live/')[1]?.split('/')[0] || '';
+    } else if (u.pathname.startsWith('/embed/')) {
+      videoId = u.pathname.split('/embed/')[1]?.split('/')[0] || '';
+    }
+
+    return sanitizeVideoId(videoId) !== null;
   } catch {
     return false;
   }
@@ -26,9 +73,10 @@ function isValidYouTubeUrl(url) {
  * POST /api/process
  * Mulai proses video baru
  */
-router.post('/process', async (req, res) => {
+router.post('/process', requireApiKey, processRateLimiter, async (req, res) => {
   try {
-    const { url, aspectRatio = '9:16', clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard' } = req.body;
+    const body = req.body || {};
+    const { url, aspectRatio = '9:16', clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard' } = body;
 
     if (!url) {
       return res.status(400).json({ error: 'URL YouTube wajib diisi' });
@@ -47,6 +95,13 @@ router.post('/process', async (req, res) => {
 
     const count = Math.min(5, Math.max(1, parseInt(clipCount) || 3));
     const jobId = uuidv4();
+
+    if (typeof transcriptText === 'string' && transcriptText.length > MAX_TRANSCRIPT_CHARS) {
+      return res.status(413).json({
+        error: `Transkrip terlalu panjang (maks ${MAX_TRANSCRIPT_CHARS} karakter).`,
+      });
+    }
+
     const cleanTranscript = typeof transcriptText === 'string' && transcriptText.trim().length > 0
       ? transcriptText.trim()
       : null;
@@ -54,13 +109,14 @@ router.post('/process', async (req, res) => {
     // Normalisasi konfigurasi subtitle jika disediakan
     let cleanSubtitleConfig = null;
     if (subtitleConfig && typeof subtitleConfig === 'object') {
+      const rawFontSize = subtitleConfig.fontSize ? Number(subtitleConfig.fontSize) : undefined;
       cleanSubtitleConfig = {
         enabled: subtitleConfig.enabled !== false,
-        preset: subtitleConfig.preset || 'hormozi',
-        fontFamily: subtitleConfig.fontFamily || undefined,
-        fontSize: subtitleConfig.fontSize ? Number(subtitleConfig.fontSize) : undefined,
-        highlightColor: subtitleConfig.highlightColor || undefined,
-        primaryColor: subtitleConfig.primaryColor || undefined,
+        preset: typeof subtitleConfig.preset === 'string' ? subtitleConfig.preset : 'hormozi',
+        fontFamily: typeof subtitleConfig.fontFamily === 'string' ? subtitleConfig.fontFamily : undefined,
+        fontSize: Number.isFinite(rawFontSize) ? rawFontSize : undefined,
+        highlightColor: typeof subtitleConfig.highlightColor === 'string' ? subtitleConfig.highlightColor : undefined,
+        primaryColor: typeof subtitleConfig.primaryColor === 'string' ? subtitleConfig.primaryColor : undefined,
         position: subtitleConfig.position || 'bottom',
       };
     } else if (subtitleConfig === true || subtitleConfig === 'true') {

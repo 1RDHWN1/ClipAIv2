@@ -15,8 +15,12 @@ const PORT = process.env.PORT || 3000;
 
 // ── Middleware ──────────────────────────────────────────────
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Body parser dengan limit eksplisit. Default express adalah 100kb; kita beri
+// ruang untuk transkrip yang ditempel manual tanpa membuka pintu ke payload
+// raksasa (request gigabyte yang menghabiskan memori event loop).
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '512kb' }));
+app.use(express.urlencoded({ extended: true, limit: process.env.JSON_BODY_LIMIT || '512kb' }));
 
 // Static files: frontend dan output video
 app.use(express.static(path.join(__dirname, 'public')));
