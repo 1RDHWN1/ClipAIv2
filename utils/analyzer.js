@@ -307,8 +307,8 @@ export function resolveSentenceIds(clip, map, context = {}) {
   return {
     ...clip,
     title: clip.title || defaultTitle,
-    start: startSnap.snappedTime,
-    end: endSnap.snappedTime,
+    start: snappedStart,
+    end: snappedEnd,
     resolvedSentences: {
       count: endSentence.index - startSentence.index + 1,
       startText: startSentence.text,
