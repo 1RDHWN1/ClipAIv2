@@ -180,6 +180,18 @@ const worker = new Worker(
         } catch (peakErr) {
           console.warn(`⚠️ [videoWorker] Audio peak detector notice: ${peakErr.message}`);
         }
+      } else {
+        // Fast path: gunakan keyword-based hype detection sebagai proxy
+        try {
+          const { annotateSentencesWithKeywordHype } = await import('../utils/sentenceSegmenter.js');
+          enrichedSentences = annotateSentencesWithKeywordHype(sentences, language);
+          const hypeCount = enrichedSentences.filter(s => s.isHypePeak).length;
+          if (hypeCount > 0) {
+            console.log(`🔥 [videoWorker] Keyword-based hype detection: ${hypeCount} kalimat dengan hype peak (proxy).`);
+          }
+        } catch (kwErr) {
+          console.warn(`⚠️ [videoWorker] Keyword hype detection notice: ${kwErr.message}`);
+        }
       }
 
       // STEP 3: AI Analisis (dengan Discrete Sentence ID & Boundary Snapping)

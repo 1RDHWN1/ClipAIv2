@@ -277,5 +277,86 @@ export function findSentenceAtTime(sentences, time) {
   return closest;
 }
 
+/**
+ * Keyword-based hype/excitement detection for transcripts without audio.
+ * Provides proxy hypeScore and isHypePeak when audio peak detection is unavailable.
+ * @param {Array<Object>} sentences - Sentence segments with text
+ * @param {string} [language='id'] - Language code ('id' or 'en')
+ * @returns {Array<Object>} sentences enriched with hypeScore & isHypePeak
+ */
+export function annotateSentencesWithKeywordHype(sentences, language = 'id') {
+  if (!Array.isArray(sentences)) return [];
+
+  const isEn = String(language).toLowerCase().startsWith('en');
+
+  // High-intensity keywords indicating excitement, surprise, shock, emotion
+  const HYPE_KEYWORDS_EN = [
+    'crazy', 'insane', 'unbelievable', 'shocking', 'mind.blown', 'mind blown',
+    'wow', 'omg', 'oh my god', 'oh my gosh', 'no way', 'no fucking way',
+    'holy shit', 'holy cow', 'are you kidding', 'you\'re kidding', 'get out',
+    'amazing', 'incredible', 'phenomenal', 'extraordinary', 'legendary',
+    'goosebumps', 'chills', 'speechless', 'stunned', 'floored',
+    'game changer', 'life changing', 'never seen', 'never heard',
+    'explosive', 'viral', 'breaking', 'exclusive', 'secret', 'revealed',
+    'screaming', 'yelling', 'shouting', 'laughing', 'crying',
+    'terrified', 'horrified', 'disgusted', 'furious', 'rage',
+    'ecstatic', 'thrilled', 'pumped', 'hyped', 'electric',
+  ];
+
+  const HYPE_KEYWORDS_ID = [
+    'gila', 'gila banget', 'nggak percaya', 'tidak percaya', 'luar biasa',
+    'luar biasa banget', 'kejut', 'terkejut', 'terkejut banget', 'shock',
+    'wow', 'wkwk', 'wkwkwk', 'omg', 'astagfirullah', 'subhanallah',
+    'minta ampun', 'ngakak', 'ngakak banget', 'susah', 'kesian',
+    'ngeri', 'menakutkan', 'mengerikan', 'serem', 'merinding',
+    'bikin merinding', 'bikin ngeri', 'gak nyangka', 'tidak disangka',
+    'heboh', 'viral', 'trending', 'bocor', 'terungkap', 'terbongkar',
+    'rahasia', 'rahasia besar', 'game changer', 'perubahan hidup',
+    'mengubah hidup', 'tak terlupakan', 'epic', 'legend', 'legenda',
+    'terharu', 'nangis', 'sedih banget', 'marah', 'emes', 'banget',
+  ];
+
+  const keywords = isEn ? HYPE_KEYWORDS_EN : HYPE_KEYWORDS_ID;
+  // Also include cross-language keywords
+  const allKeywords = [...keywords, ...(isEn ? HYPE_KEYWORDS_ID : HYPE_KEYWORDS_EN)];
+
+  return sentences.map((s) => {
+    const text = (s.text || '').toLowerCase();
+    let matchedKeywords = [];
+    let maxIntensity = 0;
+
+    for (const kw of allKeywords) {
+      if (text.includes(kw.toLowerCase())) {
+        matchedKeywords.push(kw);
+        // Weight longer/more specific keywords higher
+        const intensity = Math.min(100, 40 + kw.length * 2);
+        if (intensity > maxIntensity) maxIntensity = intensity;
+      }
+    }
+
+    // Check for exclamation marks, caps, repeated punctuation as intensity boosters
+    const exclamationBoost = (s.text || '').match(/!+/g)?.length || 0;
+    const capsWords = (s.text || '').match(/\b[A-Z]{3,}\b/g)?.length || 0;
+    const punctuationBoost = (s.text || '').match(/[?!]{2,}/g)?.length || 0;
+
+    let hypeScore = maxIntensity;
+    hypeScore += exclamationBoost * 10;
+    hypeScore += capsWords * 8;
+    hypeScore += punctuationBoost * 5;
+    hypeScore = Math.min(100, hypeScore);
+
+    const isHypePeak = hypeScore >= 60; // Threshold for "hype peak"
+
+    return {
+      ...s,
+      hypeScore,
+      isHypePeak,
+      hypeKeywords: matchedKeywords.length > 0 ? matchedKeywords : undefined,
+      hypeSource: matchedKeywords.length > 0 ? 'keyword' : 'none',
+      ...(exclamationBoost > 0 || capsWords > 0 || punctuationBoost > 0 ? { hypeBoost: { exclamationBoost, capsWords, punctuationBoost } } : {}),
+    };
+  });
+}
+
 export const segmentSentences = segmentWordsIntoSentences;
 export default segmentWordsIntoSentences;

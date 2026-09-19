@@ -110,11 +110,11 @@ export function buildGatewayCandidates(config = resolveModelConfiguration()) {
     }
   }
 
-  // Deduplicate candidates by baseUrl + model
+  // Deduplicate candidates by baseUrl + model + apiKey
   const seen = new Set();
   const candidates = [];
   for (const c of rawCandidates) {
-    const key = `${c.baseUrl}|${c.model}`;
+    const key = `${c.baseUrl}|${c.model}|${c.apiKey}`;
     if (!seen.has(key)) {
       seen.add(key);
       candidates.push(c);
