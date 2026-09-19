@@ -42,8 +42,8 @@ router.post('/process', async (req, res) => {
       return res.status(400).json({ error: 'Aspect ratio harus: 9:16, 1:1, atau 16:9' });
     }
 
-    const validLayouts = ['standard', 'split_screen', 'gaming_streamer'];
-    const cleanLayoutMode = validLayouts.includes(layoutMode) ? layoutMode : 'standard';
+    const validLayouts = ['standard', 'split_screen', 'auto_split', 'gaming_streamer'];
+    const cleanLayoutMode = validLayouts.includes(layoutMode) ? layoutMode : 'auto_split';
 
     const count = Math.min(5, Math.max(1, parseInt(clipCount) || 3));
     const jobId = uuidv4();

@@ -266,6 +266,7 @@ def main():
 
     # 3. Build intelligent shot-aware plan
     plan = build_shot_aware_plan(frame_records, width, height, speaker_turns)
+    wide_intervals = extract_wide_intervals(frame_records, min_duration=0.8)
 
     scene_detector_name = "pyscenedetect" if use_pyscenedetect else "legacy"
     total_cuts = sum(1 for fr in frame_records if fr["is_cut"])
@@ -273,9 +274,11 @@ def main():
     json.dump(
         {
             "plan": plan,
+            "wideIntervals": wide_intervals,
             "debug": {
                 "tracks": len(plan),
                 "samples": len(frame_records),
+                "wideIntervalsCount": len(wide_intervals),
                 "detector": "yolo_pose" if yolo_pose_session is not None else ("yunet" if yunet_detector is not None else ("mediapipe" if mp_face_detection is not None else "none")),
                 "scene_detector": scene_detector_name,
                 "scene_cuts_found": total_cuts,
@@ -832,6 +835,77 @@ def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turn
         filtered.pop(merge_idx + 1)
 
     return filtered
+
+
+def extract_wide_intervals(frame_records, min_duration=0.8):
+    """
+    Extract continuous intervals where 2 or more people are present in a wide shot.
+    Returns: list of { start, end, x1, x2 }
+    """
+    if not frame_records:
+        return []
+
+    raw_intervals = []
+    current_start = None
+    last_t = 0.0
+    accum_x1 = []
+    accum_x2 = []
+
+    for fr in frame_records:
+        t = fr["time"]
+        faces = fr["faces"]
+        is_wide = len(faces) >= 2
+        left_face = next((f for f in faces if f["bucket"] == "left"), None)
+        right_face = next((f for f in faces if f["bucket"] == "right"), None)
+
+        if is_wide and left_face and right_face:
+            if current_start is None:
+                current_start = t
+                accum_x1 = [left_face["center_x"]]
+                accum_x2 = [right_face["center_x"]]
+            else:
+                accum_x1.append(left_face["center_x"])
+                accum_x2.append(right_face["center_x"])
+            last_t = t
+        else:
+            if current_start is not None:
+                dur = last_t - current_start
+                if dur >= min_duration:
+                    raw_intervals.append({
+                        "start": round(current_start, 2),
+                        "end": round(last_t + 0.20, 2),
+                        "x1": round(float(np.median(accum_x1)), 1),
+                        "x2": round(float(np.median(accum_x2)), 1),
+                    })
+                current_start = None
+                accum_x1 = []
+                accum_x2 = []
+
+    if current_start is not None and (last_t - current_start) >= min_duration:
+        raw_intervals.append({
+            "start": round(current_start, 2),
+            "end": round(last_t + 0.20, 2),
+            "x1": round(float(np.median(accum_x1)), 1) if accum_x1 else None,
+            "x2": round(float(np.median(accum_x2)), 1) if accum_x2 else None,
+        })
+
+    # Merge nearby intervals separated by tiny gaps (< 0.6s)
+    merged = []
+    for interval in raw_intervals:
+        if not merged:
+            merged.append(interval)
+            continue
+        prev = merged[-1]
+        if interval["start"] <= prev["end"] + 0.6:
+            prev["end"] = max(prev["end"], interval["end"])
+            if interval["x1"] and prev["x1"]:
+                prev["x1"] = round((prev["x1"] + interval["x1"]) / 2, 1)
+            if interval["x2"] and prev["x2"]:
+                prev["x2"] = round((prev["x2"] + interval["x2"]) / 2, 1)
+        else:
+            merged.append(interval)
+
+    return merged
 
 
 if __name__ == "__main__":

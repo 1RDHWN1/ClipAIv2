@@ -17,6 +17,69 @@ const FACE_TRACKING_PYTHON = process.env.FACE_TRACKING_PYTHON || 'python';
 const FACE_TRACKING_SAFE_MARGIN_RATIO = parseFloat(process.env.FACE_TRACKING_SAFE_MARGIN_RATIO || '0.18');
 
 /**
+ * Builds dynamic adaptive filter graph:
+ * Uses Solo Face-Tracked crop for single-person shots, and
+ * overlays Stacked Split-Screen ONLY during wide shots with 2 people!
+ */
+export function buildAdaptiveSplitFilterGraph({
+  srcWidth = 1920,
+  srcHeight = 1080,
+  soloCropXExpr,
+  wideIntervals = [],
+  subtitleAssPath,
+} = {}) {
+  const targetWidth = Math.min(srcWidth, Math.floor(srcHeight * 9 / 16));
+  const cropHeight = Math.min(Math.floor(targetWidth * 16 / 9), srcHeight);
+  const soloY = Math.max(0, Math.floor((srcHeight - cropHeight) / 2));
+  const validXExpr = soloCropXExpr || `${Math.floor((srcWidth - targetWidth) / 2)}`;
+
+  const filterParts = [
+    `[0:v]crop=${targetWidth}:${cropHeight}:${validXExpr}:${soloY},scale=1080:1920,setsar=1[solo]`,
+  ];
+
+  if (Array.isArray(wideIntervals) && wideIntervals.length > 0) {
+    const avgX1 = wideIntervals.reduce((acc, i) => acc + (i.x1 || srcWidth * 0.22), 0) / wideIntervals.length;
+    const avgX2 = wideIntervals.reduce((acc, i) => acc + (i.x2 || srcWidth * 0.78), 0) / wideIntervals.length;
+
+    const panelCropW = Math.min(srcWidth / 2, Math.floor(srcHeight * 9 / 8));
+    const panelCropH = Math.min(srcHeight, 540);
+    const cropX1 = Math.max(0, Math.min(srcWidth - panelCropW, Math.floor(avgX1 - panelCropW / 2)));
+    const cropX2 = Math.max(0, Math.min(srcWidth - panelCropW, Math.floor(avgX2 - panelCropW / 2)));
+    const cropY = Math.max(0, Math.floor((srcHeight - panelCropH) / 2));
+
+    const evenX1 = Math.floor(cropX1 / 2) * 2;
+    const evenX2 = Math.floor(cropX2 / 2) * 2;
+    const evenY = Math.floor(cropY / 2) * 2;
+
+    filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX1}:${evenY},scale=1080:960,setsar=1[top]`);
+    filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX2}:${evenY},scale=1080:960,setsar=1[bottom]`);
+    filterParts.push(`[top][bottom]vstack=inputs=2[split]`);
+
+    const enableExpr = wideIntervals
+      .map((intv) => `between(t\\,${Number(intv.start).toFixed(2)}\\,${Number(intv.end).toFixed(2)})`)
+      .join('+');
+
+    filterParts.push(`[solo][split]overlay=0:0:enable='${enableExpr}'[vraw]`);
+  } else {
+    filterParts[0] = `[0:v]crop=${targetWidth}:${cropHeight}:${validXExpr}:${soloY},scale=1080:1920,setsar=1[vraw]`;
+  }
+
+  let outputMap = '[vraw]';
+  if (subtitleAssPath) {
+    const escapedAss = subtitleAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    filterParts.push(`[vraw]ass='${escapedAss}'[vout]`);
+    outputMap = '[vout]';
+  }
+
+  return {
+    filterComplex: filterParts.join(';'),
+    outputMap,
+    renderWidth: 1080,
+    renderHeight: 1920,
+  };
+}
+
+/**
  * Builds stacked gaming streamer filter graph:
  * Top panel: Facecam zoom (1080x800)
  * Bottom panel: Full 16:9 gameplay fitted (1080x1120)
@@ -161,17 +224,21 @@ export async function processClips(videoPath, clips, jobId, aspectRatio = '9:16'
         }
       }
 
-      const faceTrackingPlan = await getFaceTrackingPlan({
+      const trackingResult = await getFaceTrackingPlan({
         videoPath: sourceForProcessing,
         clip: clipForProcessing,
         speakerTurns,
         aspectRatio,
       });
 
+      const faceTrackingPlan = Array.isArray(trackingResult) ? trackingResult : (trackingResult?.plan || []);
+      const wideIntervals = Array.isArray(trackingResult?.wideIntervals) ? trackingResult.wideIntervals : [];
+
       await clipVideo(sourceForProcessing, outputPath, clipForProcessing, currentWidth, currentHeight, aspectRatio, {
         speakerTurns,
         speakerOrder,
         faceTrackingPlan,
+        wideIntervals,
         subtitleAssPath: tempAssFile,
         layoutMode: options.layoutMode || 'standard',
       });
@@ -257,19 +324,41 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       });
       cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap)
                .outputOptions(['-map 0:a?']);
-    } else if (layoutMode === 'split_screen' && aspectRatio === '9:16') {
-      const graph = buildStackedSplitFilterGraph({
-        srcWidth,
-        srcHeight,
-      });
-      let filterComplex = graph.filterComplex;
-      let outMap = graph.outputMap;
-      if (options.subtitleAssPath) {
-        const escapedAss = options.subtitleAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
-        filterComplex += `;${graph.outputMap}ass='${escapedAss}'[vout]`;
-        outMap = '[vout]';
+    } else if ((layoutMode === 'split_screen' || layoutMode === 'auto_split') && aspectRatio === '9:16') {
+      let graph;
+      if (options.wideIntervals && options.wideIntervals.length > 0) {
+        const defaultX = Math.floor((srcWidth - Math.min(srcWidth, Math.floor(srcHeight * 9 / 16))) / 2);
+        const soloXExpr = buildSpeakerAwareCropX({
+          srcWidth,
+          cropWidth: Math.min(srcWidth, Math.floor(srcHeight * 9 / 16)),
+          clip,
+          speakerTurns: options.speakerTurns || [],
+          speakerOrder: options.speakerOrder || [],
+          defaultX,
+          faceTrackingPlan: options.faceTrackingPlan || [],
+        });
+        graph = buildAdaptiveSplitFilterGraph({
+          srcWidth,
+          srcHeight,
+          soloCropXExpr: soloXExpr,
+          wideIntervals: options.wideIntervals,
+          subtitleAssPath: options.subtitleAssPath,
+        });
+      } else {
+        graph = buildStackedSplitFilterGraph({
+          srcWidth,
+          srcHeight,
+        });
+        let filterComplex = graph.filterComplex;
+        let outMap = graph.outputMap;
+        if (options.subtitleAssPath) {
+          const escapedAss = options.subtitleAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+          filterComplex += `;${graph.outputMap}ass='${escapedAss}'[vout]`;
+          outMap = '[vout]';
+        }
+        graph = { filterComplex, outputMap: outMap };
       }
-      cmd = cmd.complexFilter(filterComplex, outMap)
+      cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap)
                .outputOptions(['-map 0:a?']);
     } else {
       const vfFilter = buildVideoFilter({
@@ -766,15 +855,18 @@ async function getFaceTrackingPlan({ videoPath, clip, speakerTurns, aspectRatio 
       return [];
     }
 
-    if (Array.isArray(result.plan) && result.plan.length > 0) {
-      console.log(`   Face tracking plan ready: ${result.plan.length} segment(s), ${result.debug?.tracks || 0} face track(s)`);
-      return result.plan;
+    if (result && Array.isArray(result.plan)) {
+      console.log(`   Face tracking plan ready: ${result.plan.length} segment(s), ${result.debug?.tracks || 0} face track(s), ${result.wideIntervals?.length || 0} wide interval(s)`);
+      return {
+        plan: result.plan,
+        wideIntervals: Array.isArray(result.wideIntervals) ? result.wideIntervals : [],
+      };
     }
   } catch (err) {
     console.warn(`   Face tracking fallback: ${err.message}`);
   }
 
-  return [];
+  return { plan: [], wideIntervals: [] };
 }
 
 function runFaceTrackingScript(payload) {
