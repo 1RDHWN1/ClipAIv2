@@ -146,7 +146,10 @@ export async function processClips(videoPath, clips, jobId, aspectRatio = '9:16'
             clipWords,
             clip.start,
             clip.end,
-            subtitleConfig
+            {
+              ...subtitleConfig,
+              marginV: subtitleConfig.marginV !== undefined ? Number(subtitleConfig.marginV) : 160,
+            }
           );
 
           if (assContent && assContent.includes('Dialogue:')) {

@@ -401,16 +401,17 @@ def detect_yolo_pose(frame, gray, session, min_face_size, frame_width, frame_hei
             expanded = expand_box(fx, fy, fw, fh, frame_width, frame_height, BOX_EXPAND_RATIO)
 
             # Extract mouth patch for voice activity tracking
+            mouth_cx = float(head_cx if head_pts_x else subject_cx)
             if nose[2] >= POSE_CONF_THRESHOLD and has_shoulders:
                 mouth_cy = nose[1] + 0.30 * (((left_shoulder[1] + right_shoulder[1]) / 2.0) - nose[1])
             elif nose[2] >= POSE_CONF_THRESHOLD:
-                mouth_cy = nose[1] + fh * 0.20
+                mouth_cy = nose[1] + fh * 0.22
             else:
                 mouth_cy = head_cy + fh * 0.25
 
-            mouth_w = max(16, int(fw * 0.45))
-            mouth_h = max(12, int(mouth_w * 0.75))
-            mx1 = max(0, int(subject_cx - mouth_w / 2.0))
+            mouth_w = max(18, int(fw * 0.45))
+            mouth_h = max(14, int(mouth_w * 0.75))
+            mx1 = max(0, int(mouth_cx - mouth_w / 2.0))
             my1 = max(0, int(mouth_cy - mouth_h / 2.0))
             mx2 = min(frame_width, mx1 + mouth_w)
             my2 = min(frame_height, my1 + mouth_h)
@@ -598,7 +599,7 @@ def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turn
     if not frame_records:
         return []
 
-    # Filter out tiny background poster faces when a dominant human speaker is present
+    # 1. Filter out tiny background poster faces when a dominant human speaker is present
     for fr in frame_records:
         raw_faces = fr["faces"]
         if len(raw_faces) > 1:
@@ -606,46 +607,88 @@ def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turn
             primary = raw_faces[0]
             valid_faces = [primary]
             for f in raw_faces[1:]:
-                # Real co-host in a 2-person wide shot is >= 38% of primary width
-                # Posters/pictures on background walls are typically < 25% of subject width
-                if f["w"] >= primary["w"] * 0.38 and abs(f["center_y"] - primary["center_y"]) < frame_height * 0.30:
+                # Real co-host in a 2-person wide shot is >= 35% of primary width
+                if f["w"] >= primary["w"] * 0.35 and abs(f["center_y"] - primary["center_y"]) < frame_height * 0.35:
                     valid_faces.append(f)
             fr["faces"] = valid_faces
 
-    # 1. Scan forward for the first confirmed human face.
-    # NEVER default to frame_width / 2 (which points at the tripod/equipment in the center of the table!)
+    # 2. Pre-compute mouth activity across all frames to establish dominant speaker
+    prev_mouth_l = None
+    prev_mouth_r = None
+    total_speech_l = 0.0
+    total_speech_r = 0.0
+    opening_speech_l = 0.0
+    opening_speech_r = 0.0
+
+    SPEECH_NOISE_FLOOR = 1.8  # ignore video compression macroblock noise below 1.8
+
+    for idx, fr in enumerate(frame_records):
+        fl = next((f for f in fr["faces"] if f["bucket"] == "left"), None)
+        fr_face = next((f for f in fr["faces"] if f["bucket"] == "right"), None)
+
+        if fl and fl.get("mouth_patch") is not None:
+            if prev_mouth_l is not None:
+                d = float(cv2.absdiff(prev_mouth_l, fl["mouth_patch"]).mean())
+                fl["motion"] = max(0.0, d - SPEECH_NOISE_FLOOR)
+            else:
+                fl["motion"] = 0.0
+            prev_mouth_l = fl["mouth_patch"]
+            total_speech_l += fl["motion"]
+            if idx < 15:
+                opening_speech_l += fl["motion"]
+        else:
+            prev_mouth_l = None
+
+        if fr_face and fr_face.get("mouth_patch") is not None:
+            if prev_mouth_r is not None:
+                d = float(cv2.absdiff(prev_mouth_r, fr_face["mouth_patch"]).mean())
+                fr_face["motion"] = max(0.0, d - SPEECH_NOISE_FLOOR)
+            else:
+                fr_face["motion"] = 0.0
+            prev_mouth_r = fr_face["mouth_patch"]
+            total_speech_r += fr_face["motion"]
+            if idx < 15:
+                opening_speech_r += fr_face["motion"]
+        else:
+            prev_mouth_r = None
+
+    dominant_bucket = "left" if total_speech_l >= total_speech_r else "right"
+    opening_bucket = "left" if opening_speech_l >= opening_speech_r else "right"
+
+    # 3. Determine initial focus: look for the active opening speaker
     initial_focus_x = None
-    initial_focus_bucket = None
-    initial_face_w = frame_width * 0.12
+    initial_focus_bucket = opening_bucket
+    initial_face_w = frame_width * 0.14
 
     for fr in frame_records:
         if fr["faces"]:
-            if len(fr["faces"]) > 1:
-                # In wide shot, prefer the speaker with highest confidence/size
-                chosen = max(fr["faces"], key=lambda f: f["score"] * f["w"])
-            else:
-                chosen = fr["faces"][0]
+            matched = next((f for f in fr["faces"] if f["bucket"] == opening_bucket), None)
+            chosen = matched or fr["faces"][0]
             initial_focus_x = chosen["center_x"]
             initial_focus_bucket = chosen["bucket"]
             initial_face_w = chosen["w"]
             break
 
     if initial_focus_x is None:
-        initial_focus_x = frame_width * 0.5
-        initial_focus_bucket = "left"
+        initial_focus_x = frame_width * 0.28 if dominant_bucket == "left" else frame_width * 0.72
+        initial_focus_bucket = dominant_bucket
+
+    # Guard against dead-center table framing
+    if initial_focus_bucket == "left":
+        initial_focus_x = min(initial_focus_x, frame_width * 0.44)
+    else:
+        initial_focus_x = max(initial_focus_x, frame_width * 0.56)
 
     current_focus_x = initial_focus_x
     current_focus_bucket = initial_focus_bucket
     current_face_w = initial_face_w
     last_switch_time = 0.0
-    MIN_HOLD_SAME_SHOT = 0.8
+    MIN_HOLD_SAME_SHOT = 3.2  # 3.2s professional broadcast hold time between cuts
     MAX_SEGMENTS = 16
 
-    prev_mouth_left = None
-    prev_mouth_right = None
-    act_left = 0.0
-    act_right = 0.0
-
+    act_l = 0.0
+    act_r = 0.0
+    consecutive_competing_speech = 0
     targets = []
 
     for fr in frame_records:
@@ -653,52 +696,21 @@ def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turn
         faces = fr["faces"]
         is_cut = fr["is_cut"]
 
-        # Reset hold on scene cuts: camera cuts in original video MUST snap instantly!
         if is_cut:
-            prev_mouth_left = None
-            prev_mouth_right = None
-            act_left = 0.0
-            act_right = 0.0
+            act_l = 0.0
+            act_r = 0.0
+            consecutive_competing_speech = 0
             last_switch_time = time
 
-        # Cluster into left and right faces for wide-shot tracking
-        left_face = None
-        right_face = None
-        for f in faces:
-            if f["bucket"] == "left" and (left_face is None or f["score"] > left_face["score"]):
-                left_face = f
-            elif f["bucket"] == "right" and (right_face is None or f["score"] > right_face["score"]):
-                right_face = f
+        left_face = next((f for f in faces if f["bucket"] == "left"), None)
+        right_face = next((f for f in faces if f["bucket"] == "right"), None)
 
-        # Track mouth motion via landmark-anchored patches, rolling activity act = act * 0.6 + motion * 0.4
-        if left_face is not None:
-            if prev_mouth_left is not None and left_face["mouth_patch"] is not None:
-                diff_l = float(cv2.absdiff(prev_mouth_left, left_face["mouth_patch"]).mean())
-            else:
-                diff_l = 0.0
-            if left_face["mouth_patch"] is not None:
-                prev_mouth_left = left_face["mouth_patch"]
-            act_left = act_left * 0.6 + diff_l * 0.4
-            left_face["motion"] = diff_l
-            left_face["activity"] = act_left
-        else:
-            act_left *= 0.6
-
-        if right_face is not None:
-            if prev_mouth_right is not None and right_face["mouth_patch"] is not None:
-                diff_r = float(cv2.absdiff(prev_mouth_right, right_face["mouth_patch"]).mean())
-            else:
-                diff_r = 0.0
-            if right_face["mouth_patch"] is not None:
-                prev_mouth_right = right_face["mouth_patch"]
-            act_right = act_right * 0.6 + diff_r * 0.4
-            right_face["motion"] = diff_r
-            right_face["activity"] = act_right
-        else:
-            act_right *= 0.6
+        mot_l = left_face.get("motion", 0.0) if left_face else 0.0
+        mot_r = right_face.get("motion", 0.0) if right_face else 0.0
+        act_l = act_l * 0.7 + mot_l * 0.3
+        act_r = act_r * 0.7 + mot_r * 0.3
 
         if not faces:
-            # Maintain current speaker focus during pauses/silences (never snap to center equipment)
             targets.append({
                 "time": time,
                 "center_x": current_focus_x,
@@ -708,24 +720,11 @@ def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turn
             continue
 
         if len(faces) == 1:
-            # Single face visible (close-up of speaker) -> lock on immediately with 100% precision!
-            chosen_face = faces[0]
-            if is_cut:
-                current_focus_x = chosen_face["center_x"]
-                current_focus_bucket = chosen_face["bucket"]
-                current_face_w = chosen_face["w"]
-                last_switch_time = time
-            elif chosen_face["bucket"] == current_focus_bucket:
-                current_focus_x = chosen_face["center_x"]
-                current_face_w = chosen_face["w"]
-            else:
-                can_switch = (time - last_switch_time) >= MIN_HOLD_SAME_SHOT
-                if can_switch:
-                    current_focus_x = chosen_face["center_x"]
-                    current_focus_bucket = chosen_face["bucket"]
-                    current_face_w = chosen_face["w"]
-                    last_switch_time = time
-
+            # Single close-up face -> lock on directly
+            chosen = faces[0]
+            current_focus_x = chosen["center_x"]
+            current_focus_bucket = chosen["bucket"]
+            current_face_w = chosen["w"]
             targets.append({
                 "time": time,
                 "center_x": current_focus_x,
@@ -734,44 +733,50 @@ def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turn
             })
             continue
 
-        # Multi-person shot (e.g. 2-person wide):
-        desired_face = None
+        # Two-person wide shot:
         can_switch = (time - last_switch_time) >= MIN_HOLD_SAME_SHOT or is_cut
+        speaker_switch_occurred = False
 
-        if left_face and right_face:
-            # Responsive switching: switch when competing speaker has active mouth motion (> 1.0)
-            # exceeding current speaker by at least 0.4 margin (fast, eliminates delay!)
-            if current_focus_bucket == "left":
-                if right_face["activity"] > left_face["activity"] + 0.4 and right_face["activity"] > 1.0 and can_switch:
-                    desired_face = right_face
-                else:
-                    desired_face = left_face
-            elif current_focus_bucket == "right":
-                if left_face["activity"] > right_face["activity"] + 0.4 and left_face["activity"] > 1.0 and can_switch:
-                    desired_face = left_face
-                else:
-                    desired_face = right_face
+        if current_focus_bucket == "left":
+            # Right speaker must exhibit sustained speech for at least 3 consecutive samples (>=0.6s)
+            if mot_r > 1.2 and mot_r > mot_l:
+                consecutive_competing_speech += 1
             else:
-                desired_face = left_face if left_face["activity"] >= right_face["activity"] else right_face
-        elif left_face:
-            desired_face = left_face
-        elif right_face:
-            desired_face = right_face
-        else:
-            desired_face = faces[0]
+                consecutive_competing_speech = max(0, consecutive_competing_speech - 1)
 
-        if desired_face:
-            if desired_face["bucket"] != current_focus_bucket:
+            if consecutive_competing_speech >= 3 and can_switch and right_face:
+                current_focus_bucket = "right"
+                current_focus_x = max(right_face["center_x"], frame_width * 0.56)
+                current_face_w = right_face["w"]
                 last_switch_time = time
-                current_focus_bucket = desired_face["bucket"]
-            current_focus_x = desired_face["center_x"]
-            current_face_w = desired_face["w"]
+                consecutive_competing_speech = 0
+                speaker_switch_occurred = True
+            elif left_face:
+                current_focus_x = min(left_face["center_x"], frame_width * 0.44)
+                current_face_w = left_face["w"]
+        else:
+            # Left speaker must exhibit sustained speech for at least 3 consecutive samples
+            if mot_l > 1.2 and mot_l > mot_r:
+                consecutive_competing_speech += 1
+            else:
+                consecutive_competing_speech = max(0, consecutive_competing_speech - 1)
+
+            if consecutive_competing_speech >= 3 and can_switch and left_face:
+                current_focus_bucket = "left"
+                current_focus_x = min(left_face["center_x"], frame_width * 0.44)
+                current_face_w = left_face["w"]
+                last_switch_time = time
+                consecutive_competing_speech = 0
+                speaker_switch_occurred = True
+            elif right_face:
+                current_focus_x = max(right_face["center_x"], frame_width * 0.56)
+                current_face_w = right_face["w"]
 
         targets.append({
             "time": time,
             "center_x": current_focus_x,
             "face_width": current_face_w,
-            "is_cut": is_cut,
+            "is_cut": is_cut or speaker_switch_occurred,
         })
 
     # Group timeline targets into segments
