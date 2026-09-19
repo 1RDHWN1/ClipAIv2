@@ -254,6 +254,11 @@ export function snapBoundary(targetTime, {
     iterations++;
   }
 
+  // Snapshot the collision-free result BEFORE STAGE 5 may overwrite it.
+  // STAGE 5b re-validates any semantic restore against this fallback.
+  const timeAfterCollisionResolution = snappedTime;
+  const collisionResolvedTo = snappedTo;
+
   // STAGE 5: RE-SNAP to sentence/silence boundary after collision resolution
   // ONLY if the ORIGINAL target was within tolerance of a semantic boundary.
   // This prevents re-snapping just because collision resolution landed us at a sentence boundary.
@@ -320,6 +325,27 @@ export function snapBoundary(targetTime, {
         snappedTime = bestSilCandidate;
         snappedTo = 'silence';
       }
+    }
+  }
+
+  // -------------------------------------------------------------
+  // STAGE 5b: RE-ASSERT THE ACTIVE SPEECH INVARIANT (audit finding H3)
+  //
+  // STAGE 5 restores a semantic (sentence/silence) boundary chosen from the RAW
+  // target. That restore could push the cut back INSIDE a spoken word, silently
+  // breaking the F5 invariant that STAGE 4 had just guaranteed. Sentence and
+  // word timings come from different sources (LLM segmentation vs ASR tokens),
+  // so a sentence boundary landing inside a word is realistic — verified with a
+  // sentence start at 5.0s sitting inside a word spanning 4.5-5.5s.
+  //
+  // We therefore re-check, and only keep the semantic snap if it is collision
+  // free. Otherwise we fall back to the collision-free time STAGE 4 produced.
+  // -------------------------------------------------------------
+  if (snappedTime !== timeAfterCollisionResolution) {
+    const restored = checkSpeechCollision(snappedTime, sortedWords, 1e-6);
+    if (restored.collides) {
+      snappedTime = timeAfterCollisionResolution;
+      snappedTo = collisionResolvedTo;
     }
   }
 
