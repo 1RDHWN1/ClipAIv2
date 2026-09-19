@@ -41,15 +41,15 @@ export function buildAdaptiveSplitFilterGraph({
     const avgX1 = wideIntervals.reduce((acc, i) => acc + (i.x1 || srcWidth * 0.22), 0) / wideIntervals.length;
     const avgX2 = wideIntervals.reduce((acc, i) => acc + (i.x2 || srcWidth * 0.78), 0) / wideIntervals.length;
 
-    const panelCropW = Math.min(srcWidth / 2, Math.floor(srcHeight * 9 / 8));
-    const panelCropH = Math.min(srcHeight, 540);
+    const panelCropW = Math.min(Math.floor(srcWidth * 0.38), Math.floor(srcHeight * 9 / 16));
+    const panelCropH = srcHeight;
     const cropX1 = Math.max(0, Math.min(srcWidth - panelCropW, Math.floor(avgX1 - panelCropW / 2)));
     const cropX2 = Math.max(0, Math.min(srcWidth - panelCropW, Math.floor(avgX2 - panelCropW / 2)));
-    const cropY = Math.max(0, Math.floor((srcHeight - panelCropH) / 2));
+    const cropY = 0;
 
     const evenX1 = Math.floor(cropX1 / 2) * 2;
     const evenX2 = Math.floor(cropX2 / 2) * 2;
-    const evenY = Math.floor(cropY / 2) * 2;
+    const evenY = 0;
 
     filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX1}:${evenY},scale=1080:960,setsar=1[top]`);
     filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX2}:${evenY},scale=1080:960,setsar=1[bottom]`);
