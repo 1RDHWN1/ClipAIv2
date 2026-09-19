@@ -142,3 +142,70 @@ describe('Subtitle Generator Engine (R2 & R3)', () => {
     });
   });
 });
+
+describe('Caption Continuity (regression)', () => {
+  it('holds captions across short auto-sub gaps instead of blanking', () => {
+    // Bug: auto-generated transcripts (YouTube subs) have short 1-2s gaps
+    // between sentences. The old renderer ended each caption exactly at the
+    // last spoken word, blanking the screen during those gaps so subtitles
+    // looked "missing". Captions must hold across SHORT gaps.
+    const clipStart = 100;
+    const clipEnd = 215;
+    const words = [];
+    let t = 95;
+    for (let i = 0; i < 200; i++) {
+      const dur = 0.4 + ((i * 37) % 30) / 100; // deterministic pseudo-random
+      words.push({ word: `w${i}`, start: t, end: t + dur });
+      t += dur + (i % 3 === 0 ? 1.8 : 0.05);
+      if (t > 220) break;
+    }
+
+    const ass = generateAssSubtitles(words, clipStart, clipEnd, { preset: 'cyber' });
+    const lines = ass.split('\n').filter((l) => l.startsWith('Dialogue:'));
+    assert.ok(lines.length > 0, 'Must produce subtitle events');
+
+    const toSec = (ts) => {
+      const [h, m, s] = ts.split(':');
+      return Number(h) * 3600 + Number(m) * 60 + parseFloat(s);
+    };
+
+    const intervals = lines
+      .map((l) => {
+        const p = l.split(',');
+        return { s: toSec(p[1]), e: toSec(p[2]) };
+      })
+      .sort((a, b) => a.s - b.s);
+
+    const merged = [];
+    for (const iv of intervals) {
+      if (!merged.length || iv.s > merged[merged.length - 1].e) merged.push({ ...iv });
+      else merged[merged.length - 1].e = Math.max(merged[merged.length - 1].e, iv.e);
+    }
+
+    const clipDuration = clipEnd - clipStart;
+    const covered = merged.reduce((acc, m) => acc + Math.max(0, m.e - m.s), 0);
+    const coverageRatio = covered / clipDuration;
+
+    assert.ok(
+      coverageRatio >= 0.95,
+      `Caption coverage must be >= 95% of the clip (got ${(coverageRatio * 100).toFixed(1)}%)`
+    );
+
+    for (let i = 1; i < merged.length; i++) {
+      const gap = merged[i].s - merged[i - 1].e;
+      assert.ok(gap <= 0.5, `Blank gap of ${gap.toFixed(2)}s found (max 0.5s allowed)`);
+    }
+  });
+
+  it('still leaves a clean gap across genuinely long silence (>20s)', () => {
+    const pauseWords = [
+      { word: 'Hello', start: 0.0, end: 0.5 },
+      { word: 'Goodbye.', start: 21.5, end: 22.0 },
+    ];
+    const pauseAss = generateAssSubtitles(pauseWords, 0, 30.0, { preset: 'cyber' });
+    const pauseLines = pauseAss.split('\n').filter((l) => l.startsWith('Dialogue:'));
+    assert.equal(pauseLines.length, 2, 'Two isolated captions for a >20s silence');
+    const first = pauseLines[0].split(',');
+    assert.equal(first[2], '0:00:00.50', 'Caption must NOT hold across a 20s silence');
+  });
+});

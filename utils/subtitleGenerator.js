@@ -314,9 +314,32 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   const chunks = chunkWords(clipWords, start, end, config);
   const events = [];
 
+  // How long a caption may "hold" after its last word before going blank.
+  //
+  // Rationale: auto-generated transcripts (YouTube subs) have short 1-2s gaps
+  // between sentences. Blanking the caption during those makes subtitles look
+  // "missing" and choppy. But genuinely long silences (>3s) SHOULD be blank —
+  // there is no speech to caption. So we hold across SHORT gaps only.
+  const HOLD_AFTER_LAST_WORD = Number(config.holdAfterWordSeconds) > 0
+    ? Number(config.holdAfterWordSeconds)
+    : 2.0;
+
+  // Gaps larger than this are treated as real silence: the caption is allowed
+  // to disappear (existing behaviour, preserves "clean gap" semantics).
+  const MAX_HOLD_GAP = Number(config.maxHoldGapSeconds) > 0
+    ? Number(config.maxHoldGapSeconds)
+    : 3.0;
+
+  // Absolute end of the clip (relative seconds).
+  const clipEndRelative = Number.isFinite(end) && Number.isFinite(start)
+    ? Math.max(0, end - start)
+    : Infinity;
+
   for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
     const chunk = chunks[cIdx];
     if (!chunk || chunk.length === 0) continue;
+
+    const isLastChunk = cIdx === chunks.length - 1;
 
     // Find the start time of the next valid chunk to strictly prevent overlapping dialogue events
     let nextChunkStartSec = Infinity;
@@ -331,19 +354,51 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const activeWord = chunk[j];
       const startSec = activeWord.start;
 
-      const nextWordStartSec = (j < chunk.length - 1)
-        ? chunk[j + 1].start
-        : nextChunkStartSec;
+      const isLastWordInChunk = j === chunk.length - 1;
 
-      // Word stays illuminated until next word starts or until chunk ends
-      let endSec = (j === chunk.length - 1)
-        ? Math.max(startSec + 0.08, activeWord.end)
-        : Math.max(startSec + 0.08, chunk[j + 1].start);
+      const nextWordStartSec = isLastWordInChunk
+        ? nextChunkStartSec
+        : chunk[j + 1].start;
+
+      // Compute event end.
+      //  - Mid-chunk word: stay lit until the next word starts.
+      //  - Last word of chunk: stay lit until the next chunk starts, but only
+      //    across SHORT gaps. If the next chunk is far away (real silence),
+      //    end at the spoken word's end (clean gap preserved).
+      let endSec;
+      if (!isLastWordInChunk) {
+        endSec = Math.max(startSec + 0.08, chunk[j + 1].start);
+      } else {
+        const spokenEnd = Math.max(startSec + 0.08, activeWord.end);
+
+        if (Number.isFinite(nextChunkStartSec) && nextChunkStartSec > startSec) {
+          const gap = nextChunkStartSec - spokenEnd;
+          if (gap <= MAX_HOLD_GAP) {
+            // Short gap -> hold the caption right up to the next chunk.
+            endSec = nextChunkStartSec;
+          } else {
+            // Long silence -> let the caption end with the word (clean gap).
+            endSec = spokenEnd;
+          }
+        } else {
+          // No following chunk (or it is the last one): never jump to the clip
+          // end. Just respect the natural spoken end; the cap below bounds it.
+          endSec = spokenEnd;
+        }
+
+        // Never hold longer than the configured cap.
+        endSec = Math.min(endSec, spokenEnd + HOLD_AFTER_LAST_WORD);
+      }
 
       // HARD INVARIANT: endSec cannot exceed nextWordStartSec!
       // This strictly prevents multiple subtitle events from colliding and stacking upwards in ASS!
       if (Number.isFinite(nextWordStartSec) && nextWordStartSec > startSec) {
         endSec = Math.min(endSec, nextWordStartSec);
+      }
+
+      // Guard: never emit a zero/negative-length event.
+      if (!(endSec > startSec)) {
+        endSec = startSec + 0.08;
       }
 
       const startStr = formatAssTime(startSec);
