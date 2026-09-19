@@ -194,21 +194,19 @@ export async function processClips(videoPath, clips, jobId, aspectRatio = '9:16'
           ? clip.words
           : (Array.isArray(options.words) ? options.words : []);
 
-        const isAlreadyRelative = clip.start > 0 && candidateWords.every(
-          (w) => (w.start || 0) < clip.start && (w.end || 0) <= (clip.end - clip.start) + 1.0
-        );
-
-        const clipWords = isAlreadyRelative
-          ? candidateWords
-          : candidateWords.filter(
-              (w) => w && typeof w.word === 'string' && w.end > clip.start && w.start < clip.end
-            );
+        // Selalu asumsikan input words pakai absolute timestamp (dari awal video).
+        // Konversi ke relative timestamp untuk subtitle generator.
+        const clipWords = candidateWords
+          .filter(w => w && typeof w.word === 'string' && w.end > clip.start && w.start < clip.end)
+          .map(w => ({ ...w, start: w.start - clip.start, end: w.end - clip.start }))
+          .filter(w => w.end > w.start)
+          .sort((a, b) => a.start - b.start);
 
         if (clipWords.length > 0) {
           const assContent = generateAssSubtitles(
             clipWords,
-            clip.start,
-            clip.end,
+            0,  // relative start (sudah dikonversi di atas)
+            clip.end - clip.start,  // relative duration
             {
               ...subtitleConfig,
               marginV: subtitleConfig.marginV !== undefined ? Number(subtitleConfig.marginV) : 160,

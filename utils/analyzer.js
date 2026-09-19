@@ -240,21 +240,7 @@ export function resolveSentenceIds(clip, map, context = {}) {
     throw new Error(`startSentenceId "${startSentenceId}" (index ${startSentence.index}) cannot be after endSentenceId "${endSentenceId}" (index ${endSentence.index})`);
   }
 
-  // Enforce max duration constraint (default 90 seconds / 1.5 minutes)
-  const maxClipDuration = typeof context.maxClipDuration === 'number' ? context.maxClipDuration : 90;
-  if (context.clampDuration !== false && (endSentence.end - startSentence.start) > maxClipDuration) {
-    if (Array.isArray(context.sentences) && context.sentences.length > 0) {
-      for (let idx = endSentence.index; idx >= startSentence.index; idx--) {
-        const candidate = context.sentences.find((s) => s.index === idx);
-        if (candidate && (candidate.end - startSentence.start) <= maxClipDuration) {
-          endSentence = candidate;
-          break;
-        }
-      }
-    }
-  }
-
-  // Pre-snap boundaries using boundary snapper
+  // Pre-snap boundaries using boundary snapper FIRST
   const startSnap = snapBoundary(startSentence.start, {
     ...context,
     boundaryType: 'start',
@@ -263,6 +249,34 @@ export function resolveSentenceIds(clip, map, context = {}) {
     ...context,
     boundaryType: 'end',
   });
+
+  let snappedStart = startSnap.snappedTime;
+  let snappedEnd = endSnap.snappedTime;
+
+  // Enforce max duration constraint AFTER snapping (default 90 seconds / 1.5 minutes)
+  const maxClipDuration = typeof context.maxClipDuration === 'number' ? context.maxClipDuration : 90;
+  if (context.clampDuration !== false && (snappedEnd - snappedStart) > maxClipDuration) {
+    // Need to adjust end boundary backward
+    if (Array.isArray(context.sentences) && context.sentences.length > 0) {
+      // Find the latest sentence that keeps us within maxClipDuration from snappedStart
+      for (let idx = endSentence.index; idx >= startSentence.index; idx--) {
+        const candidate = context.sentences.find((s) => s.index === idx);
+        if (candidate) {
+          const candidateEndSnap = snapBoundary(candidate.end, {
+            ...context,
+            boundaryType: 'end',
+          });
+          if ((candidateEndSnap.snappedTime - snappedStart) <= maxClipDuration) {
+            endSentence = candidate;
+            snappedEnd = candidateEndSnap.snappedTime;
+            endSnap.snappedTo = candidateEndSnap.snappedTo;
+            endSnap.adjustedDeltaMs = candidateEndSnap.adjustedDeltaMs;
+            break;
+          }
+        }
+      }
+    }
+  }
 
   const isEn = String(context.language || '').toLowerCase().startsWith('en');
   const defaultTitle = isEn ? 'Compelling Clip' : 'Clip Menarik';

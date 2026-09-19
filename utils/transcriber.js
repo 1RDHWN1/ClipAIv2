@@ -4,6 +4,7 @@ import FormData from 'form-data';
 import axios from 'axios';
 import ffmpeg from 'fluent-ffmpeg';
 import 'dotenv/config';
+import { Mutex } from 'async-mutex';
 
 import { segmentWordsIntoSentences } from './sentenceSegmenter.js';
 import { detectSilence } from './silenceDetector.js';
@@ -119,11 +120,13 @@ export function detectLanguageFromText(text, fallback = 'id') {
 
 /**
  * Pool dan rotasi otomatis API Key Groq untuk mencegah hambatan Rate Limit.
+ * Thread-safe menggunakan async-mutex untuk mencegah race condition pada concurrent workers.
  */
 export class GroqKeyPool {
   constructor() {
     this.keys = [];
     this.currentIndex = 0;
+    this.mutex = new Mutex();
     this.refreshKeys();
   }
 
@@ -157,45 +160,51 @@ export class GroqKeyPool {
     return this.keys.length;
   }
 
-  getNextKey() {
-    if (this.keys.length === 0) this.refreshKeys();
-    if (this.keys.length === 0) {
-      throw new Error('GROQ_API_KEY tidak ditemukan di .env');
-    }
-
-    const now = Date.now();
-    // Cari key yang saat ini tidak sedang rate-limited
-    for (let i = 0; i < this.keys.length; i++) {
-      const idx = (this.currentIndex + i) % this.keys.length;
-      const keyObj = this.keys[idx];
-      if (keyObj.rateLimitedUntil <= now) {
-        this.currentIndex = (idx + 1) % this.keys.length;
-        return { keyObj, waitMs: 0 };
+  async getNextKey() {
+    return this.mutex.runExclusive(async () => {
+      if (this.keys.length === 0) this.refreshKeys();
+      if (this.keys.length === 0) {
+        throw new Error('GROQ_API_KEY tidak ditemukan di .env');
       }
-    }
 
-    // Jika seluruh key dalam pool sedang rate-limited, cari yang cooldown-nya paling cepat selesai
-    const sorted = [...this.keys].sort((a, b) => a.rateLimitedUntil - b.rateLimitedUntil);
-    const soonest = sorted[0];
-    const waitMs = Math.max(0, soonest.rateLimitedUntil - now);
-    return { keyObj: soonest, waitMs };
+      const now = Date.now();
+      // Cari key yang saat ini tidak sedang rate-limited
+      for (let i = 0; i < this.keys.length; i++) {
+        const idx = (this.currentIndex + i) % this.keys.length;
+        const keyObj = this.keys[idx];
+        if (keyObj.rateLimitedUntil <= now) {
+          this.currentIndex = (idx + 1) % this.keys.length;
+          return { keyObj, waitMs: 0 };
+        }
+      }
+
+      // Jika seluruh key dalam pool sedang rate-limited, cari yang cooldown-nya paling cepat selesai
+      const sorted = [...this.keys].sort((a, b) => a.rateLimitedUntil - b.rateLimitedUntil);
+      const soonest = sorted[0];
+      const waitMs = Math.max(0, soonest.rateLimitedUntil - now);
+      return { keyObj: soonest, waitMs };
+    });
   }
 
-  markRateLimited(keyStr, waitSeconds = 60) {
-    const item = this.keys.find((k) => k.key === keyStr);
-    if (item) {
-      item.rateLimitedUntil = Date.now() + (waitSeconds * 1000);
-      item.errorCount++;
-      console.warn(`⏳ Groq Key #${item.index} (${item.masked}) tercatat rate-limited hingga ${waitSeconds} detik ke depan.`);
-    }
+  async markRateLimited(keyStr, waitSeconds = 60) {
+    await this.mutex.runExclusive(() => {
+      const item = this.keys.find((k) => k.key === keyStr);
+      if (item) {
+        item.rateLimitedUntil = Date.now() + (waitSeconds * 1000);
+        item.errorCount++;
+        console.warn(`⏳ Groq Key #${item.index} (${item.masked}) tercatat rate-limited hingga ${waitSeconds} detik ke depan.`);
+      }
+    });
   }
 
-  markSuccess(keyStr) {
-    const item = this.keys.find((k) => k.key === keyStr);
-    if (item) {
-      item.successCount++;
-      item.totalRequests++;
-    }
+  async markSuccess(keyStr) {
+    await this.mutex.runExclusive(() => {
+      const item = this.keys.find((k) => k.key === keyStr);
+      if (item) {
+        item.successCount++;
+        item.totalRequests++;
+      }
+    });
   }
 }
 
@@ -661,7 +670,7 @@ async function requestGroqTranscription(filePath, options = {}) {
   const maxAttempts = Math.max(poolSize * 2, 6);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const { keyObj, waitMs } = groqKeyPool.getNextKey();
+    const { keyObj, waitMs } = await groqKeyPool.getNextKey();
 
     // Jika seluruh key dalam pool sedang rate-limited / cooldown
     if (waitMs > 0) {
@@ -696,7 +705,7 @@ async function requestGroqTranscription(filePath, options = {}) {
         }
       );
 
-      groqKeyPool.markSuccess(currentKey);
+      await groqKeyPool.markSuccess(currentKey);
       console.log(`✅ [Groq Whisper] Transkripsi sukses dengan Key #${keyObj.index} (${keyObj.masked})`);
       return response.data;
     } catch (err) {
@@ -705,7 +714,7 @@ async function requestGroqTranscription(filePath, options = {}) {
       const waitSeconds = parseRetryAfterSeconds(msg) || (status === 429 ? 60 : null);
 
       if (waitSeconds !== null || status === 429) {
-        groqKeyPool.markRateLimited(currentKey, waitSeconds || 60);
+        await groqKeyPool.markRateLimited(currentKey, waitSeconds || 60);
         console.warn(`🔄 Key #${keyObj.index} (${keyObj.masked}) terkena rate limit Groq! Otomatis rotasi ke API key berikutnya tanpa menunggu...`);
         if (typeof options.onStatus === 'function') {
           await options.onStatus({

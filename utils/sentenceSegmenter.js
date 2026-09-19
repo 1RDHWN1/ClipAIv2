@@ -169,7 +169,7 @@ export function segmentWordsIntoSentences(words, options = {}) {
 
       // Condition 4: Excessive duration guard with moderate pause or hard cap
       const isOverMaxDuration = (currentDuration >= maxSentenceDuration && pause >= DEFAULT_MAX_SILENCE_IN_LONG_SENTENCE) ||
-                                (currentDuration >= maxSentenceDuration * 1.5 && pause >= 0);
+                                (currentDuration >= maxSentenceDuration * 1.5 && pause >= DEFAULT_MAX_SILENCE_IN_LONG_SENTENCE);
 
       if (speakerChanged || isLongPause || hasTerminal || isOverMaxDuration) {
         shouldSplit = true;

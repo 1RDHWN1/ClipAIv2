@@ -229,6 +229,7 @@ export function snapBoundary(targetTime, {
   // STAGE 4: STRICT ACTIVE SPEECH PROTECTION INVARIANT ENFORCEMENT (F5)
   // For all w in words: candidateTime not in (w.start, w.end)
   // -------------------------------------------------------------
+  // Use consistent rounding: floor for start, ceil for end (both to 3dp)
   let snappedTime = isStartBoundary
     ? parseFloat((Math.floor(candidateTime * 1000) / 1000).toFixed(3))
     : parseFloat((Math.ceil(candidateTime * 1000) / 1000).toFixed(3));
@@ -251,6 +252,43 @@ export function snapBoundary(targetTime, {
     }
     snappedTo = 'word_boundary';
     iterations++;
+  }
+
+  // STAGE 5: RE-SNAP to sentence/silence boundary after collision resolution
+  // This ensures we don't land in the middle of a word but still prefer semantic boundaries
+  if (snappedTo === 'word_boundary') {
+    // Try sentence boundary within tolerance
+    let bestSentenceDiff = Infinity;
+    let bestSentenceCandidate = null;
+    for (const s of sortedSentences) {
+      if (typeof s.start !== 'number' || typeof s.end !== 'number') continue;
+      const sentencePoint = isStartBoundary ? s.start : s.end;
+      const diff = Math.abs(snappedTime - sentencePoint);
+      if (diff <= maxToleranceSec + 1e-6 && diff < bestSentenceDiff) {
+        bestSentenceDiff = diff;
+        bestSentenceCandidate = sentencePoint;
+      }
+    }
+    if (bestSentenceCandidate !== null) {
+      snappedTime = bestSentenceCandidate;
+      snappedTo = 'sentence';
+    } else if (qualifiedSilences.length > 0) {
+      // Try silence boundary within tolerance
+      let bestSilDiff = Infinity;
+      let bestSilCandidate = null;
+      for (const sil of qualifiedSilences) {
+        const edgePoint = isStartBoundary ? sil.end : sil.start;
+        const diff = Math.abs(snappedTime - edgePoint);
+        if (diff <= maxToleranceSec + 1e-6 && diff < bestSilDiff) {
+          bestSilDiff = diff;
+          bestSilCandidate = edgePoint;
+        }
+      }
+      if (bestSilCandidate !== null) {
+        snappedTime = bestSilCandidate;
+        snappedTo = 'silence';
+      }
+    }
   }
 
   const adjustedDeltaMs = parseFloat((Math.abs(snappedTime - rawTarget) * 1000).toFixed(1));
