@@ -367,6 +367,14 @@ def detect_yolo_pose(frame, gray, session, min_face_size, frame_width, frame_hei
             shoulder_cx = (left_shoulder[0] + right_shoulder[0]) / 2.0 if has_shoulders else None
             shoulder_w = abs(right_shoulder[0] - left_shoulder[0]) if has_shoulders else 0
 
+            # Crucial: verify that the person is facing the camera (eyes or nose visible).
+            # People seen from behind (e.g. over-the-shoulder foreground silhouettes) have no visible facial keypoints.
+            has_visible_face = bool(
+                nose[2] >= POSE_CONF_THRESHOLD or
+                left_eye[2] >= POSE_CONF_THRESHOLD or
+                right_eye[2] >= POSE_CONF_THRESHOLD
+            )
+
             if head_pts_x:
                 head_cx = sum(head_pts_x) / len(head_pts_x)
                 head_cy = sum(head_pts_y) / len(head_pts_y)
@@ -431,6 +439,7 @@ def detect_yolo_pose(frame, gray, session, min_face_size, frame_width, frame_hei
                 "h": expanded[3],
                 "mouth_patch": mouth_patch,
                 "bucket": "left" if subject_cx < frame_width * 0.5 else "right",
+                "has_visible_face": has_visible_face,
             })
 
         results.sort(key=lambda item: item["score"], reverse=True)
@@ -853,10 +862,18 @@ def extract_wide_intervals(frame_records, min_duration=0.8):
 
     for fr in frame_records:
         t = fr["time"]
-        faces = fr["faces"]
-        is_wide = len(faces) >= 2
+        # Only consider people with a visible face (facing the camera)
+        # Filters out over-the-shoulder foreground silhouettes seen from behind!
+        faces = [f for f in fr["faces"] if f.get("has_visible_face", True)]
         left_face = next((f for f in faces if f["bucket"] == "left"), None)
         right_face = next((f for f in faces if f["bucket"] == "right"), None)
+
+        # Genuine two-person wide shot: BOTH must face camera and have wide horizontal separation (>350px)
+        is_wide = (
+            left_face is not None and
+            right_face is not None and
+            abs(right_face["center_x"] - left_face["center_x"]) >= 350.0
+        )
 
         if is_wide and left_face and right_face:
             if current_start is None:
