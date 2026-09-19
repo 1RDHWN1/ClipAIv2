@@ -670,20 +670,14 @@ def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turn
             break
 
     if initial_focus_x is None:
-        initial_focus_x = frame_width * 0.28 if dominant_bucket == "left" else frame_width * 0.72
+        initial_focus_x = frame_width * 0.5
         initial_focus_bucket = dominant_bucket
-
-    # Guard against dead-center table framing
-    if initial_focus_bucket == "left":
-        initial_focus_x = min(initial_focus_x, frame_width * 0.44)
-    else:
-        initial_focus_x = max(initial_focus_x, frame_width * 0.56)
 
     current_focus_x = initial_focus_x
     current_focus_bucket = initial_focus_bucket
     current_face_w = initial_face_w
     last_switch_time = 0.0
-    MIN_HOLD_SAME_SHOT = 3.2  # 3.2s professional broadcast hold time between cuts
+    MIN_HOLD_SAME_SHOT = 2.4  # 2.4s natural television hold time between cuts
     MAX_SEGMENTS = 16
 
     act_l = 0.0
@@ -738,38 +732,38 @@ def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turn
         speaker_switch_occurred = False
 
         if current_focus_bucket == "left":
-            # Right speaker must exhibit sustained speech for at least 3 consecutive samples (>=0.6s)
-            if mot_r > 1.2 and mot_r > mot_l:
+            # Right speaker must exhibit sustained speech (active mouth energy)
+            if act_r > 1.0 and act_r > act_l * 1.2:
                 consecutive_competing_speech += 1
             else:
                 consecutive_competing_speech = max(0, consecutive_competing_speech - 1)
 
-            if consecutive_competing_speech >= 3 and can_switch and right_face:
+            if consecutive_competing_speech >= 2 and can_switch and right_face:
                 current_focus_bucket = "right"
-                current_focus_x = max(right_face["center_x"], frame_width * 0.56)
+                current_focus_x = right_face["center_x"]
                 current_face_w = right_face["w"]
                 last_switch_time = time
                 consecutive_competing_speech = 0
                 speaker_switch_occurred = True
             elif left_face:
-                current_focus_x = min(left_face["center_x"], frame_width * 0.44)
+                current_focus_x = left_face["center_x"]
                 current_face_w = left_face["w"]
         else:
-            # Left speaker must exhibit sustained speech for at least 3 consecutive samples
-            if mot_l > 1.2 and mot_l > mot_r:
+            # Left speaker must exhibit sustained speech
+            if act_l > 1.0 and act_l > act_r * 1.2:
                 consecutive_competing_speech += 1
             else:
                 consecutive_competing_speech = max(0, consecutive_competing_speech - 1)
 
-            if consecutive_competing_speech >= 3 and can_switch and left_face:
+            if consecutive_competing_speech >= 2 and can_switch and left_face:
                 current_focus_bucket = "left"
-                current_focus_x = min(left_face["center_x"], frame_width * 0.44)
+                current_focus_x = left_face["center_x"]
                 current_face_w = left_face["w"]
                 last_switch_time = time
                 consecutive_competing_speech = 0
                 speaker_switch_occurred = True
             elif right_face:
-                current_focus_x = max(right_face["center_x"], frame_width * 0.56)
+                current_focus_x = right_face["center_x"]
                 current_face_w = right_face["w"]
 
         targets.append({

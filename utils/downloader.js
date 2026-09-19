@@ -351,7 +351,7 @@ export async function downloadClipSection(rawUrl, start, end, outputPath) {
   const sectionSpec = `*${startTime}-${endTime}`;
 
   console.log(`📥 Downloading video section only [${sectionSpec}]: ${url}`);
-  const formatChain = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/bestvideo[height<=720]+bestaudio/best[height<=720]/best';
+  const formatChain = 'bestvideo[vcodec^=avc1][height<=720]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc][height<=720]+bestaudio/best[vcodec^=avc][height<=720]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best';
   
   const sectionStrategies = [
     `yt-dlp --no-update --js-runtimes node --no-playlist --retries 3 --fragment-retries 3 --extractor-args "youtube:player_client=web,default" --download-sections "${sectionSpec}" -f "${formatChain}" --merge-output-format mp4 -o "${outputPath}" "${url}" --force-keyframes-at-cuts`,
