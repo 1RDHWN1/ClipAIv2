@@ -168,19 +168,28 @@ export function chunkWords(words, clipStart = 0, clipEnd = Infinity, options = {
     ? Math.max(0.1, end - start)
     : Infinity;
 
-  // Input words from clipper.js are now ALWAYS relative (0..duration).
-  // No more heuristic guessing - just use them directly.
+  // Detect if words are already relative (0..clipDuration) or absolute (0..videoDuration)
+  // Heuristic: if first word's start < clipStart, assume relative; otherwise assume absolute
+  const isAlreadyRelative = start > 0 &&
+    words.length > 0 &&
+    words.every((w) => (w.start || 0) < start && (w.end || 0) <= clipDuration + 1.0);
+  const startOffset = isAlreadyRelative ? 0 : start;
+
+  // Filter words strictly within clip boundary and normalize relative timestamps
   const clipWords = words
     .filter((w) => {
       if (!w || typeof w.word !== 'string') return false;
       const text = w.word.trim();
       if (!text) return false;
-      return (w.end || 0) > 0 && (w.start || 0) < clipDuration;
+      if (isAlreadyRelative) {
+        return (w.end || 0) > 0 && (w.start || 0) < clipDuration;
+      }
+      return (w.end || 0) > start && (w.start || 0) < end;
     })
     .map((w) => ({
       word: w.word.trim(),
-      start: Math.max(0, Number(w.start) || 0),
-      end: Math.min(clipDuration, Number(w.end) || 0),
+      start: Math.max(0, (Number(w.start) || 0) - startOffset),
+      end: Math.min(clipDuration, (Number(w.end) || 0) - startOffset),
     }))
     .filter((w) => w.end > w.start)
     .sort((a, b) => a.start - b.start);

@@ -255,35 +255,67 @@ export function snapBoundary(targetTime, {
   }
 
   // STAGE 5: RE-SNAP to sentence/silence boundary after collision resolution
-  // This ensures we don't land in the middle of a word but still prefer semantic boundaries
-  if (snappedTo === 'word_boundary') {
-    // Try sentence boundary within tolerance
+  // ONLY if the ORIGINAL target was within tolerance of a semantic boundary.
+  // This prevents re-snapping just because collision resolution landed us at a sentence boundary.
+  // -------------------------------------------------------------
+  // Track original semantic match before collision resolution
+  const originalSnappedTo = snappedTo;
+  const originalBestSentenceCandidate = bestSentenceCandidate;
+  const originalMatchedGapDuration = matchedGapDuration;
+
+  if (snappedTo === 'word_boundary' && originalSnappedTo !== 'word_boundary') {
+    // We originally matched a sentence/silence boundary, but collision resolution moved us.
+    // Re-snap to the original semantic boundary.
+    if (originalSnappedTo === 'sentence' && originalBestSentenceCandidate !== null) {
+      snappedTime = originalBestSentenceCandidate;
+      snappedTo = 'sentence';
+    } else if (originalSnappedTo === 'silence' && originalMatchedGapDuration !== undefined) {
+      // Find the silence that matched originally
+      for (const sil of qualifiedSilences) {
+        const edgePoint = isStartBoundary ? sil.end : sil.start;
+        if (Math.abs(edgePoint - candidateTime) < 1e-6) {
+          snappedTime = edgePoint;
+          snappedTo = 'silence';
+          break;
+        }
+      }
+    }
+  } else if (snappedTo === 'word_boundary') {
+    // We never matched a semantic boundary originally - try sentence/silence within tolerance of RAW TARGET
+    // (not the collision-resolved position)
     let bestSentenceDiff = Infinity;
     let bestSentenceCandidate = null;
+
     for (const s of sortedSentences) {
       if (typeof s.start !== 'number' || typeof s.end !== 'number') continue;
+
       const sentencePoint = isStartBoundary ? s.start : s.end;
-      const diff = Math.abs(snappedTime - sentencePoint);
+      const diff = Math.abs(rawTarget - sentencePoint);
+
       if (diff <= maxToleranceSec + 1e-6 && diff < bestSentenceDiff) {
         bestSentenceDiff = diff;
         bestSentenceCandidate = sentencePoint;
       }
     }
+
     if (bestSentenceCandidate !== null) {
       snappedTime = bestSentenceCandidate;
       snappedTo = 'sentence';
     } else if (qualifiedSilences.length > 0) {
-      // Try silence boundary within tolerance
+      // Try silence boundary within tolerance of RAW TARGET
       let bestSilDiff = Infinity;
       let bestSilCandidate = null;
+
       for (const sil of qualifiedSilences) {
         const edgePoint = isStartBoundary ? sil.end : sil.start;
-        const diff = Math.abs(snappedTime - edgePoint);
+        const diff = Math.abs(rawTarget - edgePoint);
+
         if (diff <= maxToleranceSec + 1e-6 && diff < bestSilDiff) {
           bestSilDiff = diff;
           bestSilCandidate = edgePoint;
         }
       }
+
       if (bestSilCandidate !== null) {
         snappedTime = bestSilCandidate;
         snappedTo = 'silence';
