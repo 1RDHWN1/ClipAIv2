@@ -16,6 +16,20 @@ const FACE_TRACKING_ENABLED = process.env.FACE_TRACKING_ENABLED !== 'false';
 const FACE_TRACKING_PYTHON = process.env.FACE_TRACKING_PYTHON || 'python';
 const FACE_TRACKING_SAFE_MARGIN_RATIO = parseFloat(process.env.FACE_TRACKING_SAFE_MARGIN_RATIO || '0.18');
 
+// ── Encoding (audit finding H1) ─────────────────────────────────────────────
+// Previously the command carried BOTH `-b:v 2000k` and `-crf 23`, with the
+// `-crf` placed AFTER `-preset`. In x264 a CRF target overrides the bitrate
+// target, so the effective quality was CRF 23 — blocky for a 1080x1920 canvas
+// where burned-in subtitles and grain are visible — while `-b:v` did nothing.
+// The two modes are now explicitly separated: CRF (quality) unless
+// VIDEO_ENCODING_MODE=bitrate is set, in which case only bitrate flags apply.
+const VIDEO_ENCODING_MODE = (process.env.VIDEO_ENCODING_MODE || 'crf').toLowerCase();
+const VIDEO_CRF = parseInt(process.env.VIDEO_CRF || '19', 10);
+const VIDEO_PRESET = process.env.VIDEO_PRESET || 'medium';
+const VIDEO_BITRATE = process.env.VIDEO_BITRATE || '8000k';
+const VIDEO_MAXRATE = process.env.VIDEO_MAXRATE || '10000k';
+const VIDEO_BUFSIZE = process.env.VIDEO_BUFSIZE || '12000k';
+
 /**
  * Builds dynamic adaptive filter graph:
  * Uses Solo Face-Tracked crop for single-person shots, and
@@ -153,6 +167,38 @@ export function buildGamingStreamerFilterGraph({
     camHeight: 800,
     gameHeight: 1120,
   };
+}
+
+/**
+ * Build the video encoding options for libx264 as an explicit, testable list.
+ *
+ * Audit finding H1: mixing `-b:v` with `-crf` silently makes `-crf` win, so the
+ * bitrate was decorative and quality landed at whatever CRF was hardcoded. This
+ * function emits exactly ONE rate-control mode so the intent is unambiguous.
+ *
+ * @param {Object} [overrides]
+ * @returns {string[]} output options to hand to ffmpeg
+ */
+export function buildVideoEncodingOptions(overrides = {}) {
+  const mode = (overrides.mode || VIDEO_ENCODING_MODE).toLowerCase();
+  const preset = overrides.preset || VIDEO_PRESET;
+
+  const qualityFlags = mode === 'bitrate'
+    ? [
+        '-b:v', overrides.bitrate || VIDEO_BITRATE,
+        '-maxrate', overrides.maxrate || VIDEO_MAXRATE,
+        '-bufsize', overrides.bufsize || VIDEO_BUFSIZE,
+      ]
+    : ['-crf', String(overrides.crf ?? VIDEO_CRF)];
+
+  // NOTE: no `-b:v` in CRF mode and no `-crf` in bitrate mode — that mutual
+  // exclusivity is the entire point of this helper.
+  return [
+    ...qualityFlags,
+    '-preset', preset,
+    '-movflags', '+faststart', // streaming-friendly
+    '-pix_fmt', 'yuv420p',
+  ];
 }
 
 /**
@@ -326,13 +372,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       .videoCodec('libx264')
       .audioCodec('aac')
       .audioBitrate('128k')
-      .videoBitrate('2000k')
-      .outputOptions([
-        '-preset veryfast',
-        '-crf 23',
-        '-movflags +faststart', // streaming-friendly
-        '-pix_fmt yuv420p',
-      ]);
+      .outputOptions(buildVideoEncodingOptions());
 
     const layoutMode = options.layoutMode || 'standard';
 
