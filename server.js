@@ -47,7 +47,7 @@ app.use((err, req, res, next) => {
 });
 
 // ── Start server ─────────────────────────────────────────────
-app.listen(PORT, () => {
+const httpServer = app.listen(PORT, () => {
   const activeModel =
     process.env.DEFAULT_MODEL || process.env.AI_MODEL || '(not configured — set DEFAULT_MODEL in .env)';
   const activeBaseUrl = process.env.AI_BASE_URL || 'http://localhost:20128/v1';
@@ -61,3 +61,32 @@ app.listen(PORT, () => {
   console.log(`  ▶️  Jalankan \`npm start\` untuk server + worker sekaligus`);
   console.log(`  🛠️  Jika server dijalankan sendiri, lanjutkan dengan: npm run worker\n`);
 });
+
+// ── Graceful shutdown ────────────────────────────────────────
+// Stop accepting new connections, let in-flight requests drain, then exit.
+// Without this the process ignores SIGTERM and the parent `start-all.js` is
+// forced to SIGKILL it after its failsafe deadline.
+let shuttingDown = false;
+
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  console.log(`\n[server] ${signal} received — closing HTTP server...`);
+
+  httpServer.close(() => {
+    console.log('[server] HTTP server closed gracefully.');
+    process.exit(0);
+  });
+
+  // Safety net: if keep-alive connections prevent close() from resolving,
+  // force the exit rather than hanging forever.
+  const forceTimer = setTimeout(() => {
+    console.error('[server] Forcing exit after 5s (lingering connections).');
+    process.exit(1);
+  }, 5000);
+  forceTimer.unref?.();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
