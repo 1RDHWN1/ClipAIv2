@@ -937,6 +937,13 @@ def extract_wide_intervals(frame_records, min_duration=1.6, frame_width=None):
     MAX_VERTICAL_OFFSET_RATIO = 0.28    # both faces in the same vertical band
     MIN_FACES_PER_FRAME = 2             # a wide shot needs two people at once
 
+    # A genuine two-SHOT (the kind worth a stacked split-screen) frames both
+    # people close enough to read their faces. A wide ROOM shot also contains
+    # two people, but they are far from the camera — cropping each side then
+    # yields furniture and empty space rather than faces. Require BOTH faces to
+    # occupy a meaningful share of the frame width.
+    MIN_FACE_WIDTH_RATIO = 0.12
+
     # Resolve a frame width for ratio maths. Prefer the explicit parameter
     # (passed from main() where the real video dimensions are known); fall back
     # to any width recorded per frame, then to a sane default.
@@ -1012,9 +1019,21 @@ def extract_wide_intervals(frame_records, min_duration=1.6, frame_width=None):
             if last_sep_ratio is not None:
                 jitter_ok = abs(separation_ratio - last_sep_ratio) <= MAX_SEPARATION_JITTER_RATIO
 
+            # ── GUARD 4: both faces must be large enough to be worth framing ──
+            # Rejects wide ROOM shots, where two people are technically visible
+            # but sit far from the camera. Cropping such a shot produces panels
+            # of tables and chairs instead of faces.
+            left_face_ratio = float(left_face.get("w", 0)) / frame_width
+            right_face_ratio = float(right_face.get("w", 0)) / frame_width
+            faces_big_enough = (
+                left_face_ratio >= MIN_FACE_WIDTH_RATIO
+                and right_face_ratio >= MIN_FACE_WIDTH_RATIO
+            )
+
             is_wide = (
                 not same_person
                 and separation_ratio >= MIN_SEPARATION_RATIO
+                and faces_big_enough
                 and vertical_ok
                 and jitter_ok
             )

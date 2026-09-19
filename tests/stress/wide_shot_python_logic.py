@@ -124,6 +124,29 @@ CASES.append((
     True,
 ))
 
+# 8. Wide ROOM shot: two people genuinely in frame but FAR from the camera
+#    (faces only ~5-8% of frame width). Real data from the Jensen Huang
+#    interview. Cropping this yields furniture, so split-screen must NOT fire.
+CASES.append((
+    "wide room shot (2 people far away, faces 5-8% of width)",
+    series(
+        [0, 0.5, 1, 1.5, 2, 2.5, 3],
+        lambda t: [make_face(244, 289, 67, 84), make_face(987, 306, 106, 131)],
+    ),
+    False,
+))
+
+# 9. Genuine close two-shot: both faces large AND far apart -> must stay wide
+#    (guards against over-rejecting when adding the face-size check).
+CASES.append((
+    "close two-shot (large faces, wide apart) stays detected",
+    series(
+        [0, 0.5, 1, 1.5, 2, 2.5, 3],
+        lambda t: [make_face(240, 300, 300, 360), make_face(1010, 310, 310, 370)],
+    ),
+    True,
+))
+
 
 def main():
     failures = 0
