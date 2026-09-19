@@ -133,9 +133,25 @@ acquireLock();
 // Always release the lock no matter how we exit.
 process.on('exit', releaseLock);
 
+// Failsafe: if a child ignores SIGTERM (or any handle keeps the event loop
+// alive), force the whole stack down after a hard deadline. Without this the
+// parent can linger forever holding the lock file.
+const HARD_EXIT_MS = 10000;
+function armHardExit() {
+  const timer = setTimeout(() => {
+    console.error(`\n[failsafe] Shutdown exceeded ${HARD_EXIT_MS}ms — forcing exit.`);
+    for (const [, child] of children) {
+      try { child.kill('SIGKILL'); } catch (_) {}
+    }
+    releaseLock();
+    process.exit(1);
+  }, HARD_EXIT_MS);
+  timer.unref?.();
+}
+
 console.log('Starting API server and video worker...');
 startProcess('server', 'server.js');
 startProcess('worker', 'workers/videoWorker.js');
 
-process.on('SIGINT', () => shutdown(0));
-process.on('SIGTERM', () => shutdown(0));
+process.on('SIGINT', () => { armHardExit(); shutdown(0); });
+process.on('SIGTERM', () => { armHardExit(); shutdown(0); });

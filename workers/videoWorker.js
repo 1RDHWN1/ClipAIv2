@@ -308,13 +308,21 @@ worker.on('progress', (job, progress) => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
-  await worker.close();
-  console.log('Worker stopped gracefully');
-});
+// NOTE: `worker.close()` resolves once BullMQ releases its connections, but the
+// Node event loop can still hold other handles (Redis reconnect timers, etc.).
+// We must explicitly `process.exit()` afterwards or the process lingers forever
+// and the parent `start-all.js` shutdown never completes.
+async function gracefulShutdown(signal) {
+  console.log(`\n[worker] ${signal} received — closing worker...`);
+  try {
+    await worker.close();
+    console.log('[worker] Worker closed gracefully.');
+  } catch (err) {
+    console.error(`[worker] Error during shutdown: ${err.message}`);
+  } finally {
+    process.exit(0);
+  }
+}
 
-process.on('SIGINT', async () => {
-  await worker.close();
-  console.log('Worker stopped');
-  process.exit(0);
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
