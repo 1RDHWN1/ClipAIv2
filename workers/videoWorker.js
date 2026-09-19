@@ -21,6 +21,10 @@ const worker = new Worker(
   async (job) => {
     const { url, aspectRatio, clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard', jobId = job.id } = job.data;
 
+    // Track warnings for transparency about fallbacks and processing path
+    const warnings = [];
+    const addWarning = (msg) => { warnings.push(msg); console.warn(`⚠️ [${jobId}] ${msg}`); };
+
     console.log(`\n${'='.repeat(50)}`);
     console.log(`🎬 Processing job: ${jobId}`);
     console.log(`   URL: ${url}`);
@@ -71,16 +75,20 @@ const worker = new Worker(
 
       // STEP 2: Transkripsi (Hierarki Cepat: Kustom/Paste -> Subtitle YouTube -> Gemini Cloud API -> Browser Otomasi -> Whisper Fallback)
       let transcriptData = null;
+      let transcriptSource = 'unknown';
 
       // 1. Transkrip Manual / Tempel Tanya Gemini
       if (preParsedTranscript) {
         transcriptData = preParsedTranscript;
+        transcriptSource = 'manual_paste';
         console.log(`⚡ Menggunakan transkrip Tanya Gemini (${transcriptData.sentences.length} kalimat). Melewati unduh audio & Whisper!`);
       }
 
       // 2. Subtitle Bawaan YouTube
       const hasInstantSubs = Boolean(downloaded.subtitles && downloaded.subtitles.words?.length >= 10);
       if (!transcriptData && hasInstantSubs) {
+        transcriptSource = 'youtube_subtitles';
+        addWarning(`Using YouTube auto-generated subtitles (${downloaded.subtitles.words.length} words) - accuracy may vary`);
         console.log(`⚡ Menggunakan subtitle instan YouTube (${downloaded.subtitles.words.length} kata)`);
         await job.updateProgress({ step: 2, message: 'Memproses transkrip instan YouTube...', percent: 30 });
         transcriptData = await transcribeAudio(null, {
@@ -90,6 +98,8 @@ const worker = new Worker(
 
       // 3. Automated Gemini API Video Understanding (cloud direct, ~10s)
       if (!transcriptData) {
+        transcriptSource = 'gemini_api';
+        addWarning('Using Gemini API video understanding fallback - may miss speaker diarization');
         await job.updateProgress({ step: 2, message: 'Mencoba transkripsi cloud via Gemini API...', percent: 30 });
         const geminiTranscript = await fetchGeminiApiTranscript(url, {
           duration: downloaded.duration,
@@ -102,6 +112,8 @@ const worker = new Worker(
 
       // 4. Browser Otomasi via Camoufox (coba klik Tanya / panel transkrip YouTube)
       if (!transcriptData) {
+        transcriptSource = 'browser_automation';
+        addWarning('Using browser automation (Camoufox) - slower and may break if YouTube changes UI');
         await job.updateProgress({ step: 2, message: 'Mencoba ekstraksi otomatis via browser...', percent: 35 });
         const browserTranscript = await extractTranscriptViaBrowser(url, {
           duration: downloaded.duration,
@@ -114,11 +126,15 @@ const worker = new Worker(
 
       // 5. Fallback Terakhir: Unduh audio stream & jalankan Whisper
       if (!transcriptData) {
+        transcriptSource = 'whisper_audio';
+        addWarning('All instant paths failed - falling back to audio download + Whisper transcription (slowest path)');
         console.log(`ℹ️ Seluruh jalur instan tidak tersedia. Mengunduh stream audio untuk transkripsi AI...`);
         await job.updateProgress({ step: 2, message: 'Mengunduh audio untuk transkripsi AI...', percent: 40 });
         const audioInfo = await downloadAudioAndInfo(url, jobId, { skipAudioDownload: false });
 
         if (audioInfo.subtitles && Array.isArray(audioInfo.subtitles.words) && audioInfo.subtitles.words.length >= 10) {
+          transcriptSource = 'audio_download_subtitles';
+          addWarning('Found subtitles during audio download - skipping Whisper');
           console.log(`⚡ Subtitle instan ditemukan pada saat download audio (${audioInfo.subtitles.words.length} kata)! Melewati Whisper.`);
           transcriptData = await transcribeAudio(null, {
             mockTranscript: audioInfo.subtitles,
@@ -261,6 +277,8 @@ const worker = new Worker(
         videoTitle: downloaded.title,
         videoDuration: downloaded.duration,
         language,
+        transcriptSource,
+        warnings: warnings.length > 0 ? warnings : undefined,
         clips: finalClips,
       };
     } catch (err) {
