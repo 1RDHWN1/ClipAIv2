@@ -1,6 +1,42 @@
 // utils/subtitleGenerator.js
 import path from 'path';
 
+// ---------------------------------------------------------------------------
+// Subtitle chunk sizing (audit finding M2)
+//
+// `maxCharsPerChunk` used to be a hardcoded 26 regardless of font size. At the
+// mrbeast preset (fontSize 84, uppercase, Impact) 26 uppercase characters
+// measure ~1000-1090px on a 1080px-wide canvas — the caption overflows the
+// frame edge. At fontSize 68 the same 26 characters are comfortable.
+//
+// The cap is therefore derived from the font size so every preset stays inside
+// the safe text area.
+//
+//   usable width  ~= 940px  (1080 canvas minus left/right margins)
+//   avg glyph adv ~= 0.46 em for bold uppercase Impact/Arial in ASS
+//
+//   maxChars = floor(940 / (fontSize * 0.46))
+//
+// Sanity: fontSize 68 -> 30, fontSize 80 -> 25, fontSize 84 -> 24.
+// ---------------------------------------------------------------------------
+const SUBTITLE_SAFE_TEXT_WIDTH_PX = parseInt(process.env.SUBTITLE_SAFE_TEXT_WIDTH_PX || '940', 10);
+const SUBTITLE_AVG_GLYPH_EM = parseFloat(process.env.SUBTITLE_AVG_GLYPH_EM || '0.46');
+const SUBTITLE_MIN_CHARS = 12;
+const SUBTITLE_MAX_CHARS = 30;
+
+/**
+ * Derive a safe maximum character count for one caption line from the font size.
+ *
+ * @param {number} fontSize - font size in ASS pixels
+ * @returns {number} max characters per chunk
+ */
+export function deriveMaxCharsPerChunk(fontSize) {
+  const size = Number(fontSize);
+  if (!Number.isFinite(size) || size <= 0) return SUBTITLE_MAX_CHARS;
+  const byWidth = Math.floor(SUBTITLE_SAFE_TEXT_WIDTH_PX / (size * SUBTITLE_AVG_GLYPH_EM));
+  return Math.max(SUBTITLE_MIN_CHARS, Math.min(SUBTITLE_MAX_CHARS, byWidth));
+}
+
 /**
  * Pre-configured viral subtitle presets inspired by top short-form creators
  */
@@ -201,7 +237,11 @@ export function chunkWords(words, clipStart = 0, clipEnd = Infinity, options = {
   }
 
   const maxWords = Math.min(4, Math.max(2, Number(opts.maxWordsPerChunk || opts.wordsPerChunk) || 3));
-  const maxChars = Number(opts.maxCharsPerChunk) || 26;
+  // Audit M2: the char cap must follow the font size, or a large preset
+  // (fontSize 84) overflows the 1080px canvas while a small one wastes space.
+  const maxChars = Number(opts.maxCharsPerChunk) > 0
+    ? Number(opts.maxCharsPerChunk)
+    : deriveMaxCharsPerChunk(opts.fontSize);
   const pauseThreshold = Number(opts.pauseThreshold) || 0.30; // >300ms pause starts a new chunk
 
   const clipDuration = (Number.isFinite(end) && Number.isFinite(start))
@@ -249,12 +289,21 @@ export function chunkWords(words, clipStart = 0, clipEnd = Infinity, options = {
     if (!shouldSplit) {
       const nextW = clipWords[i + 1];
       const gap = nextW.start - w.end;
+      // Char count if we were to append the next word. `current` already
+      // contains `w`, so we only add the next word plus its separating space.
       const currentChars = current.reduce((acc, item) => acc + item.word.length + 1, 0);
+      const projectedChars = currentChars + nextW.word.length + 1;
 
       const hasPunctuation = /[.?!…]+["')\]}]*$/.test(w.word);
       const isLongGap = gap >= pauseThreshold;
       const isMaxWords = current.length >= maxWords;
-      const isMaxChars = (currentChars + nextW.word.length + 1) > maxChars && current.length >= 2;
+      // Audit M2 (part 2): the `current.length >= 2` guard used to disable the
+      // character cap entirely whenever the current chunk held a single word,
+      // so two long words ("CHARACTERISTIC MISUNDERSTANDING" = 31 chars) sailed
+      // past a 24-char cap and overflowed the canvas. The cap must bind from
+      // the first word onward; we only keep a 2-word minimum when a single
+      // already-overlong word is on screen (it cannot be split any further).
+      const isMaxChars = projectedChars > maxChars && current.length >= 1;
 
       if (hasPunctuation || isLongGap || isMaxWords || isMaxChars) {
         shouldSplit = true;
@@ -351,7 +400,15 @@ Style: Default,${fontFamily},${fontSize},${assPrimary},&H0000FFFF&,${assOutline}
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
 
-  const chunks = chunkWords(clipWords, start, end, config);
+  const chunks = chunkWords(clipWords, start, end, {
+    ...config,
+    fontSize,
+    // Audit M2: derive the char cap from the *resolved* font size (preset
+    // default or explicit override), not from an unrelated constant.
+    maxCharsPerChunk: Number(config.maxCharsPerChunk) > 0
+      ? Number(config.maxCharsPerChunk)
+      : deriveMaxCharsPerChunk(fontSize),
+  });
   const events = [];
 
   // How long a caption may "hold" after its last word before going blank.
