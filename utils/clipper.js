@@ -173,6 +173,7 @@ export async function processClips(videoPath, clips, jobId, aspectRatio = '9:16'
         speakerOrder,
         faceTrackingPlan,
         subtitleAssPath: tempAssFile,
+        layoutMode: options.layoutMode || 'standard',
       });
     } finally {
       if (tempSectionFile && fs.existsSync(tempSectionFile)) {
@@ -254,7 +255,8 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         srcHeight,
         subtitleAssPath: options.subtitleAssPath,
       });
-      cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap);
+      cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap)
+               .outputOptions(['-map 0:a?']);
     } else if (layoutMode === 'split_screen' && aspectRatio === '9:16') {
       const graph = buildStackedSplitFilterGraph({
         srcWidth,
@@ -267,7 +269,8 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         filterComplex += `;${graph.outputMap}ass='${escapedAss}'[vout]`;
         outMap = '[vout]';
       }
-      cmd = cmd.complexFilter(filterComplex, outMap);
+      cmd = cmd.complexFilter(filterComplex, outMap)
+               .outputOptions(['-map 0:a?']);
     } else {
       const vfFilter = buildVideoFilter({
         srcWidth,
