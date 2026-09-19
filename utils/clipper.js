@@ -41,18 +41,40 @@ export function buildAdaptiveSplitFilterGraph({
     const avgX1 = wideIntervals.reduce((acc, i) => acc + (i.x1 || srcWidth * 0.22), 0) / wideIntervals.length;
     const avgX2 = wideIntervals.reduce((acc, i) => acc + (i.x2 || srcWidth * 0.78), 0) / wideIntervals.length;
 
-    const panelCropW = Math.min(Math.floor(srcWidth * 0.38), Math.floor(srcHeight * 9 / 16));
-    const panelCropH = srcHeight;
+    // Each stacked panel renders at 1080x960, i.e. aspect ratio 1.125 (landscape).
+    // The crop MUST match that ratio, otherwise FFmpeg stretches the image and
+    // subjects end up distorted with heads pushed out of frame.
+    const PANEL_OUT_W = 1080;
+    const PANEL_OUT_H = 960;
+    const panelAspect = PANEL_OUT_W / PANEL_OUT_H; // 1.125
+
+    // Derive panel crop from the OUTPUT aspect, capped by source dimensions.
+    // Prefer a crop that is wide enough to include shoulders (speaker width),
+    // while preserving the panel aspect ratio exactly.
+    let panelCropH = srcHeight;
+    let panelCropW = Math.min(srcWidth, Math.round(panelCropH * panelAspect));
+
+    // If the room is too narrow, shrink height instead of distorting width.
+    if (panelCropW > srcWidth) {
+      panelCropW = srcWidth;
+      panelCropH = Math.min(srcHeight, Math.round(panelCropW / panelAspect));
+    }
+
     const cropX1 = Math.max(0, Math.min(srcWidth - panelCropW, Math.floor(avgX1 - panelCropW / 2)));
     const cropX2 = Math.max(0, Math.min(srcWidth - panelCropW, Math.floor(avgX2 - panelCropW / 2)));
-    const cropY = 0;
+
+    // Vertically center the panel on the subject band (faces sit in the upper
+    // portion of the frame). Using cropY = 0 clipped heads at the top.
+    const FACE_BAND_CENTER_RATIO = 0.42; // faces/keypoints cluster around 42% height
+    const desiredY = Math.round((srcHeight * FACE_BAND_CENTER_RATIO) - (panelCropH / 2));
+    const cropY = Math.max(0, Math.min(srcHeight - panelCropH, desiredY));
 
     const evenX1 = Math.floor(cropX1 / 2) * 2;
     const evenX2 = Math.floor(cropX2 / 2) * 2;
-    const evenY = 0;
+    const evenY = Math.floor(cropY / 2) * 2;
 
-    filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX1}:${evenY},scale=1080:960,setsar=1[top]`);
-    filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX2}:${evenY},scale=1080:960,setsar=1[bottom]`);
+    filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX1}:${evenY},scale=${PANEL_OUT_W}:${PANEL_OUT_H},setsar=1[top]`);
+    filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX2}:${evenY},scale=${PANEL_OUT_W}:${PANEL_OUT_H},setsar=1[bottom]`);
     filterParts.push(`[top][bottom]vstack=inputs=2[split]`);
 
     const enableExpr = wideIntervals

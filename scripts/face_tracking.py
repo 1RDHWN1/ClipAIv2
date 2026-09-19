@@ -851,15 +851,38 @@ def extract_wide_intervals(frame_records, min_duration=0.8):
     """
     Extract continuous intervals where 2 or more people are present in a wide shot.
     Returns: list of { start, end, x1, x2 }
+
+    Guard rails against false positives (the old logic only checked "2 faces at
+    least 350px apart in a single frame", which fired split-screen on:
+      - multi-camera cuts, where a frame straddles two single-person shots
+      - one person detected twice (face + profile) far apart
+      - over-the-shoulder cutaways, where the foreground silhouette belongs to
+        the SAME person being interviewed
+    )
+
+    A genuine two-person wide shot must show BOTH people present, facing the
+    camera, with a STABLE horizontal separation across consecutive samples.
     """
     if not frame_records:
         return []
+
+    # Minimum horizontal separation between the two subjects' face centres.
+    MIN_SUBJECT_SEPARATION_PX = 350.0
+    # Separation must not swing wildly between consecutive samples of the same
+    # interval — a stable pair stays put; camera cuts/silhouettes do not.
+    MAX_SEPARATION_JITTER_PX = 220.0
+    # Both faces must sit in the same vertical band (same shot). A cutaway with
+    # a huge vertical offset between faces is not a wide two-shot.
+    MAX_VERTICAL_OFFSET_RATIO = 0.28
 
     raw_intervals = []
     current_start = None
     last_t = 0.0
     accum_x1 = []
     accum_x2 = []
+    accum_sep = []
+    last_sep = None
+    last_center_y = None
 
     for fr in frame_records:
         t = fr["time"]
@@ -869,22 +892,49 @@ def extract_wide_intervals(frame_records, min_duration=0.8):
         left_face = next((f for f in faces if f["bucket"] == "left"), None)
         right_face = next((f for f in faces if f["bucket"] == "right"), None)
 
-        # Genuine two-person wide shot: BOTH must face camera and have wide horizontal separation (>350px)
-        is_wide = (
-            left_face is not None and
-            right_face is not None and
-            abs(right_face["center_x"] - left_face["center_x"]) >= 350.0
-        )
+        is_wide = False
+        separation = None
+
+        if left_face is not None and right_face is not None:
+            separation = abs(right_face["center_x"] - left_face["center_x"])
+
+            # Vertical coherence: both subjects should occupy roughly the same
+            # horizontal band. A large mismatch means we are looking at two
+            # different shots glued into one sampled frame.
+            cy_left = left_face.get("center_y")
+            cy_right = right_face.get("center_y")
+            vertical_ok = True
+            if cy_left is not None and cy_right is not None:
+                frame_h = fr.get("height") or fr.get("frame_height") or 1080
+                v_offset = abs(cy_right - cy_left) / float(frame_h)
+                vertical_ok = v_offset <= MAX_VERTICAL_OFFSET_RATIO
+
+            # Separation stability: consecutive samples of a real two-shot keep
+            # a similar distance. A sudden jump indicates a cut, not a wide shot.
+            jitter_ok = True
+            if last_sep is not None:
+                jitter_ok = abs(separation - last_sep) <= MAX_SEPARATION_JITTER_PX
+
+            is_wide = (
+                separation >= MIN_SUBJECT_SEPARATION_PX
+                and vertical_ok
+                and jitter_ok
+            )
 
         if is_wide and left_face and right_face:
             if current_start is None:
                 current_start = t
                 accum_x1 = [left_face["center_x"]]
                 accum_x2 = [right_face["center_x"]]
+                accum_sep = [separation]
             else:
                 accum_x1.append(left_face["center_x"])
                 accum_x2.append(right_face["center_x"])
+                accum_sep.append(separation)
             last_t = t
+            last_sep = separation
+            if left_face.get("center_y") is not None and right_face.get("center_y") is not None:
+                last_center_y = (left_face["center_y"] + right_face["center_y"]) / 2.0
         else:
             if current_start is not None:
                 dur = last_t - current_start
@@ -898,6 +948,11 @@ def extract_wide_intervals(frame_records, min_duration=0.8):
                 current_start = None
                 accum_x1 = []
                 accum_x2 = []
+                accum_sep = []
+            # Reset stability tracking on any non-wide sample so a new interval
+            # must re-establish a stable pair rather than inheriting stale state.
+            last_sep = None
+            last_center_y = None
 
     if current_start is not None and (last_t - current_start) >= min_duration:
         raw_intervals.append({
