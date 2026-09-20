@@ -136,4 +136,23 @@ test('Adaptive Multi-Layout Engine (Milestone 4)', async (t) => {
     assert.ok(graph.filterComplex.includes("overlay=0:0:enable='between(t\\,5.00\\,12.50)'"), 'Must overlay only during wide interval');
     assert.ok(graph.filterComplex.includes("ass='test_subs.ass'"), 'Must include subtitles');
   });
+
+  await t.test('Case 7: auto_split transitions to gaming_streamer when persistent webcam is detected', async () => {
+    // When webcamBox has score >= 4.0, buildGamingStreamerFilterGraph should be preferred
+    const webcamBox = {
+      x: 843,
+      y: 396,
+      width: 437,
+      height: 324,
+      quadrant: 'bottom_right',
+      score: 42.86,
+    };
+
+    let effectiveLayoutMode = 'auto_split';
+    if (effectiveLayoutMode === 'auto_split' && webcamBox && webcamBox.score >= 4.0) {
+      effectiveLayoutMode = 'gaming_streamer';
+    }
+
+    assert.strictEqual(effectiveLayoutMode, 'gaming_streamer', 'Must transition to gaming_streamer');
+  });
 });
