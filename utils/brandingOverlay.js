@@ -105,7 +105,9 @@ export function escapeDrawtext(value) {
   return String(value)
     .replace(/\\/g, '\\\\')
     .replace(/:/g, '\\:')
-    .replace(/'/g, "\\'")
+    // Replace ASCII apostrophe/single-quote with typographic apostrophe (U+2019)
+    // so FFmpeg's single-quoted string delimiter is never prematurely closed.
+    .replace(/'/g, '’')
     .replace(/,/g, '\\,')
     .replace(/;/g, '\\;')
     .replace(/\[/g, '\\[')
@@ -346,10 +348,10 @@ export function buildBrandingFilters(cfg, options = {}) {
       `drawtext=${fontPart}` +
       `:text='${escapeDrawtext(c.headlineText)}'` +
       `:fontcolor=${c.headlineColor}@1.0` +
-      `:fontsize=${c.headlineFontSize}` +
+      `:fontsize=${c.headlineFontSize || 36}` +
       `:box=1:boxcolor=${c.headlineBgColor}@0.95:boxborderw=18` +
       `:x=(w-text_w)/2` +
-      `:y=160` +
+      `:y=120` +
       `:enable='lte(t,${c.headlineDuration})'`
     );
   }
