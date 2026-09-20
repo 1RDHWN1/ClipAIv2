@@ -23,6 +23,30 @@ export const VALID_WATERMARK_POSITIONS = [
   'bottom-right',
 ];
 
+/**
+ * Anchor values for the watermark/attribution text.
+ *
+ * The four corners are absolute. `above-subtitles` is relative: it is placed
+ * just above the burned-in subtitle band (which sits ~160px above the bottom
+ * edge for the default preset) so a channel handle reads as part of the
+ * caption block instead of fighting it for space.
+ */
+export const VALID_ANCHORS = [
+  ...VALID_WATERMARK_POSITIONS,
+  'above-subtitles',
+];
+
+// Subtitle band height below which the 'above-subtitles' anchor sits. Mirrors
+// the default subtitle marginV so the two elements do not collide.
+const SUBTITLE_BAND_PX = 160;
+// Gap between the subtitle band and the anchored text.
+//
+// The burned-in captions render at font size ~72-90px, so the band is tall and
+// extends UPWARD from marginV. A small gap leaves the watermark sitting on the
+// last caption line; 150px clears the tallest preset line without floating off
+// into the middle of the picture.
+const ABOVE_SUBTITLE_GAP_PX = 150;
+
 // Fonts are probed once and cached — fs.existsSync on every clip adds up.
 let cachedFont = undefined;
 
@@ -113,19 +137,23 @@ export function normalizeBrandingConfig(input) {
     return /^#[0-9a-fA-F]{6}$/.test(clean) ? clean : fallback;
   };
 
-  const position = VALID_WATERMARK_POSITIONS.includes(cfg.watermarkPosition)
+  const position = VALID_ANCHORS.includes(cfg.watermarkPosition)
     ? cfg.watermarkPosition
-    : 'bottom-right';
+    : 'above-subtitles';
 
   const rawOpacity = Number(cfg.watermarkOpacity);
   const opacity = Number.isFinite(rawOpacity)
-    ? Math.min(1, Math.max(0.1, rawOpacity))
-    : 0.65;
+    ? Math.min(1, Math.max(0.05, rawOpacity))
+    : 0.45;
 
   const rawFontSize = Number(cfg.watermarkFontSize);
   const fontSize = Number.isFinite(rawFontSize)
     ? Math.min(96, Math.max(14, Math.round(rawFontSize)))
     : 30;
+
+  // Subtitle band is transparent by default: the watermark is meant to sit
+  // quietly beside the captions, not to draw a second black box over the video.
+  const showWatermarkBg = cfg.watermarkBackground === true;
 
   return {
     showSource: cfg.showSource !== false,
@@ -135,7 +163,7 @@ export function normalizeBrandingConfig(input) {
     sourceColor: hexColor(cfg.sourceColor, '#FFFFFF'),
     sourceBgColor: hexColor(cfg.sourceBgColor, '#000000'),
     sourceDuration: Math.min(20, Math.max(1, Number(cfg.sourceDuration) || 4)),
-    sourcePosition: VALID_WATERMARK_POSITIONS.includes(cfg.sourcePosition)
+    sourcePosition: VALID_ANCHORS.includes(cfg.sourcePosition)
       ? cfg.sourcePosition
       : 'top-left',
     watermarkText: str(cfg.watermarkText, 60),
@@ -144,6 +172,7 @@ export function normalizeBrandingConfig(input) {
     watermarkFontSize: fontSize,
     watermarkColor: hexColor(cfg.watermarkColor, '#FFFFFF'),
     watermarkBgColor: hexColor(cfg.watermarkBgColor, '#000000'),
+    watermarkBackground: showWatermarkBg,
   };
 }
 
@@ -159,27 +188,57 @@ export function brandingIsActive(cfg) {
 }
 
 /**
- * Centre-align anchor (x) for a drawtext label in the given corner.
- * Padding is applied by the caller via the boxborderw option.
+ * Centre-align anchor (x) for a drawtext label.
  *
- * @param {'top-left'|'top-right'|'bottom-left'|'bottom-right'} pos
+ * `above-subtitles` is horizontally centred — it reads as part of the caption
+ * block rather than as a corner badge.
+ *
+ * @param {string} pos
+ * @param {number} [margin=40]
+ * @param {boolean} [centered=false]
  * @returns {string} ffmpeg x expression
  */
-function xExprFor(pos, margin = 40) {
+function xExprFor(pos, margin = 40, centered = false) {
+  if (centered || pos === 'above-subtitles') {
+    // Optional `ws` scaling keeps the label centred after the text value is
+    // substituted, so a wide channel name still lines up.
+    return margin === 30 ? '(w-tw)/2' : `(w-tw)/2`;
+  }
   return (pos === 'top-right' || pos === 'bottom-right')
     ? `w-tw-${margin}`
     : `${margin}`;
 }
 
 /**
- * Vertical anchor (y) for a drawtext label in the given corner.
- * @param {'top-left'|'top-right'|'bottom-left'|'bottom-right'} pos
+ * Vertical anchor (y) for a drawtext label.
+ *
+ * @param {string} pos
+ * @param {number} [margin=40]
  * @returns {string} ffmpeg y expression
  */
 function yExprFor(pos, margin = 40) {
+  if (pos === 'above-subtitles') {
+    // Sit clear ABOVE the caption band. The captions are centred on the frame
+    // (Alignment 2 only anchors them to the bottom margin), so the watermark is
+    // also centred and pushed high enough that a tall caption line cannot reach
+    // it. Offsetting only by the band edge leaves the two on the same line.
+    return `h-th-${SUBTITLE_BAND_PX + ABOVE_SUBTITLE_GAP_PX}`;
+  }
   return (pos === 'bottom-left' || pos === 'bottom-right')
     ? `h-th-${margin}`
     : `${margin}`;
+}
+
+/**
+ * Convert a 0..1 opacity into drawtext's `@alpha` suffix.
+ *
+ * @param {number} opacity
+ * @returns {string} e.g. "0.45"
+ */
+function alphaOf(opacity) {
+  const n = Number(opacity);
+  if (!Number.isFinite(n)) return '0.45';
+  return String(Math.min(1, Math.max(0, n)));
 }
 
 /**
@@ -227,15 +286,30 @@ export function buildBrandingFilters(cfg, options = {}) {
   }
 
   if (cfg.showWatermark && cfg.watermarkText) {
-    filters.push(
-      `drawtext=${fontPart}` +
-      `:text='${escapeDrawtext(cfg.watermarkText)}'` +
-      `:fontcolor=${cfg.watermarkColor}@${cfg.watermarkOpacity}` +
-      `:fontsize=${cfg.watermarkFontSize}` +
-      `:box=1:boxcolor=${cfg.watermarkBgColor}@${(cfg.watermarkOpacity * 0.5).toFixed(2)}:boxborderw=10` +
-      `:x=${xExprFor(cfg.watermarkPosition, 30)}` +
-      `:y=${yExprFor(cfg.watermarkPosition, 30)}`
-    );
+    const alpha = alphaOf(cfg.watermarkOpacity);
+    const parts = [
+      `drawtext=${fontPart}`,
+      `text='${escapeDrawtext(cfg.watermarkText)}'`,
+      `fontcolor=${cfg.watermarkColor}@${alpha}`,
+      `fontsize=${cfg.watermarkFontSize}`,
+      // A drop shadow is what keeps thin, semi-transparent text legible over
+      // busy footage without adding a solid box.
+      `shadowcolor=#000000@${alphaOf(Math.min(1, cfg.watermarkOpacity + 0.25))}`,
+      `shadowx=2`,
+      `shadowy=2`,
+      `x=${xExprFor(cfg.watermarkPosition, 30)}`,
+      `y=${yExprFor(cfg.watermarkPosition, 30)}`,
+    ];
+
+    // A background box is OPT-IN: by default the watermark floats over the
+    // video so it does not obscure the picture.
+    if (cfg.watermarkBackground) {
+      parts.push(`box=1`);
+      parts.push(`boxcolor=${cfg.watermarkBgColor}@${alphaOf(cfg.watermarkOpacity * 0.5)}`);
+      parts.push(`boxborderw=10`);
+    }
+
+    filters.push(parts.join(':'));
   }
 
   return filters;
