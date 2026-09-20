@@ -7,6 +7,7 @@ import 'dotenv/config';
 import { buildAudioCrossfadeFilter } from './boundarySnapper.js';
 import { downloadClipSection } from './downloader.js';
 import { generateAssSubtitles, escapeAssPath } from './subtitleGenerator.js';
+import { buildBrandingFilters, appendBrandingToGraph, appendBrandingToVideoFilters, normalizeBrandingConfig } from './brandingOverlay.js';
 import { getHardwareAccelerationConfig } from './gpuDetector.js';
 
 const OUTPUT_DIR = process.env.OUTPUT_DIR || './outputs';
@@ -309,13 +310,15 @@ export function buildVideoEncodingOptions(overrides = {}) {
  * @returns {Promise<Array<{clipPath, title, ...}>>}
  */
 export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatioParam = '9:16', optionsParam = {}) {
-  const outputDir = path.resolve(OUTPUT_DIR);
-  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-
   const isOptionsObj = typeof jobIdOrOptions === 'object' && jobIdOrOptions !== null && !Array.isArray(jobIdOrOptions);
   const jobId = isOptionsObj ? (jobIdOrOptions.jobId || 'job') : (typeof jobIdOrOptions === 'string' ? jobIdOrOptions : 'job');
   const aspectRatio = isOptionsObj ? (jobIdOrOptions.aspectRatio || '9:16') : aspectRatioParam;
   const options = isOptionsObj ? { ...jobIdOrOptions, ...optionsParam } : optionsParam;
+
+  // `options.outputDir` lets tests render into a temp dir instead of polluting
+  // the real outputs/ folder.
+  const outputDir = path.resolve(options.outputDir || OUTPUT_DIR);
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
   // Dapatkan info video asli.
   //
@@ -458,6 +461,12 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
         webcamBox,
         subtitleAssPath: tempAssFile,
         layoutMode: effectiveLayoutMode,
+        // Diteruskan eksplisit: opsi ini di-whitelist manual, jadi field yang
+        // lupa didaftarkan di sini akan hilang tanpa error apa pun — persis
+        // yang dulu terjadi pada branding (render sukses tapi tanpa overlay).
+        branding: options.branding || null,
+        encodingOverrides: options.encodingOverrides,
+        hwaccel: options.hwaccel,
       });
     } finally {
       if (tempSectionFile && fs.existsSync(tempSectionFile)) {
@@ -545,6 +554,12 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
 
     const layoutMode = options.layoutMode || 'standard';
 
+    // Branding (atribusi sumber + watermark channel) digambar PALING AKHIR,
+    // setelah layout & subtitle, supaya tidak ikut ter-crop atau tertutup sub.
+    const brandingCfg = options.branding && typeof options.branding === 'object'
+      ? normalizeBrandingConfig(options.branding)
+      : null;
+
     if (layoutMode === 'gaming_streamer' && aspectRatio === '9:16') {
       const graph = buildGamingStreamerFilterGraph({
         srcWidth,
@@ -557,6 +572,9 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       });
       let filterComplex = graph.filterComplex;
       let outputMap = graph.outputMap;
+      if (brandingCfg) {
+        ({ filterComplex, outputLabel: outputMap } = appendBrandingToGraph(filterComplex, outputMap, brandingCfg));
+      }
       if (useGpu) {
         filterComplex += `;${outputMap}format=nv12,hwupload[hwout]`;
         outputMap = '[hwout]';
@@ -583,6 +601,9 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       });
       let filterComplex = graph.filterComplex;
       let outputMap = graph.outputMap;
+      if (brandingCfg) {
+        ({ filterComplex, outputLabel: outputMap } = appendBrandingToGraph(filterComplex, outputMap, brandingCfg));
+      }
       if (useGpu) {
         filterComplex += `;${outputMap}format=nv12,hwupload[hwout]`;
         outputMap = '[hwout]';
@@ -601,6 +622,9 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         filterComplex += `;${graph.outputMap}ass='${escapedAss}'[vout]`;
         outMap = '[vout]';
       }
+      if (brandingCfg) {
+        ({ filterComplex, outputLabel: outMap } = appendBrandingToGraph(filterComplex, outMap, brandingCfg));
+      }
       if (useGpu) {
         filterComplex += `;${outMap}format=nv12,hwupload[hwout]`;
         outMap = '[hwout]';
@@ -618,6 +642,9 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         faceTrackingPlan: options.faceTrackingPlan || [],
         subtitleAssPath: options.subtitleAssPath,
       });
+      if (brandingCfg) {
+        vfFilter = appendBrandingToVideoFilters(vfFilter, brandingCfg);
+      }
       if (useGpu) {
         vfFilter = vfFilter ? `${vfFilter},format=nv12,hwupload` : 'format=nv12,hwupload';
       }
