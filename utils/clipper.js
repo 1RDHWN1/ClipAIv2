@@ -453,13 +453,16 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
         }
       }
 
+      // Urutan field PENTING: spread config mentah dulu, baru field turunan.
+      // Kalau dibalik, `headlineText: null` dari job data menimpa headline yang
+      // baru saja diambil dari clip — headline-nya hilang tanpa error apa pun.
       const effectiveBranding = {
+        ...(options.branding || {}),
         showHeadline: options.branding ? (options.branding.showHeadline !== false) : true,
         headlineText: clip.headline || options.branding?.headlineText || clip.title || '',
         headlineDuration: options.branding?.headlineDuration || 5,
         headlineColor: options.branding?.headlineColor || '#000000',
         headlineBgColor: options.branding?.headlineBgColor || '#FFFFFF',
-        ...(options.branding || {}),
       };
       const brandingToPass = brandingIsActive(effectiveBranding) ? effectiveBranding : null;
 
