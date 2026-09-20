@@ -296,13 +296,25 @@ export async function processClips(videoPath, clips, jobId, aspectRatio = '9:16'
   const outputDir = path.resolve(OUTPUT_DIR);
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
-  // Dapatkan info video asli
+  // Dapatkan info video asli.
+  //
+  // Audit M1: `videoPath` is normally the YouTube URL (the worker hands the URL
+  // to the clipper so each clip is fetched on demand). getVideoInfo() returns
+  // null for a URL rather than a fabricated 1280x720, so the real geometry is
+  // resolved per clip from the downloaded section. `srcWidth`/`srcHeight` only
+  // serve as a pre-download placeholder (e.g. for logging) and MUST NOT be
+  // trusted for crop maths.
   const videoInfo = await getVideoInfo(videoPath);
-  const { width: srcWidth, height: srcHeight } = videoInfo;
+  const srcWidth = videoInfo?.width || 0;
+  const srcHeight = videoInfo?.height || 0;
   const speakerTurns = Array.isArray(options.speakerTurns) ? options.speakerTurns : [];
   const speakerOrder = getSpeakerOrder(speakerTurns);
 
-  console.log(`📐 Source video: ${srcWidth}x${srcHeight}, AR: ${aspectRatio}`);
+  if (srcWidth > 0 && srcHeight > 0) {
+    console.log(`📐 Source video: ${srcWidth}x${srcHeight}, AR: ${aspectRatio}`);
+  } else {
+    console.log(`📐 Source: belum diketahui (URL) — dimensi dibaca dari section per clip, AR: ${aspectRatio}`);
+  }
 
   const results = [];
   for (let i = 0; i < clips.length; i++) {
@@ -327,14 +339,33 @@ export async function processClips(videoPath, clips, jobId, aspectRatio = '9:16'
         clipForProcessing = { ...clip, start: 0, end: duration };
       }
 
+      // Resolve the REAL geometry for this clip.
+      //
+      // Audit M1: crop maths depends entirely on these values, and they must come
+      // from the actual media. When the source is a URL we download the section
+      // first and probe that file. If we still cannot determine the dimensions we
+      // fail the clip explicitly — rendering with a guessed resolution produces a
+      // permanently mis-cropped video that looks "successful".
       let currentWidth = srcWidth;
       let currentHeight = srcHeight;
+
       if (tempSectionFile) {
         try {
           const secInfo = await getVideoInfo(tempSectionFile);
-          currentWidth = secInfo.width || srcWidth;
-          currentHeight = secInfo.height || srcHeight;
-        } catch (_) {}
+          if (secInfo && secInfo.width > 0 && secInfo.height > 0) {
+            currentWidth = secInfo.width;
+            currentHeight = secInfo.height;
+          }
+        } catch (err) {
+          console.warn(`⚠️ [clipper] ffprobe section gagal: ${err.message}`);
+        }
+      }
+
+      if (!(currentWidth > 0 && currentHeight > 0)) {
+        throw new Error(
+          'Dimensi sumber tidak dapat ditentukan untuk crop (width/height tidak valid). ' +
+          'Render dibatalkan agar tidak menghasilkan crop yang salah.'
+        );
       }
 
       // Check if subtitles enabled and words available
@@ -1052,16 +1083,22 @@ function runFaceTrackingScript(payload) {
 }
 
 /**
- * Dapatkan informasi video menggunakan ffprobe
+ * Dapatkan informasi video menggunakan ffprobe.
+ *
+ * Audit M1: for an http(s) path this used to resolve a hardcoded 1280x720 with
+ * duration 0. That silently lied about the geometry: a 1080p YouTube source was
+ * treated as 720p, so a 9:16 solo crop came out ~33% narrower than intended and
+ * split-screen panels were upscaled from a 720p crop. Callers that need real
+ * geometry MUST probe an actual downloaded file; for a URL we now return null
+ * so the caller is forced to handle "unknown" explicitly instead of trusting a
+ * fabricated resolution.
+ *
+ * @param {string} videoPath
+ * @returns {Promise<{width:number,height:number,duration:number,bitrate:number}|null>}
  */
 function getVideoInfo(videoPath) {
   if (typeof videoPath === 'string' && (videoPath.startsWith('http://') || videoPath.startsWith('https://'))) {
-    return Promise.resolve({
-      width: 1280,
-      height: 720,
-      duration: 0,
-      bitrate: 0,
-    });
+    return Promise.resolve(null);
   }
 
   return new Promise((resolve, reject) => {
