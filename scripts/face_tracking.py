@@ -379,11 +379,22 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
     scored_clusters.sort(key=lambda item: item[1], reverse=True)
     best_cluster, best_score = scored_clusters[0]
 
-    # Threshold guard: must have valid score >= 2.5
-    if best_score < 2.5:
+    # Threshold guard: must have valid score >= 4.0
+    if best_score < 4.0:
         return None
 
     pts = best_cluster["points"]
+    total_frames = max(1.0, float(len(frame_records)))
+    persistence = float(len(pts)) / total_frames
+
+    # Guard: Persistence ratio.
+    # In a genuine gaming stream, the streamer's webcam overlay persists continuously
+    # across at least 50% of all sampled frames throughout the clip.
+    # This reliably rejects cutaway speakers in podcasts/interviews who only appear in
+    # intermittent reaction shots (e.g. Jay Shetty appearing for only ~36% of the clip).
+    if persistence < 0.50:
+        return None
+
     med_x = float(np.median([pt[0] for pt in pts]))
     med_y = float(np.median([pt[1] for pt in pts]))
 
