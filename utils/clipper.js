@@ -707,8 +707,8 @@ function buildFaceTrackedCropX({ srcWidth, cropWidth, defaultX, faceTrackingPlan
     }
   }
 
-  // 3. Batasi maksimal 16 segmen agar tidak melebihi batas kedalaman ekspresi FFmpeg (eval stack overflow)
-  const MAX_EXPR_SEGMENTS = 16;
+  // 3. Batasi segmen (maksimal 22) agar aman di bawah batas kedalaman ekspresi FFmpeg (< 3000 chars)
+  const MAX_EXPR_SEGMENTS = 22;
   while (smoothed.length > MAX_EXPR_SEGMENTS) {
     let minDiff = Infinity;
     let mergeIdx = 0;
