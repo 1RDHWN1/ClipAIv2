@@ -356,3 +356,13 @@ async function gracefulShutdown(signal) {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Closing the terminal window (or an ssh drop / tmux detach) delivers SIGHUP to
+// the foreground process group. Node's default disposition terminates the
+// process, which aborted an in-flight render halfway through ("clips ke-putus
+// di tengah"). Ignore it: the worker keeps draining the queue and only an
+// explicit Ctrl+C / SIGTERM stops it.
+process.on('SIGHUP', () => {
+  console.log('[worker] SIGHUP received (terminal closed?) — ignoring, render keeps running.');
+});
+

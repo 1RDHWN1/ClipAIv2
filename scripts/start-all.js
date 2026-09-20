@@ -213,3 +213,11 @@ startProcess('worker', 'workers/videoWorker.js');
 
 process.on('SIGINT', () => { armHardExit(); shutdown(0); });
 process.on('SIGTERM', () => { armHardExit(); shutdown(0); });
+
+// A closed terminal (or ssh drop / tmux detach) sends SIGHUP to the foreground
+// process group. Killing the stack there would abandon a render the user was
+// watching; ignore it and let the children keep working. Ctrl+C (SIGINT) and
+// SIGTERM still shut everything down cleanly.
+process.on('SIGHUP', () => {
+  console.log('[lock] SIGHUP received (terminal closed?) — ignoring, stack keeps running.');
+});
