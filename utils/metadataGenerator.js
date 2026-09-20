@@ -945,6 +945,77 @@ export function headlineRepeatsTitle(headline, title) {
 }
 
 /**
+ * Ringkas kalimat hook yang diucapkan menjadi headline pendek (3-7 kata).
+ *
+ * hookText adalah kalimat ASLI yang diucapkan, jadi bisa panjang dan berisi
+ * basa-basi. Ambil klausa pertama yang bermakna, buang filler, lalu batasi
+ * panjangnya. Mengembalikan null kalau hasilnya tetap mengulang judul.
+ *
+ * @param {string} hookText
+ * @param {string} title
+ * @returns {string|null}
+ */
+export function headlineFromSpokenHook(hookText, title) {
+  if (typeof hookText !== 'string' || !hookText.trim()) return null;
+
+  // Buang filler pembuka DULU (sebelum memotong), karena filler sering diikuti
+  // koma — kalau koma dipotong lebih dulu, yang tersisa hanya "Guys".
+  let s = hookText.trim();
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(/^(guys|yo|bro|look|so|okay|well|i mean|you know)[\s,]+/i, '');
+  } while (s !== prev);
+  // Buang subjek pembicara di awal ("I just saw", "he said")
+  s = s.replace(/^(i|he|she|they|we|you)\s+(just\s+)?(saw|said|thinks?|thought|realized?|forgot)\s+/i, '');
+
+  // Baru potong ke klausa pertama.
+  s = s.split(/[.!?;]/)[0].split(/,\s*/)[0].trim();
+
+  if (s.length < 8) return null;
+
+  // Coba beberapa panjang: 7 kata dulu, lalu makin pendek. Ambil yang pertama
+  // menghasilkan headline valid — jangan menyerah hanya karena versi terpanjang
+  // kebetulan masih mengandung kata judul.
+  for (const limit of [7, 6, 5, 4]) {
+    const words = s.split(/\s+/);
+    if (words.length < 3) break;
+    const candidate = words.slice(0, limit).join(' ');
+    const trimmed = trimTitleToTarget(candidate) || candidate;
+    if (!trimmed || trimmed.length < 8) continue;
+    if (title && headlineRepeatsTitle(trimmed, title)) continue;
+    return trimmed;
+  }
+  return null;
+}
+
+/**
+ * Ambil frasa pendek dari deskripsi AI sebagai headline alternatif.
+ *
+ * Deskripsi ditulis dengan sudut yang berbeda dari judul, jadi kalimat
+ * pertamanya sering jadi hook yang bagus dan tidak mengulang.
+ *
+ * @param {string} description
+ * @param {string} title
+ * @returns {string|null}
+ */
+export function headlineFromDescription(description, title) {
+  if (typeof description !== 'string' || !description.trim()) return null;
+  let s = description.split(/[.!?\n]/)[0].trim();
+  s = s.replace(/^["'“”]+|["'“”]+$/g, '');
+  if (s.length < 12) return null;
+
+  const words = s.split(/\s+/);
+  let out = words.slice(0, 6).join(' ');
+  if (out.length > 48) out = words.slice(0, 4).join(' ');
+  out = out.replace(/[,;:—–-]+$/, '').trim();
+
+  if (out.length < 10) return null;
+  if (title && headlineRepeatsTitle(out, title)) return null;
+  return out;
+}
+
+/**
  * Merge generated metadata into the clip list, preserving existing titles when
  * the generator returned nothing for that clip.
  *
@@ -980,10 +1051,21 @@ export function applyMetadataToClips(clips, metadataByIndex) {
     // is a genuinely different angle.
     let headline = meta.headline || clip.headline || clip.hookText || clip.title;
     if (headlineRepeatsTitle(headline, title)) {
-      const alt = clip.hookText && !headlineRepeatsTitle(clip.hookText, title)
-        ? clip.hookText
-        : (clip.headline && !headlineRepeatsTitle(clip.headline, title) ? clip.headline : headline);
-      headline = alt;
+      // Cari sudut alternatif, berurutan dari yang paling diinginkan:
+      //  1. hookText asli (kalimat yang diucapkan) — tapi diringkas jadi headline
+      //  2. headline dari analyzer
+      //  3. potongan deskripsi AI (sudut berbeda)
+      const candidates = [
+        headlineFromSpokenHook(clip.hookText, title),
+        clip.headline,
+        headlineFromDescription(meta.description, title),
+      ];
+      for (const cand of candidates) {
+        if (cand && !headlineRepeatsTitle(cand, title)) {
+          headline = cand;
+          break;
+        }
+      }
     }
 
     const score = meta.viralityScore ?? clip.score ?? clip.viralityScore ?? 96;
