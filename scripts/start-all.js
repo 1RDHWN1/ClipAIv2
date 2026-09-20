@@ -64,6 +64,15 @@ function startProcess(name, script) {
   child.on('exit', (code, signal) => {
     if (settled) return;
     settled = true;
+    // ALWAYS drop the child from the live set once it has exited.
+    //
+    // This used to be skipped during shutdown, so `children` still held a
+    // process that had already terminated. `child.killed` stays FALSE for a
+    // process that exited on its own — it only means "we sent it a signal" —
+    // so shutdown()'s `if (!child.killed)` guard considered it alive, the
+    // `children.size === 0` check never became true, and the parent sat out
+    // the full 5s grace (and, when the sibling kept rendering, appeared to
+    // ignore Ctrl+C entirely).
     children.delete(name);
 
     // During an intentional shutdown we just let the shutdown() routine
@@ -97,41 +106,57 @@ function startProcess(name, script) {
   children.set(name, child);
 }
 
+// How long a child gets to exit after SIGTERM before we SIGKILL it.
+const SHUTDOWN_GRACE_MS = 5000;
+
+/** True while the child process is still running. */
+function isChildAlive(child) {
+  if (!child) return false;
+  // `exitCode`/`signalCode` become non-null once the process has terminated —
+  // that is the authoritative signal. `child.killed` only records whether WE
+  // sent a signal, so it is true even for a process that ignored it.
+  return child.exitCode === null && child.signalCode === null;
+}
+
 async function shutdown(exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
 
   console.log('\nShutting down all processes...');
 
-  // Send SIGTERM first, wait a bit, then SIGKILL
+  const live = [...children.values()].filter(isChildAlive);
+
   for (const [name, child] of children) {
-    if (!child.killed) {
+    if (isChildAlive(child)) {
       console.log(`[${name}] sending SIGTERM...`);
-      child.kill('SIGTERM');
+      try { child.kill('SIGTERM'); } catch (_) {}
     }
   }
 
-  // Wait for graceful shutdown (max 5 seconds)
-  await new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      console.log('Force killing remaining processes...');
-      for (const [name, child] of children) {
-        if (!child.killed) {
-          child.kill('SIGKILL');
-        }
-      }
-      resolve();
-    }, 5000);
+  // Wait for the children to actually terminate, bounded by a grace window.
+  // Polling real liveness (not `killed`) is what makes Ctrl+C responsive: the
+  // previous version waited on `children.size === 0`, which the exit handler
+  // never satisfied during shutdown, so every Ctrl+C took the full timeout.
+  if (live.length > 0) {
+    const deadline = Date.now() + SHUTDOWN_GRACE_MS;
+    while (Date.now() < deadline) {
+      if (live.every((child) => !isChildAlive(child))) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
 
-    // Check if all children exited
-    const checkInterval = setInterval(() => {
-      if (children.size === 0) {
-        clearTimeout(timeout);
-        clearInterval(checkInterval);
-        resolve();
+    const stubborn = live.filter(isChildAlive);
+    if (stubborn.length > 0) {
+      console.log('Force killing remaining processes...');
+      for (const child of stubborn) {
+        try { child.kill('SIGKILL'); } catch (_) {}
       }
-    }, 100);
-  });
+      // Give the kernel a moment to reap so we do not exit with orphans.
+      const killDeadline = Date.now() + 2000;
+      while (Date.now() < killDeadline && stubborn.some(isChildAlive)) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+  }
 
   releaseLock();
   process.exit(exitCode);
@@ -153,7 +178,9 @@ function armHardExit() {
   const timer = setTimeout(() => {
     console.error(`\n[failsafe] Shutdown exceeded ${HARD_EXIT_MS}ms — forcing exit.`);
     for (const [, child] of children) {
-      try { child.kill('SIGKILL'); } catch (_) {}
+      if (isChildAlive(child)) {
+        try { child.kill('SIGKILL'); } catch (_) {}
+      }
     }
     releaseLock();
     process.exit(1);
