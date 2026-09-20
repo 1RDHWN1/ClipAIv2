@@ -868,7 +868,10 @@
         <div class="logo-icon">🎬</div>
         <span class="logo-text">Clip<span>AI</span></span>
       </a>
-      <span class="badge">AI Powered</span>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span id="hwBadge" class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10B981; border-color: rgba(16, 185, 129, 0.3);">⚡ GPU Active</span>
+        <span class="badge">AI Powered</span>
+      </div>
     </header>
 
     <section class="hero">
@@ -896,7 +899,7 @@
       <div class="feature">
         <div class="feature-icon">✂️</div>
         <div class="feature-title">Auto Clip</div>
-        <div class="feature-sub">FFmpeg potong & reframe</div>
+        <div class="feature-sub" id="heroHwSub">FFmpeg potong & reframe</div>
       </div>
     </div>
 
@@ -1266,7 +1269,35 @@
         });
       }
       fetchAiModels();
+      fetchHardwareInfo();
     });
+
+    // ── Hardware Acceleration Detection ───────────────────────
+    async function fetchHardwareInfo() {
+      const hwBadge = document.getElementById('hwBadge');
+      const heroHwSub = document.getElementById('heroHwSub');
+      try {
+        const res = await fetch('/api/hardware');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.supported) {
+          if (hwBadge) {
+            hwBadge.textContent = '⚡ GPU Active';
+            hwBadge.title = data.name || 'VAAPI Hardware Acceleration';
+          }
+          if (heroHwSub) {
+            heroHwSub.textContent = `${data.name || 'GPU'} (Adem & Cepat)`;
+          }
+        } else {
+          if (hwBadge) {
+            hwBadge.textContent = '🖥️ CPU Mode';
+            hwBadge.style.color = 'var(--text3)';
+            hwBadge.style.background = 'var(--surface2)';
+            hwBadge.style.borderColor = 'var(--border)';
+          }
+        }
+      } catch (_) {}
+    }
 
     // ── AI Model Management ────────────────────────────────────
     async function fetchAiModels() {
