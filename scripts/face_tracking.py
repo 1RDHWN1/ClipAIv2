@@ -303,6 +303,15 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
     Uses radius-based spatial clustering and variance analysis to reliably isolate
     the streamer's static corner camera from moving in-game NPC characters or cutscenes.
     Returns bounding box {x, y, width, height, center_x, center_y, quadrant, score} or None.
+
+    SIZE GUARD (why it exists):
+    A real corner webcam overlay is SMALL — roughly 12-22% of the frame width and
+    15-30% of the height. A detection much larger than that is not a webcam at
+    all; it is the video's main content (a fullscreen streamer cam, an animation
+    panel, or a screen region) and cropping to it produces the wrong framing.
+    Measured failure: a reaction video's streamer overlay spanned 34% of the
+    width, was accepted as a "webcam", and the clip was cropped onto the content
+    instead of the person.
     """
     if not frame_records:
         return None
@@ -379,8 +388,20 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
     scored_clusters.sort(key=lambda item: item[1], reverse=True)
     best_cluster, best_score = scored_clusters[0]
 
-    # Threshold guard: must have valid score >= 4.0
-    if best_score < 4.0:
+    # Threshold guard, expressed PER FRAME.
+    #
+    # The raw score is `count * spread * multiplier`, so it grows with the
+    # number of sampled frames — a 100-frame clip scores 3x a 30-frame clip for
+    # the identical webcam. An absolute threshold therefore rejects genuine
+    # gaming streams that happen to be short. Normalising by frame count makes
+    # the measure duration-independent.
+    #
+    # Measured per-frame separation:
+    #   false positive (reaction video)  -> 1.04
+    #   genuine corner webcam            -> 2.42
+    # 1.8 sits between them with margin on both sides.
+    per_frame_score = best_score / max(1.0, float(len(frame_records)))
+    if per_frame_score < 1.8:
         return None
 
     pts = best_cluster["points"]
@@ -397,6 +418,18 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
 
     med_x = float(np.median([pt[0] for pt in pts]))
     med_y = float(np.median([pt[1] for pt in pts]))
+
+    # Face SIZE guard. A corner webcam face is SMALL relative to the frame.
+    #
+    # Measured: a genuine corner webcam face spans ~8.6% of the frame width;
+    # the reaction-video false positive spanned 15.5%. A face larger than ~12%
+    # is the SUBJECT of the video (or a panel), not a corner overlay — so the
+    # clip should be cropped to the person normally, not switched into the
+    # two-panel gaming layout.
+    face_widths = [pt[2] for pt in pts]
+    med_face_w = float(np.median(face_widths))
+    if med_face_w > 0.12 * frame_width:
+        return None
 
     # Target 1080:800 (1.35 : 1) aspect ratio for distortion-free top panel
     cam_h = int(min(frame_height, round(frame_height * 0.45)))
@@ -417,6 +450,7 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
         "center_y": round(med_y, 1),
         "quadrant": f"{quad_y}_{quad_x}",
         "score": round(best_score, 2),
+        "per_frame_score": round(per_frame_score, 3),
         "detections": len(pts)
     }
 

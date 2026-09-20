@@ -497,9 +497,25 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
 
       let effectiveLayoutMode = options.layoutMode || 'standard';
       if (effectiveLayoutMode === 'auto_split') {
-        if (webcamBox && (webcamBox.score || 0) >= 4.0) {
-          console.log(`   🎮 Smart Adaptive detected persistent gaming webcam overlay (${webcamBox.quadrant}, score ${webcamBox.score}) -> transitioning to gaming_streamer layout`);
+        // Threshold diukur PER FRAME, bukan absolut.
+        //
+        // Skor mentah = jumlah_sampel x spread x multiplier, jadi nilainya naik
+        // seiring durasi klip. Ambang absolut akan menolak gaming stream asli
+        // yang kebetulan pendek. Skor per-frame konsisten di semua durasi.
+        //
+        // Pemisahan terukur:
+        //   deteksi palsu (video reaksi) -> 1.04/frame
+        //   webcam pojok asli            -> 2.42/frame
+        // Ambang 1.8 ada di antaranya dengan margin di kedua sisi.
+        const GAMING_WEBCAM_MIN_PER_FRAME = 1.8;
+        const webcamScore = webcamBox
+          ? (webcamBox.per_frame_score ?? (webcamBox.score || 0) / Math.max(1, webcamBox.detections || 1))
+          : 0;
+        if (webcamBox && webcamScore >= GAMING_WEBCAM_MIN_PER_FRAME) {
+          console.log(`   🎮 Smart Adaptive detected persistent gaming webcam overlay (${webcamBox.quadrant}, score ${webcamScore.toFixed(2)}/frame) -> transitioning to gaming_streamer layout`);
           effectiveLayoutMode = 'gaming_streamer';
+        } else if (webcamBox) {
+          console.log(`   ℹ️ Webcam-like box ignored (${webcamScore.toFixed(2)}/frame < ${GAMING_WEBCAM_MIN_PER_FRAME}) — cropping to the subject instead of the content.`);
         }
       }
 
