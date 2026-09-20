@@ -95,6 +95,21 @@ function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+// ── SIGHUP must NOT kill the stack ───────────────────────────
+// POSIX delivers SIGHUP to a session's foreground process group when its
+// controlling terminal goes away: closing the terminal window or tab, an ssh
+// drop, or a tmux/screen detach. Node's DEFAULT disposition for SIGHUP is to
+// terminate, which killed the API server mid-render and made the paired
+// worker's parent (start-all.js) tear the whole stack down — the job the user
+// was watching simply vanished.
+//
+// Ignoring it means `npm start` survives a terminal close and keeps serving;
+// an explicit `kill -HUP <pid>` is the only way to reach this handler and it
+// is deliberately a no-op. To stop the stack use SIGINT (Ctrl+C) or SIGTERM.
+process.on('SIGHUP', () => {
+  console.log('[server] SIGHUP received (terminal closed?) — ignoring, stack keeps running.');
+});
+
 // ── Listen error handling ────────────────────────────────────
 // A raw EADDRINUSE dump is unhelpful and hides the real cause (usually a
 // stale instance still holding :3000). Print an actionable message instead.
