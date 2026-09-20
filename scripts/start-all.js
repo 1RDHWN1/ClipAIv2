@@ -1,7 +1,6 @@
 import { spawn } from 'child_process';
-import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import * as singletonLock from '../utils/singletonLock.js';
 
 const children = new Map();
 let shuttingDown = false;
@@ -10,47 +9,45 @@ let shuttingDown = false;
 // Singleton guard: prevent multiple `start-all.js` stacks from stacking up.
 // Without this, repeated invocations spawn duplicate server+worker pairs that
 // fight over the same BullMQ queue (double-processing) and leak Redis conns.
+//
+// Audit finding H4: acquisition now lives in utils/singletonLock.js, which uses
+// an atomic `open(…, 'wx')` (O_CREAT|O_EXCL) create instead of the old
+// check-then-write sequence that two simultaneous starters could both pass.
 // ---------------------------------------------------------------------------
-const LOCK_FILE = path.join(os.tmpdir(), 'clipaiv2-start-all.lock');
+const { DEFAULT_LOCK_FILE, acquireSingletonLock, releaseSingletonLock } = singletonLock;
 
-function isProcessAlive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
+const LOCK_FILE = process.env.START_ALL_LOCK_FILE || DEFAULT_LOCK_FILE;
 
 function acquireLock() {
-  if (fs.existsSync(LOCK_FILE)) {
-    const raw = fs.readFileSync(LOCK_FILE, 'utf-8').trim();
-    const existingPid = parseInt(raw, 10);
-
-    if (Number.isInteger(existingPid) && existingPid !== process.pid && isProcessAlive(existingPid)) {
-      console.error(
-        `\n[lock] Another start-all.js instance is already running (PID ${existingPid}).\n` +
-        `[lock] Refusing to start a duplicate stack. Stop it first, or remove ${LOCK_FILE} if it is stale.`
-      );
-      process.exit(1);
-    }
-
-    console.warn(`[lock] Removing stale lock file (PID ${raw} is not running).`);
-    fs.unlinkSync(LOCK_FILE);
+  let result;
+  try {
+    result = acquireSingletonLock({ lockFile: LOCK_FILE });
+  } catch (err) {
+    // Unwritable temp dir, etc. — refuse rather than run without the guard.
+    console.error(`\n[lock] Tidak bisa membuat lock file (${LOCK_FILE}): ${err.message}`);
+    process.exit(1);
   }
 
-  fs.writeFileSync(LOCK_FILE, String(process.pid), { mode: 0o644 });
+  if (!result.acquired) {
+    const holder = result.holderPid !== null ? `PID ${result.holderPid}` : 'proses lain';
+    console.error(
+      `\n[lock] Another start-all.js instance is already running (${holder}).\n` +
+      `[lock] Refusing to start a duplicate stack. Stop it first, or remove ${LOCK_FILE} if it is stale.\n` +
+      `[lock] Alasan: ${result.reason}`
+    );
+    process.exit(1);
+  }
+
+  if (result.reason === 'reclaimed-stale') {
+    console.warn('[lock] Cleared a stale lock file (previous holder is not running).');
+  }
   console.log(`[lock] Acquired singleton lock (PID ${process.pid}).`);
 }
 
 function releaseLock() {
   try {
-    if (fs.existsSync(LOCK_FILE)) {
-      const raw = fs.readFileSync(LOCK_FILE, 'utf-8').trim();
-      if (parseInt(raw, 10) === process.pid) {
-        fs.unlinkSync(LOCK_FILE);
-        console.log('[lock] Released singleton lock.');
-      }
+    if (releaseSingletonLock({ lockFile: LOCK_FILE })) {
+      console.log('[lock] Released singleton lock.');
     }
   } catch (_) {}
 }
