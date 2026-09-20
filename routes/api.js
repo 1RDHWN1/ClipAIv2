@@ -124,6 +124,15 @@ router.post('/process', requireApiKey, processRateLimiter, async (req, res) => {
       cleanSubtitleConfig = { enabled: true, preset: 'hormozi' };
     }
 
+    // Normalisasi parameter AI Model jika disediakan
+    let cleanAiModel = null;
+    if (typeof body.aiModel === 'string' && body.aiModel.trim().length > 0) {
+      const candidate = body.aiModel.trim();
+      if (/^[a-zA-Z0-9_.:\/-]{1,100}$/.test(candidate)) {
+        cleanAiModel = candidate;
+      }
+    }
+
     const job = await videoQueue.add(
       'process-video',
       {
@@ -134,11 +143,12 @@ router.post('/process', requireApiKey, processRateLimiter, async (req, res) => {
         jobId,
         subtitleConfig: cleanSubtitleConfig,
         layoutMode: cleanLayoutMode,
+        aiModel: cleanAiModel,
       },
       { jobId }
     );
 
-    console.log(`📌 Job added: ${jobId} | URL: ${url} | FastPath: ${Boolean(cleanTranscript)} | Subs: ${Boolean(cleanSubtitleConfig?.enabled)}`);
+    console.log(`📌 Job added: ${jobId} | URL: ${url} | FastPath: ${Boolean(cleanTranscript)} | Subs: ${Boolean(cleanSubtitleConfig?.enabled)} | Model: ${cleanAiModel || 'default'}`);
 
     res.json({
       success: true,
@@ -275,6 +285,67 @@ router.get('/queue/stats', async (req, res) => {
     res.json({ waiting, active, completed, failed });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/models
+ * Mengambil daftar model AI yang tersedia dari gateway lokal 9Router atau presets
+ */
+router.get('/models', async (req, res) => {
+  try {
+    const { resolveModelConfiguration } = await import('../utils/analyzer.js');
+    const config = resolveModelConfiguration();
+    const defaultModel = config.model;
+
+    let availableModels = [];
+
+    // Probe endpoint /v1/models dari gateway yang terkonfigurasi (misal 9Router :20128)
+    if (config.baseUrl) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000);
+        const probeRes = await fetch(`${config.baseUrl}/models`, {
+          headers: {
+            'Authorization': `Bearer ${config.apiKey || 'dummy'}`,
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (probeRes.ok) {
+          const data = await probeRes.json();
+          if (Array.isArray(data.data)) {
+            availableModels = data.data.map(m => m.id).filter(Boolean);
+          }
+        }
+      } catch (_) {
+        // Fallback jika gateway tidak merespons
+      }
+    }
+
+    // Daftar preset rekomendasi model terpopuler & efisien
+    const presetModels = [
+      defaultModel,
+      'xkiro/qwen/qwen3-max:free',
+      'xkiro/google/gemini-3.8-flash',
+      'xkiro/google/gemini-3.1-pro',
+      'pahri-fast',
+      'pahri-pro',
+      'pahri-deep',
+      'kr/claude-sonnet-4.5',
+      'kimchi/deepseek-v4-flash-0731',
+    ].filter(Boolean);
+
+    const merged = Array.from(new Set([...presetModels, ...availableModels]));
+
+    res.json({
+      success: true,
+      defaultModel,
+      models: merged,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal mengambil daftar model AI', detail: err.message });
   }
 });
 
