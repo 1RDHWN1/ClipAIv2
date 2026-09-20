@@ -1077,12 +1077,13 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
               <div class="option-group" style="margin-bottom:0;">
                 <label>Watermark Channel Kamu</label>
-                <input type="text" id="watermarkText" placeholder="contoh: @channelkamu" style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 11px; outline:none;">
+                <input type="text" id="watermarkText" placeholder="contoh: @prime.clipsmedia" value="@prime.clipsmedia" style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 11px; outline:none;">
               </div>
               <div class="option-group" style="margin-bottom:0;">
                 <label>Posisi Watermark</label>
                 <select id="watermarkPosition" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                  <option value="bottom-right" selected>↘ Kanan Bawah</option>
+                  <option value="above-subtitles" selected>⬆ Diatas Subtitle (disarankan)</option>
+                  <option value="bottom-right">↘ Kanan Bawah</option>
                   <option value="bottom-left">↙ Kiri Bawah</option>
                   <option value="top-right">↗ Kanan Atas</option>
                   <option value="top-left">↖ Kiri Atas</option>
@@ -1090,7 +1091,7 @@
               </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px;">
               <div class="option-group" style="margin-bottom:0;">
                 <label>Posisi Sumber</label>
                 <select id="sourcePosition" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
@@ -1117,10 +1118,21 @@
                   <option value="42">Besar</option>
                 </select>
               </div>
+              <div class="option-group" style="margin-bottom:0;">
+                <label>Kejelasan (Opacity)</label>
+                <select id="watermarkOpacity" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
+                  <option value="0.25">Sangat Tipis</option>
+                  <option value="0.35">Tipis</option>
+                  <option value="0.45" selected>Sedang (disarankan)</option>
+                  <option value="0.7">Jelas</option>
+                  <option value="1">Solid</option>
+                </select>
+              </div>
             </div>
 
             <div style="margin-top:12px; font-size:10px; color:var(--text3); line-height:1.5;">
-              💡 Nama channel sumber diambil otomatis dari metadata YouTube kalau kolomnya dibiarkan kosong.
+              💡 Nama channel sumber diambil otomatis dari metadata YouTube kalau kolomnya dibiarkan kosong.<br>
+              💡 Watermark tidak pakai kotak latar (biar tidak menutupi video) — hanya teks + bayangan tipis.
             </div>
           </div>
         </div>
@@ -1387,8 +1399,11 @@
         sourcePosition: document.getElementById('sourcePosition')?.value || 'top-left',
         sourceDuration: num('sourceDuration', 4),
         watermarkText: val('watermarkText') || null,
-        watermarkPosition: document.getElementById('watermarkPosition')?.value || 'bottom-right',
+        watermarkPosition: document.getElementById('watermarkPosition')?.value || 'above-subtitles',
         watermarkFontSize: num('watermarkFontSize', 30),
+        watermarkOpacity: num('watermarkOpacity', 0.45),
+        // Watermark mengambang tanpa kotak latar supaya tidak menutupi video.
+        watermarkBackground: false,
       };
     }
 
