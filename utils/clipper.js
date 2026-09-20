@@ -417,6 +417,14 @@ export async function processClips(videoPath, clips, jobId, aspectRatio = '9:16'
       const wideIntervals = Array.isArray(trackingResult?.wideIntervals) ? trackingResult.wideIntervals : [];
       const webcamBox = trackingResult?.webcamBox || null;
 
+      let effectiveLayoutMode = options.layoutMode || 'standard';
+      if (effectiveLayoutMode === 'auto_split') {
+        if (webcamBox && (webcamBox.score || 0) >= 4.0) {
+          console.log(`   🎮 Smart Adaptive detected persistent gaming webcam overlay (${webcamBox.quadrant}, score ${webcamBox.score}) -> transitioning to gaming_streamer layout`);
+          effectiveLayoutMode = 'gaming_streamer';
+        }
+      }
+
       await clipVideo(sourceForProcessing, outputPath, clipForProcessing, currentWidth, currentHeight, aspectRatio, {
         speakerTurns,
         speakerOrder,
@@ -424,7 +432,7 @@ export async function processClips(videoPath, clips, jobId, aspectRatio = '9:16'
         wideIntervals,
         webcamBox,
         subtitleAssPath: tempAssFile,
-        layoutMode: options.layoutMode || 'standard',
+        layoutMode: effectiveLayoutMode,
       });
     } finally {
       if (tempSectionFile && fs.existsSync(tempSectionFile)) {
