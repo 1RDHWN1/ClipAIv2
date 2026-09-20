@@ -155,8 +155,8 @@ export function normalizeBrandingConfig(input) {
   // quietly beside the captions, not to draw a second black box over the video.
   const showWatermarkBg = cfg.watermarkBackground === true;
 
-  const showHeadline = cfg.showHeadline === true;
   const headlineText = str(cfg.headlineText, 80);
+  const showHeadline = cfg.showHeadline !== false && Boolean(headlineText || cfg.showHeadline === true);
   const rawHeadlineFontSize = Number(cfg.headlineFontSize);
   const headlineFontSize = Number.isFinite(rawHeadlineFontSize)
     ? Math.min(64, Math.max(18, Math.round(rawHeadlineFontSize)))
