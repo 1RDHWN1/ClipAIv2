@@ -47,8 +47,10 @@ export const VALID_HOOK_TAXONOMY = [
  *
  * @returns {{ model: string, baseUrl: string, apiKey: string, fallbackBaseUrl: string|null, fallbackModel: string }}
  */
-export function resolveModelConfiguration() {
-  const model = process.env.DEFAULT_MODEL || process.env.AI_MODEL || DEFAULT_AI_MODEL;
+export function resolveModelConfiguration(overrideModel = null) {
+  const model = (typeof overrideModel === 'string' && overrideModel.trim())
+    ? overrideModel.trim()
+    : (process.env.DEFAULT_MODEL || process.env.AI_MODEL || DEFAULT_AI_MODEL);
   const baseUrl = (process.env.AI_BASE_URL || DEFAULT_AI_BASE_URL).replace(/\/+$/, '');
   const apiKey = process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || 'dummy';
   const fallbackBaseUrl = process.env.AI_FALLBACK_BASE_URL
@@ -365,7 +367,8 @@ export function validateNarrativeClipSchema(clip) {
  * @returns {Promise<Array<{start, end, title, reason, score}>>}
  */
 export async function analyzeTranscript(transcript, segments, videoDuration, clipCount = 3, context = {}) {
-  const config = resolveModelConfiguration();
+  const overrideModel = context.aiModel || context.model || null;
+  const config = resolveModelConfiguration(overrideModel);
   const candidates = buildGatewayCandidates(config);
 
   if (candidates.length === 0) {
