@@ -207,13 +207,17 @@ def main():
     video_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
     frames_per_step = max(1, int(round(video_fps * sample_step)))
 
-    cap.set(cv2.CAP_PROP_POS_MSEC, max(0, clip_start * 1000.0))
+    start_frame = int(round(clip_start * video_fps))
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+    current_frame = start_frame
 
     frame_records = []
     prev_gray = None
 
-    t = clip_start
-    while t < clip_end:
+    while True:
+        real_t = current_frame / video_fps
+        if real_t >= clip_end:
+            break
         ok, frame = cap.read()
         if not ok:
             break
@@ -221,7 +225,7 @@ def main():
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # ── Scene Cut Detection ────────────────────────────────────────────
-        clip_relative_time = round(t - clip_start, 2)
+        clip_relative_time = round(real_t - clip_start, 2)
 
         if use_pyscenedetect:
             # O(1) lookup against pre-computed scene cuts
@@ -243,10 +247,12 @@ def main():
             "faces": faces,
         })
 
+        grabbed = 0
         for _ in range(frames_per_step - 1):
             if not cap.grab():
                 break
-        t += sample_step
+            grabbed += 1
+        current_frame += 1 + grabbed
 
     cap.release()
     if mp_face_detection is not None:
@@ -571,6 +577,12 @@ def detect_faces(frame, gray, yunet_detector, mp_face_detection, min_face_size, 
     if len(indices) > 0:
         for idx in indices.flatten():
             d = detected[idx]
+            # Ignore silhouettes seen from behind (over-the-shoulder foreground figures)
+            if not d.get("has_visible_face", True):
+                continue
+            # Ignore tiny background noise detections (< 5% frame width)
+            if d.get("w", 0) < frame_width * 0.05:
+                continue
             kept_faces.append({
                 "x": d["box"][0],
                 "y": d["box"][1],
@@ -691,7 +703,7 @@ def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turn
     current_face_w = initial_face_w
     last_switch_time = 0.0
     MIN_HOLD_SAME_SHOT = 2.4  # 2.4s natural television hold time between cuts
-    MAX_SEGMENTS = 16
+    MAX_SEGMENTS = 40
 
     act_l = 0.0
     act_r = 0.0
@@ -718,6 +730,11 @@ def build_shot_aware_plan(frame_records, frame_width, frame_height, speaker_turn
         act_r = act_r * 0.7 + mot_r * 0.3
 
         if not faces:
+            # During camera cuts to B-roll or slides with no human faces,
+            # default framing to center of frame rather than lingering on old speaker.
+            if is_cut:
+                current_focus_x = frame_width * 0.5
+                current_focus_bucket = "left" if current_focus_x < frame_width * 0.5 else "right"
             targets.append({
                 "time": time,
                 "center_x": current_focus_x,
