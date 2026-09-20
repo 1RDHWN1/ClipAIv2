@@ -61,4 +61,5 @@ tests/fixtures/temp/
 # Misc
 tmp/
 temp/
+.clipai.pid
 
