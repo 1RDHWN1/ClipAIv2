@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { sanitizeVideoId } from '../utils/downloader.js';
 import { createRateLimiter } from '../utils/rateLimiter.js';
 import { deleteJobOutputs, reapOutputs } from '../utils/outputReaper.js';
+import { detectHardwareAcceleration } from '../utils/gpuDetector.js';
 
 const router = express.Router();
 
@@ -346,6 +347,22 @@ router.get('/models', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Gagal mengambil daftar model AI', detail: err.message });
+  }
+});
+
+/**
+ * GET /api/hardware
+ * Mengembalikan status akselerasi perangkat keras (GPU VAAPI / CPU)
+ */
+router.get('/hardware', (req, res) => {
+  try {
+    const info = detectHardwareAcceleration();
+    res.json({
+      success: true,
+      ...info,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal mendeteksi hardware acceleration', detail: err.message });
   }
 });
 
