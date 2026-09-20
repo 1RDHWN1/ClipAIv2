@@ -7,6 +7,7 @@ import 'dotenv/config';
 import { buildAudioCrossfadeFilter } from './boundarySnapper.js';
 import { downloadClipSection } from './downloader.js';
 import { generateAssSubtitles, escapeAssPath } from './subtitleGenerator.js';
+import { getHardwareAccelerationConfig } from './gpuDetector.js';
 
 const OUTPUT_DIR = process.env.OUTPUT_DIR || './outputs';
 const SPEAKER_TRACKING_ENABLED = process.env.SPEAKER_TRACKING_ENABLED !== 'false';
@@ -265,6 +266,18 @@ export function buildGamingStreamerFilterGraph({
  * @returns {string[]} output options to hand to ffmpeg
  */
 export function buildVideoEncodingOptions(overrides = {}) {
+  if (overrides.hwaccel === true || overrides.encoder === 'h264_vaapi') {
+    const qp = overrides.qp !== undefined ? String(overrides.qp) : '18';
+    return [
+      '-c:v', 'h264_vaapi',
+      '-rc_mode', 'CQP',
+      '-qp', qp,
+      '-profile:v', 'high',
+      '-coder', 'cabac',
+      '-movflags', '+faststart',
+    ];
+  }
+
   const mode = (overrides.mode || VIDEO_ENCODING_MODE).toLowerCase();
   const preset = overrides.preset || VIDEO_PRESET;
 
@@ -322,6 +335,13 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
     console.log(`📐 Source video: ${srcWidth}x${srcHeight}, AR: ${aspectRatio}`);
   } else {
     console.log(`📐 Source: belum diketahui (URL) — dimensi dibaca dari section per clip, AR: ${aspectRatio}`);
+  }
+
+  const hwConfig = getHardwareAccelerationConfig(options);
+  if (hwConfig.enabled) {
+    console.log(`⚡ Hardware Acceleration: ${hwConfig.name} (Active)`);
+  } else {
+    console.log(`🖥️ Video Encoding: CPU Software (libx264)`);
   }
 
   const results = [];
@@ -497,13 +517,31 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       }
     }
 
+    const hwConfig = options._retryCpu
+      ? { enabled: false }
+      : getHardwareAccelerationConfig(options);
+    const useGpu = hwConfig.enabled;
+
+    if (useGpu && hwConfig.driver) {
+      process.env.LIBVA_DRIVER_NAME = hwConfig.driver;
+    }
+
     let cmd = ffmpeg(inputPath)
       .seekInput(clip.start)
-      .duration(duration)
-      .videoCodec('libx264')
-      .audioCodec('aac')
-      .audioBitrate('128k')
-      .outputOptions(buildVideoEncodingOptions());
+      .duration(duration);
+
+    if (useGpu) {
+      cmd = cmd
+        .inputOptions(['-vaapi_device', hwConfig.device])
+        .outputOptions(buildVideoEncodingOptions({ hwaccel: true, qp: 18 }));
+    } else {
+      cmd = cmd
+        .videoCodec('libx264')
+        .outputOptions(buildVideoEncodingOptions(options.encodingOverrides));
+    }
+
+    cmd = cmd.audioCodec('aac')
+             .audioBitrate('128k');
 
     const layoutMode = options.layoutMode || 'standard';
 
@@ -517,7 +555,13 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         camH: options.webcamBox?.height,
         subtitleAssPath: options.subtitleAssPath,
       });
-      cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap)
+      let filterComplex = graph.filterComplex;
+      let outputMap = graph.outputMap;
+      if (useGpu) {
+        filterComplex += `;${outputMap}format=nv12,hwupload[hwout]`;
+        outputMap = '[hwout]';
+      }
+      cmd = cmd.complexFilter(filterComplex, outputMap)
                .outputOptions(['-map 0:a?']);
     } else if (layoutMode === 'auto_split' && aspectRatio === '9:16') {
       const defaultX = Math.floor((srcWidth - Math.min(srcWidth, Math.floor(srcHeight * 9 / 16))) / 2);
@@ -537,7 +581,13 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         wideIntervals: options.wideIntervals || [],
         subtitleAssPath: options.subtitleAssPath,
       });
-      cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap)
+      let filterComplex = graph.filterComplex;
+      let outputMap = graph.outputMap;
+      if (useGpu) {
+        filterComplex += `;${outputMap}format=nv12,hwupload[hwout]`;
+        outputMap = '[hwout]';
+      }
+      cmd = cmd.complexFilter(filterComplex, outputMap)
                .outputOptions(['-map 0:a?']);
     } else if (layoutMode === 'split_screen' && aspectRatio === '9:16') {
       let graph = buildStackedSplitFilterGraph({
@@ -551,11 +601,14 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         filterComplex += `;${graph.outputMap}ass='${escapedAss}'[vout]`;
         outMap = '[vout]';
       }
-      graph = { filterComplex, outputMap: outMap };
-      cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap)
+      if (useGpu) {
+        filterComplex += `;${outMap}format=nv12,hwupload[hwout]`;
+        outMap = '[hwout]';
+      }
+      cmd = cmd.complexFilter(filterComplex, outMap)
                .outputOptions(['-map 0:a?']);
     } else {
-      const vfFilter = buildVideoFilter({
+      let vfFilter = buildVideoFilter({
         srcWidth,
         srcHeight,
         aspectRatio,
@@ -565,6 +618,9 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         faceTrackingPlan: options.faceTrackingPlan || [],
         subtitleAssPath: options.subtitleAssPath,
       });
+      if (useGpu) {
+        vfFilter = vfFilter ? `${vfFilter},format=nv12,hwupload` : 'format=nv12,hwupload';
+      }
       if (vfFilter) {
         cmd = cmd.videoFilters(vfFilter);
       }
@@ -588,7 +644,20 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         process.stdout.write('\n');
         resolve();
       })
-      .on('error', (err) => {
+      .on('error', async (err) => {
+        if (useGpu && !options._retryCpu) {
+          console.warn(`⚠️ [clipper] GPU VAAPI encoding failed: ${err.message}. Retrying on CPU fallback...`);
+          try {
+            await executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio, {
+              ...options,
+              hwaccel: 'cpu',
+              _retryCpu: true,
+            });
+            return resolve();
+          } catch (cpuErr) {
+            return reject(cpuErr);
+          }
+        }
         reject(new Error(`FFmpeg error: ${err.message}`));
       })
       .run();
