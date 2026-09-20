@@ -348,18 +348,19 @@ export function buildGamingStreamerFilterGraph({
 }
 
 /**
- * Skor webcam minimum PER FRAME agar layout "Gaming Streamer" dianggap sah.
+ * Skor webcam minimum agar layout "Gaming Streamer" dianggap sah.
  *
- * Skor mentah = jumlah_sampel x persistence x edge_score, jadi nilainya naik
- * seiring durasi klip. Ambang absolut akan menolak gaming stream asli yang
- * kebetulan pendek, jadi ukurannya dinormalkan per frame.
- *
- * Skor per-frame = persistence x edge_score (0..1):
- *   subjek di tengah      -> ~0     (edge_score 0)
- *   webcam pojok asli     -> 0.55+  (persistent, menempel tepi)
- * 0.35 memisahkan keduanya dengan margin.
+ * Skor dihitung di face_tracking.py sebagai
+ * `persistence x edge_score x smallness` (masing-masing 0..1), jadi nilainya
+ * sudah bebas dari panjang klip:
+ *   subjek di tengah          -> ~0    (edge_score 0)
+ *   animasi besar di tengah   -> ~0.29 (dihukum oleh smallness)
+ *   webcam PiP kecil di tepi  -> ~0.37
+ * 0.32 memisahkan webcam dari animasi dengan margin di kedua sisi. Nilainya
+ * HARUS sama dengan ambang di scripts/face_tracking.py — kalau tidak, klip bisa
+ * lolos satu pemeriksaan lalu ditolak di pemeriksaan berikutnya.
  */
-export const GAMING_WEBCAM_MIN_PER_FRAME = 0.35;
+export const GAMING_WEBCAM_MIN_PER_FRAME = 0.32;
 
 /**
  * Hitung skor webcam per frame dari sebuah webcamBox.
