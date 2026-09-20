@@ -35,7 +35,7 @@ FRAME_SAMPLE_FPS = 5.0          # 5 FPS temporal resolution (0.2s step)
 MIN_FACE_RATIO = 0.03           # Minimum face size relative to frame (3% to catch wide shots)
 BOX_EXPAND_RATIO = 0.12         # Bounding box padding
 FACE_ASPECT_RATIO_MAX = 2.0     # Max w/h or h/w ratio for valid human face
-FACE_Y_BAND_RATIO = 0.72        # Faces should be in top 72% of frame (not floor/desk)
+FACE_Y_BAND_RATIO = 0.95        # Faces should be in top 95% of frame (allows corner stream webcams)
 MIN_HOLD_SAME_SHOT = 0.8        # 0.8s responsive hold time between speaker shifts in wide shot
 
 # YOLOv8-Pose keypoint indices (COCO 17-keypoint format)
@@ -273,6 +273,7 @@ def main():
     # 3. Build intelligent shot-aware plan
     plan = build_shot_aware_plan(frame_records, width, height, speaker_turns)
     wide_intervals = extract_wide_intervals(frame_records, min_duration=1.6, frame_width=width)
+    webcam_box = detect_streamer_webcam(frame_records, width, height)
 
     scene_detector_name = "pyscenedetect" if use_pyscenedetect else "legacy"
     total_cuts = sum(1 for fr in frame_records if fr["is_cut"])
@@ -281,6 +282,7 @@ def main():
         {
             "plan": plan,
             "wideIntervals": wide_intervals,
+            "webcamBox": webcam_box,
             "debug": {
                 "tracks": len(plan),
                 "samples": len(frame_records),
@@ -288,10 +290,53 @@ def main():
                 "detector": "yolo_pose" if yolo_pose_session is not None else ("yunet" if yunet_detector is not None else ("mediapipe" if mp_face_detection is not None else "none")),
                 "scene_detector": scene_detector_name,
                 "scene_cuts_found": total_cuts,
+                "webcam_detected": webcam_box is not None,
             },
         },
         sys.stdout,
     )
+
+
+def detect_streamer_webcam(frame_records, frame_width, frame_height):
+    """
+    Detects persistent webcam overlay in gaming/screen-recording videos.
+    In a stream or screencast, the streamer's camera sits in one of the quadrants
+    (typically bottom-right, bottom-left, top-right, or top-left) with a relatively
+    consistent position across frames. Returns bounding box {x, y, width, height} or None.
+    """
+    if not frame_records:
+        return None
+
+    face_pts = []
+    for fr in frame_records:
+        for f in fr.get("faces", []):
+            if f.get("has_visible_face", True):
+                face_pts.append((f["center_x"], f["center_y"], f.get("w", 0)))
+
+    if len(face_pts) < 3:
+        return None
+
+    xs = [p[0] for p in face_pts]
+    ys = [p[1] for p in face_pts]
+
+    import numpy as np
+    med_x = float(np.median(xs))
+    med_y = float(np.median(ys))
+
+    cam_w = int(min(frame_width, round(frame_width * 0.35)))
+    cam_h = int(min(frame_height, round(frame_height * 0.45)))
+
+    cam_x = int(max(0, min(frame_width - cam_w, round(med_x - cam_w / 2.0))))
+    cam_y = int(max(0, min(frame_height - cam_h, round(med_y - cam_h / 2.0))))
+
+    return {
+        "x": cam_x,
+        "y": cam_y,
+        "width": cam_w,
+        "height": cam_h,
+        "center_x": round(med_x, 1),
+        "center_y": round(med_y, 1)
+    }
 
 
 def read_frame_at(cap, time_seconds):
