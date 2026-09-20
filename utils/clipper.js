@@ -2,7 +2,7 @@
 import ffmpeg from 'fluent-ffmpeg';
 import path from 'path';
 import fs from 'fs';
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import 'dotenv/config';
 import { buildAudioCrossfadeFilter } from './boundarySnapper.js';
 import { downloadClipSection } from './downloader.js';
@@ -59,7 +59,46 @@ const SPEAKER_TRACKING_ENABLED = process.env.SPEAKER_TRACKING_ENABLED !== 'false
 const SPEAKER_SWITCH_MIN_SECONDS = parseFloat(process.env.SPEAKER_SWITCH_MIN_SECONDS || '2.4');
 const SPEAKER_POSITION_PADDING_RATIO = parseFloat(process.env.SPEAKER_POSITION_PADDING_RATIO || '0.14');
 const FACE_TRACKING_ENABLED = process.env.FACE_TRACKING_ENABLED !== 'false';
-const FACE_TRACKING_PYTHON = process.env.FACE_TRACKING_PYTHON || 'python';
+const FACE_TRACKING_PYTHON = process.env.FACE_TRACKING_PYTHON || resolveFaceTrackingPython();
+
+/**
+ * Cari interpreter Python yang benar-benar punya OpenCV.
+ *
+ * Kenapa ini penting: `face_tracking.py` butuh cv2/numpy, dan Python sistem
+ * biasanya TIDAK punya. Kalau salah pilih, skripnya mati dengan ImportError,
+ * clipper menelan errornya, `webcamBox` jadi null, dan video gaming asli
+ * ter-crop ke kontennya (bukan ke wajah streamer) tanpa satu pun error yang
+ * terlihat. Jadi kita deteksi sekali, di sini.
+ *
+ * Urutan: env var > venv proyek > python3/python yang bisa `import cv2`.
+ *
+ * @returns {string}
+ */
+export function resolveFaceTrackingPython() {
+  const candidates = [];
+
+  // Venv proyek, kalau ada (paling mungkin benar).
+  for (const rel of ['../addstorage/clipai_venv/bin/python', '.venv/bin/python', 'venv/bin/python']) {
+    const p = path.resolve(process.cwd(), rel);
+    if (fs.existsSync(p)) candidates.push(p);
+  }
+
+  // Interpreter sistem sebagai cadangan.
+  candidates.push('python3', 'python');
+
+  for (const bin of candidates) {
+    try {
+      const r = spawnSync(bin, ['-c', 'import cv2, numpy'], { timeout: 20000 });
+      if (r.status === 0) return bin;
+    } catch (_) {
+      // coba kandidat berikutnya
+    }
+  }
+
+  // Tidak ada yang punya cv2 — biarkan default dan biarkan clipper menangani
+  // kegagalannya dengan jelas.
+  return process.env.FACE_TRACKING_PYTHON || 'python3';
+}
 const FACE_TRACKING_SAFE_MARGIN_RATIO = parseFloat(process.env.FACE_TRACKING_SAFE_MARGIN_RATIO || '0.18');
 
 // ── Encoding (audit finding H1) ─────────────────────────────────────────────
@@ -311,16 +350,16 @@ export function buildGamingStreamerFilterGraph({
 /**
  * Skor webcam minimum PER FRAME agar layout "Gaming Streamer" dianggap sah.
  *
- * Skor mentah = jumlah_sampel x spread x multiplier, jadi nilainya naik seiring
- * durasi klip. Ambang absolut akan menolak gaming stream asli yang kebetulan
- * pendek, jadi ukurannya dinormalkan per frame.
+ * Skor mentah = jumlah_sampel x persistence x edge_score, jadi nilainya naik
+ * seiring durasi klip. Ambang absolut akan menolak gaming stream asli yang
+ * kebetulan pendek, jadi ukurannya dinormalkan per frame.
  *
- * Pemisahan terukur:
- *   deteksi palsu (video reaksi) -> 1.04/frame
- *   webcam pojok asli            -> 2.42/frame
- * 1.8 ada di antaranya dengan margin di kedua sisi.
+ * Skor per-frame = persistence x edge_score (0..1):
+ *   subjek di tengah      -> ~0     (edge_score 0)
+ *   webcam pojok asli     -> 0.55+  (persistent, menempel tepi)
+ * 0.35 memisahkan keduanya dengan margin.
  */
-export const GAMING_WEBCAM_MIN_PER_FRAME = 1.8;
+export const GAMING_WEBCAM_MIN_PER_FRAME = 0.35;
 
 /**
  * Hitung skor webcam per frame dari sebuah webcamBox.
@@ -1402,12 +1441,13 @@ async function getFaceTrackingPlan({ videoPath, clip, speakerTurns, aspectRatio 
 
     const result = await runFaceTrackingScript(payload);
     if (result.error) {
-      console.warn(`   Face tracking fallback: ${result.error}`);
-      return [];
+      console.warn(`   ⚠️ Face tracking GAGAL: ${result.error}`);
+      console.warn(`   ⚠️ Interpreter: ${FACE_TRACKING_PYTHON} — pastikan punya cv2 & numpy (FACE_TRACKING_PYTHON).`);
+      return { plan: [], wideIntervals: [], webcamBox: null };
     }
 
     if (result && Array.isArray(result.plan)) {
-      console.log(`   Face tracking plan ready: ${result.plan.length} segment(s), ${result.debug?.tracks || 0} face track(s), ${result.wideIntervals?.length || 0} wide interval(s)${result.webcamBox ? ', webcam detected' : ''}`);
+      console.log(`   Face tracking plan ready: ${result.plan.length} segment(s), ${result.debug?.tracks || 0} face track(s), ${result.wideIntervals?.length || 0} wide interval(s)${result.webcamBox ? `, webcam detected (${result.webcamBox.quadrant}, ${result.webcamBox.per_frame_score}/frame)` : ''}`);
       return {
         plan: result.plan,
         wideIntervals: Array.isArray(result.wideIntervals) ? result.wideIntervals : [],
@@ -1415,7 +1455,7 @@ async function getFaceTrackingPlan({ videoPath, clip, speakerTurns, aspectRatio 
       };
     }
   } catch (err) {
-    console.warn(`   Face tracking fallback: ${err.message}`);
+    console.warn(`   ⚠️ Face tracking fallback: ${err.message}`);
   }
 
   return { plan: [], wideIntervals: [], webcamBox: null };
