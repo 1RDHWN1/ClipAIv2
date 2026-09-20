@@ -283,9 +283,33 @@ export function buildAdaptiveSplitFilterGraph({
 }
 
 /**
+ * Tinggi panel layout gaming (total 1920).
+ *
+ * Webcam 480px (25%) + konten 1440px (75%). Sebelumnya 800/1120: webcam
+ * memakan 42% frame padahal isinya cuma wajah, dan konten 16:9 yang di-fit ke
+ * lebar 1080 cuma butuh 607px — sisanya jadi bilah hitam 513px (27% frame).
+ * Sekarang panel konten 1440px diisi background blur + konten tajam di tengah,
+ * jadi ruang itu terpakai, bukan hitam.
+ */
+export const GAMING_CAM_PANEL_H = 480;
+export const GAMING_GAME_PANEL_H = 1440;
+/**
+ * Tinggi konten tajam di dalam panel game.
+ *
+ * Konten 16:9 yang di-fit ke lebar 1080 cuma 607px tinggi, jadi panel 1440px
+ * menyisakan 833px (58%) yang cuma bisa jadi blur. Dengan men-scale konten ke
+ * 1080x900 lalu crop tengah, kontennya jadi ~48% lebih besar; yang terpotong
+ * hanya sisi kiri/kanan (UI chat & PiP kecil, yang memang bukan fokus).
+ */
+export const GAMING_SHARP_H = 900;
+const CAM_PANEL_H = GAMING_CAM_PANEL_H;
+const GAME_PANEL_H = GAMING_GAME_PANEL_H;
+const SHARP_H = GAMING_SHARP_H;
+
+/**
  * Builds stacked gaming streamer filter graph:
- * Top panel: Facecam zoom (1080x800)
- * Bottom panel: Full 16:9 gameplay fitted (1080x1120)
+ * Top panel: Facecam zoom (1080x480, 25%)
+ * Bottom panel: Full 16:9 gameplay on a blurred fill (1080x1440, 75%)
  * Total: 1080x1920 (9:16)
  */
 export function buildGamingStreamerFilterGraph({
@@ -322,8 +346,16 @@ export function buildGamingStreamerFilterGraph({
     : defaultCamY;
 
   const filterParts = [
-    `[0:v]crop=${targetCamW}:${targetCamH}:${targetCamX}:${targetCamY},scale=1080:800:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:800,setsar=1[cam]`,
-    `[0:v]scale=1080:1120:force_original_aspect_ratio=decrease:flags=lanczos,pad=1080:1120:(ow-iw)/2:(oh-ih)/2:black,setsar=1[game]`,
+    `[0:v]crop=${targetCamW}:${targetCamH}:${targetCamX}:${targetCamY},scale=1080:${CAM_PANEL_H}:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:${CAM_PANEL_H},setsar=1[cam]`,
+    // Main content fills the panel with a blurred, zoomed copy of itself as the
+    // background, and the sharp 16:9 frame centred on top. Plain `pad=black`
+    // left ~500px (26%) of the frame as dead black bars; the blurred fill uses
+    // that space instead of wasting it.
+    `[0:v]scale=1080:${GAME_PANEL_H}:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:${GAME_PANEL_H},gblur=sigma=24,setsar=1[gamebg]`,
+    // Konten tajam: isi penuh lebar 1080, tinggi mengikuti, lalu crop tengah ke
+    // SHARP_H. Lebih besar dari sekadar fit (607px) tanpa distorsi.
+    `[0:v]scale=1080:${SHARP_H}:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:${SHARP_H},setsar=1[gamefg]`,
+    `[gamebg][gamefg]overlay=(W-w)/2:(H-h)/2,setsar=1[game]`,
     `[cam][game]vstack=inputs=2[vraw]`,
   ];
 
@@ -333,7 +365,9 @@ export function buildGamingStreamerFilterGraph({
     filterParts.push(`[vraw]ass='${escapedAss}'[v]`);
     outputMap = '[v]';
   } else {
-    filterParts[2] = `[cam][game]vstack=inputs=2[v]`;
+    // Rename the final label in place — the vstack is the LAST statement now
+    // that the game panel is built from two inputs (bg + fg).
+    filterParts[filterParts.length - 1] = `[cam][game]vstack=inputs=2[v]`;
     outputMap = '[v]';
   }
 
@@ -342,8 +376,8 @@ export function buildGamingStreamerFilterGraph({
     outputMap,
     renderWidth: 1080,
     renderHeight: 1920,
-    camHeight: 800,
-    gameHeight: 1120,
+    camHeight: CAM_PANEL_H,
+    gameHeight: GAME_PANEL_H,
   };
 }
 
