@@ -59,4 +59,52 @@ test('Gaming Streamer Webcam Detection & Positioning', async (t) => {
       `OutOfBounds camX/Y must be clamped safely, got: ${graph.filterComplex}`
     );
   });
+
+  await t.test('Case 4: detect_streamer_webcam isolates corner webcam over center gameplay NPC faces', async () => {
+    const { spawnSync } = await import('node:child_process');
+    const pyCode = `
+import sys, json
+sys.path.append('scripts')
+from face_tracking import detect_streamer_webcam
+
+records = []
+for _ in range(15):
+    records.append({'faces': [
+        {'center_x': 1115, 'center_y': 605, 'w': 110, 'h': 140, 'has_visible_face': True},
+        {'center_x': 640, 'center_y': 360, 'w': 180, 'h': 220, 'has_visible_face': True}
+    ]})
+
+res = detect_streamer_webcam(records, 1280, 720)
+print(json.dumps(res))
+`;
+    const child = spawnSync('/home/cutycat15/addstorage/clipai_venv/bin/python', ['-c', pyCode], { encoding: 'utf8' });
+    assert.strictEqual(child.status, 0, `Python exited with error: ${child.stderr}`);
+    const res = JSON.parse(child.stdout.trim());
+    assert.ok(res, 'Webcam must be detected');
+    assert.strictEqual(res.quadrant, 'bottom_right');
+    assert.strictEqual(res.center_x, 1115);
+    assert.strictEqual(res.center_y, 605);
+  });
+
+  await t.test('Case 5: detect_streamer_webcam safely rejects pure center gameplay faces without webcam', async () => {
+    const { spawnSync } = await import('node:child_process');
+    const pyCode = `
+import sys, json
+sys.path.append('scripts')
+from face_tracking import detect_streamer_webcam
+
+records = []
+for i in range(12):
+    records.append({'faces': [
+        {'center_x': 600 + i * 10, 'center_y': 340 + i * 5, 'w': 180, 'h': 220, 'has_visible_face': True}
+    ]})
+
+res = detect_streamer_webcam(records, 1280, 720)
+print(json.dumps(res))
+`;
+    const child = spawnSync('/home/cutycat15/addstorage/clipai_venv/bin/python', ['-c', pyCode], { encoding: 'utf8' });
+    assert.strictEqual(child.status, 0, `Python exited with error: ${child.stderr}`);
+    const res = JSON.parse(child.stdout.trim());
+    assert.strictEqual(res, null, 'Center-only gameplay faces must not be misclassified as webcam');
+  });
 });
