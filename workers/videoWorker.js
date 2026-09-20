@@ -9,6 +9,8 @@ import { parseGeminiTranscript } from '../utils/geminiTranscriptParser.js';
 import { fetchGeminiApiTranscript } from '../utils/geminiVideoProvider.js';
 import { extractTranscriptViaBrowser } from '../utils/youtubeAutomation.js';
 import { analyzeTranscript } from '../utils/analyzer.js';
+import { generateClipMetadata, applyMetadataToClips } from '../utils/metadataGenerator.js';
+import { buildClipTranscriptSlice } from '../utils/transcriptSlice.js';
 import { processClips } from '../utils/clipper.js';
 import { detectAudioPeaks, annotateSentencesWithAudioPeaks } from '../utils/audioPeakDetector.js';
 import 'dotenv/config';
@@ -20,7 +22,7 @@ console.log('🚀 Video Worker starting...');
 const worker = new Worker(
   'video-processing',
   async (job) => {
-    const { url, aspectRatio, clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard', jobId = job.id, aiModel } = job.data;
+    const { url, aspectRatio, clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard', jobId = job.id, aiModel, metadataMode = 'viral', targetPlatform = 'all' } = job.data;
 
     // Track warnings for transparency about fallbacks and processing path
     const warnings = [];
@@ -261,7 +263,48 @@ const worker = new Worker(
       });
 
       const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-      const finalClips = processedClips.map((c) => ({
+
+      // STEP 5: Metadata publikasi viral (judul, deskripsi, hashtag, caption).
+      // Dibungkus try/catch dengan sengaja: metadata yang gagal TIDAK BOLEH
+      // menggagalkan render yang sudah selesai. Kalau gateway mati atau model
+      // mengembalikan sampah, klip tetap tersimpan dengan judul dari analyzer.
+      await job.updateProgress({ step: 5, message: 'AI menyusun judul & deskripsi viral...', percent: 96 });
+
+      let clipsWithMetadata = processedClips;
+      try {
+        const clipInputs = processedClips.map((c) => {
+          const idx = c.clipIndex ?? c.index;
+          // Slice transkrip klip ini supaya model menulis dari isi sebenarnya,
+          // bukan menebak dari judul sementara.
+          const clipText = buildClipTranscriptSlice(enrichedSentences, c.start, c.end);
+          return {
+            index: idx,
+            title: c.title,
+            hookText: c.hookText,
+            viralityRationale: c.viralityRationale,
+            duration: c.duration,
+            clipText,
+          };
+        });
+
+        const metadataByIndex = await generateClipMetadata(clipInputs, {
+          aiModel,
+          language,
+          metadataMode,
+          videoTitle: downloaded.title,
+          targetPlatform,
+        });
+
+        clipsWithMetadata = applyMetadataToClips(processedClips, metadataByIndex);
+
+        if (metadataByIndex.size === 0 && metadataMode !== 'off') {
+          addWarning(`Metadata publikasi tidak dapat digenerate — memakai judul dari analisis klip.`);
+        }
+      } catch (metaErr) {
+        addWarning(`Metadata generator error (${metaErr.message}) — memakai judul dari analisis klip.`);
+      }
+
+      const finalClips = clipsWithMetadata.map((c) => ({
         index: c.clipIndex,
         title: c.title,
         reason: c.reason || c.viralityRationale,
@@ -273,6 +316,8 @@ const worker = new Worker(
         fileSizeMB: c.fileSizeMB,
         downloadUrl: `${BASE_URL}/outputs/${c.filename}`,
         filename: c.filename,
+        // Metadata publikasi siap-tempel (null kalau mode off / generator gagal)
+        metadata: c.metadata || null,
       }));
 
       console.log(`\n✅ Job ${jobId} SELESAI! ${finalClips.length} clips generated.`);

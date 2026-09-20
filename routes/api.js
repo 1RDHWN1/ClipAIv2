@@ -6,6 +6,7 @@ import { sanitizeVideoId } from '../utils/downloader.js';
 import { createRateLimiter } from '../utils/rateLimiter.js';
 import { deleteJobOutputs, reapOutputs } from '../utils/outputReaper.js';
 import { detectHardwareAcceleration } from '../utils/gpuDetector.js';
+import { normalizeMetadataMode, VALID_METADATA_MODES } from '../utils/metadataGenerator.js';
 
 const router = express.Router();
 
@@ -79,6 +80,8 @@ router.post('/process', requireApiKey, processRateLimiter, async (req, res) => {
   try {
     const body = req.body || {};
     const { url, aspectRatio = '9:16', clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard' } = body;
+    const metadataMode = body.metadataMode;
+    const targetPlatform = body.targetPlatform;
 
     if (!url) {
       return res.status(400).json({ error: 'URL YouTube wajib diisi' });
@@ -134,6 +137,15 @@ router.post('/process', requireApiKey, processRateLimiter, async (req, res) => {
       }
     }
 
+    // Normalisasi mode metadata (judul/deskripsi/hashtag). Mode tak dikenal
+    // jatuh ke default ('viral') — bukan mati diam-diam.
+    const cleanMetadataMode = normalizeMetadataMode(metadataMode);
+
+    const validPlatforms = ['all', 'tiktok', 'shorts', 'reels'];
+    const cleanTargetPlatform = validPlatforms.includes(targetPlatform)
+      ? targetPlatform
+      : 'all';
+
     const job = await videoQueue.add(
       'process-video',
       {
@@ -145,11 +157,13 @@ router.post('/process', requireApiKey, processRateLimiter, async (req, res) => {
         subtitleConfig: cleanSubtitleConfig,
         layoutMode: cleanLayoutMode,
         aiModel: cleanAiModel,
+        metadataMode: cleanMetadataMode,
+        targetPlatform: cleanTargetPlatform,
       },
       { jobId }
     );
 
-    console.log(`📌 Job added: ${jobId} | URL: ${url} | FastPath: ${Boolean(cleanTranscript)} | Subs: ${Boolean(cleanSubtitleConfig?.enabled)} | Model: ${cleanAiModel || 'default'}`);
+    console.log(`📌 Job added: ${jobId} | URL: ${url} | FastPath: ${Boolean(cleanTranscript)} | Subs: ${Boolean(cleanSubtitleConfig?.enabled)} | Model: ${cleanAiModel || 'default'} | Metadata: ${cleanMetadataMode}/${cleanTargetPlatform}`);
 
     res.json({
       success: true,
@@ -344,6 +358,8 @@ router.get('/models', async (req, res) => {
       success: true,
       defaultModel,
       models: merged,
+      metadataModes: VALID_METADATA_MODES,
+      defaultMetadataMode: normalizeMetadataMode(undefined),
     });
   } catch (err) {
     res.status(500).json({ error: 'Gagal mengambil daftar model AI', detail: err.message });
