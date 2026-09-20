@@ -55,10 +55,11 @@ test('SIGHUP resilience — a closed terminal must not kill the stack', async (t
  * port taken) fails loudly rather than passing vacuously.
  */
 async function assertSurvivesSighup(script) {
+  const testPort = String(3100 + Math.floor(Math.random() * 500));
   const child = spawn(process.execPath, [script], {
     cwd: repoRoot,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env },
+    env: { ...process.env, PORT: testPort },
   });
 
   let exited = false;
