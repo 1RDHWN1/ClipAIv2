@@ -283,15 +283,17 @@ export function buildAdaptiveSplitFilterGraph({
 }
 
 /**
- * Tinggi panel layout gaming (total 1920).
+ * Tinggi panel webcam di layout gaming (total 1920).
  *
- * Webcam 480px (25%) + konten 1440px (75%). Sebelumnya 800/1120: webcam
- * memakan 42% frame padahal isinya cuma wajah, dan konten 16:9 yang di-fit ke
- * lebar 1080 cuma butuh 607px — sisanya jadi bilah hitam 513px (27% frame).
- * Sekarang panel konten 1440px diisi background blur + konten tajam di tengah,
- * jadi ruang itu terpakai, bukan hitam.
+ * Default 960px = split 50:50 (webcam atas setengah, konten bawah setengah),
+ * meniru layout referensi yang dipakai channel gaming.
+ *
+ * CATATAN soal zoom konten: konten sumber 16:9 harus di-cover-fit ke panel
+ * 9:16, jadi makin PENDEK panel konten (makin BESAR webcam) -> crop sisi makin
+ * sedikit. Jadi kalau konten terasa terlalu zoom, GEDEIN nilai ini.
+ * Bisa diatur lewat env GAMING_CAM_PANEL_H tanpa edit kode.
  */
-export const GAMING_CAM_PANEL_H = parseInt(process.env.GAMING_CAM_PANEL_H || '400', 10);
+export const GAMING_CAM_PANEL_H = parseInt(process.env.GAMING_CAM_PANEL_H || '960', 10);
 export const GAMING_GAME_PANEL_H = 1920 - GAMING_CAM_PANEL_H;
 const CAM_PANEL_H = GAMING_CAM_PANEL_H;
 const GAME_PANEL_H = GAMING_GAME_PANEL_H;

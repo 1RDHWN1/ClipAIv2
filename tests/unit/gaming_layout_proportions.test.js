@@ -18,13 +18,14 @@ import {
 // 607px tall, so `pad=black` wasted the rest.
 // ---------------------------------------------------------------------------
 
-test('Gaming layout: webcam smaller, content larger, no black bars', async (t) => {
+test('Gaming layout: 50:50 webcam split, no black bars', async (t) => {
   const graph = buildGamingStreamerFilterGraph({ srcWidth: 1920, srcHeight: 1080 });
 
-  await t.test('the webcam panel is a small fraction of the frame', () => {
+  await t.test('the webcam panel is a half-frame split', () => {
+    // Layout reference: webcam strip on top, content below, roughly 50:50.
     assert.ok(
-      GAMING_CAM_PANEL_H / 1920 <= 0.25,
-      `webcam panel is ${(GAMING_CAM_PANEL_H / 1920 * 100).toFixed(0)}% of the frame — too tall`
+      GAMING_CAM_PANEL_H / 1920 >= 0.40 && GAMING_CAM_PANEL_H / 1920 <= 0.60,
+      `webcam panel is ${(GAMING_CAM_PANEL_H / 1920 * 100).toFixed(0)}% of the frame — expected roughly half`
     );
   });
 
@@ -35,10 +36,10 @@ test('Gaming layout: webcam smaller, content larger, no black bars', async (t) =
     );
   });
 
-  await t.test('the content panel is the majority of the frame', () => {
+  await t.test('the content panel is roughly half the frame', () => {
     assert.ok(
-      GAMING_GAME_PANEL_H / 1920 >= 0.75,
-      `content panel is only ${(GAMING_GAME_PANEL_H / 1920 * 100).toFixed(0)}% of the frame`
+      GAMING_GAME_PANEL_H / 1920 >= 0.40 && GAMING_GAME_PANEL_H / 1920 <= 0.60,
+      `content panel is ${(GAMING_GAME_PANEL_H / 1920 * 100).toFixed(0)}% of the frame`
     );
   });
 
