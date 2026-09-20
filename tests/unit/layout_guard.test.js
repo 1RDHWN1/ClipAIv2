@@ -19,13 +19,13 @@ import {
 // ---------------------------------------------------------------------------
 
 const realWebcam = {
-  x: 832, y: 396, width: 448, height: 324,
-  quadrant: 'bottom_right', per_frame_score: 2.42, detections: 15,
+  x: 67, y: 290, width: 437, height: 324,
+  quadrant: 'bottom_left', per_frame_score: 0.55, detections: 295,
 };
 
 const weakWebcam = {
   x: 832, y: 396, width: 448, height: 324,
-  quadrant: 'bottom_right', per_frame_score: 1.04, detections: 15,
+  quadrant: 'bottom_right', per_frame_score: 0.20, detections: 295,
 };
 
 test('Layout guard: gaming_streamer is not forced onto non-gaming scenes', async (t) => {
@@ -57,7 +57,7 @@ test('Layout guard: gaming_streamer is not forced onto non-gaming scenes', async
   });
 
   await t.test('a webcamBox with missing geometry is not usable', () => {
-    const partial = { quadrant: 'bottom_right', per_frame_score: 2.42 };
+    const partial = { quadrant: 'bottom_right', per_frame_score: 0.55 };
     const r = resolveLayoutMode('gaming_streamer', partial);
     assert.strictEqual(r.webcamIsUsable, false, 'x/y/width/height must all be present');
     assert.strictEqual(r.layoutMode, 'auto_split');
@@ -84,11 +84,11 @@ test('Layout guard: gaming_streamer is not forced onto non-gaming scenes', async
 
 test('webcamPerFrameScore: normalises raw scores by detection count', async (t) => {
   await t.test('prefers an explicit per_frame_score', () => {
-    assert.strictEqual(webcamPerFrameScore({ per_frame_score: 2.42, score: 999, detections: 3 }), 2.42);
+    assert.strictEqual(webcamPerFrameScore({ per_frame_score: 0.55, score: 999, detections: 3 }), 0.55);
   });
 
   await t.test('divides a raw score when per_frame_score is absent', () => {
-    assert.ok(Math.abs(webcamPerFrameScore({ score: 36.3, detections: 15 }) - 2.42) < 0.01);
+    assert.ok(Math.abs(webcamPerFrameScore({ score: 8.25, detections: 15 }) - 0.55) < 0.01);
   });
 
   await t.test('never divides by zero', () => {

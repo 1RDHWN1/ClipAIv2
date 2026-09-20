@@ -27,57 +27,51 @@ function runPy(code) {
   return JSON.parse(out.trim().split('\n').pop());
 }
 
-test('Crop safety: reaction videos are not mistaken for gaming streams', async (t) => {
-  await t.test('a large face (the subject) is rejected as a corner webcam', () => {
-    // face width 198/1280 = 15.5% -> the video's subject, not an overlay.
-    const code = `
+test('Crop safety: a webcam overlay is told apart from a centred subject', async (t) => {
+  // Ground truth measured from the real iShowSpeed source (1280x720):
+  //   real webcam face  -> centre (287,456), 14% wide, hugs the left edge
+  //   centred subject   -> centre (640,360), any size
+  // Size does NOT separate them (14% vs 15.5% measured), position does.
+  const mk = (faces, n) => `
 import sys, json
 sys.path.append('scripts')
 from face_tracking import detect_streamer_webcam
-records = [{'faces':[{'center_x':273,'center_y':444,'w':198,'h':260,'has_visible_face':True}]} for _ in range(5)]
+records = [{'faces':${JSON.stringify(faces).replace(/true/g, 'True').replace(/false/g, 'False')}} for _ in range(${n})]
 print(json.dumps(detect_streamer_webcam(records, 1280, 720)))
 `;
-    assert.strictEqual(runPy(code), null, 'a 15.5%-wide face must not be a webcam overlay');
+
+  await t.test('a centred subject is NOT a webcam overlay, whatever its size', () => {
+    for (const w of [110, 179, 198]) {
+      const res = runPy(mk([{ center_x: 640, center_y: 360, w, h: 250, has_visible_face: true }], 60));
+      assert.strictEqual(res, null, `a centred face (w=${w}) must not be a webcam overlay`);
+    }
   });
 
-  await t.test('a genuine small corner webcam is still accepted', () => {
-    // face width 110/1280 = 8.6% -> a real corner webcam.
-    const code = `
-import sys, json
-sys.path.append('scripts')
-from face_tracking import detect_streamer_webcam
-records = []
-for _ in range(15):
-    records.append({'faces':[
-        {'center_x':1115,'center_y':605,'w':110,'h':140,'has_visible_face':True},
-        {'center_x':640,'center_y':360,'w':180,'h':220,'has_visible_face':True}
-    ]})
-print(json.dumps(detect_streamer_webcam(records, 1280, 720)))
-`;
-    const res = runPy(code);
+  await t.test('the real iShowSpeed corner webcam IS detected', () => {
+    const res = runPy(mk([{ center_x: 287, center_y: 456, w: 179, h: 232, has_visible_face: true }], 60));
+    assert.ok(res, 'the real left-edge webcam must be detected');
+    assert.strictEqual(res.quadrant, 'bottom_left');
+    assert.ok(res.per_frame_score >= 0.35, `per_frame_score ${res.per_frame_score} must clear 0.35`);
+  });
+
+  await t.test('a two-person podcast (both near centre) is rejected', () => {
+    const res = runPy(mk([
+      { center_x: 420, center_y: 340, w: 180, h: 230, has_visible_face: true },
+      { center_x: 860, center_y: 340, w: 180, h: 230, has_visible_face: true },
+    ], 60));
+    assert.strictEqual(res, null, 'two centred speakers must not look like a webcam overlay');
+  });
+
+  await t.test('a small corner webcam is still accepted', () => {
+    const res = runPy(mk([{ center_x: 1150, center_y: 90, w: 110, h: 140, has_visible_face: true }], 60));
     assert.ok(res, 'a small persistent corner face must still be detected');
-    assert.strictEqual(res.quadrant, 'bottom_right');
-    assert.ok(res.per_frame_score >= 1.8, `per_frame_score ${res.per_frame_score} must clear 1.8`);
+    assert.strictEqual(res.quadrant, 'top_right');
   });
 
   await t.test('the per-frame score is duration-independent', () => {
-    // The same webcam sampled 15x vs 45x must yield the SAME per-frame score,
-    // which is why the threshold is normalised (an absolute one would reject
-    // genuine short gaming clips).
-    const mk = (n) => `
-import sys, json
-sys.path.append('scripts')
-from face_tracking import detect_streamer_webcam
-records = []
-for _ in range(${n}):
-    records.append({'faces':[
-        {'center_x':1115,'center_y':605,'w':110,'h':140,'has_visible_face':True},
-        {'center_x':640,'center_y':360,'w':180,'h':220,'has_visible_face':True}
-    ]})
-print(json.dumps(detect_streamer_webcam(records, 1280, 720)))
-`;
-    const a = runPy(mk(15));
-    const b = runPy(mk(45));
+    const face = [{ center_x: 1150, center_y: 90, w: 110, h: 140, has_visible_face: true }];
+    const a = runPy(mk(face, 15));
+    const b = runPy(mk(face, 45));
     assert.ok(a && b, 'both must detect the webcam');
     assert.ok(
       Math.abs(a.per_frame_score - b.per_frame_score) < 0.05,
@@ -85,7 +79,7 @@ print(json.dumps(detect_streamer_webcam(records, 1280, 720)))
     );
   });
 
-  await t.test('the clipper gates on the per-frame score, not the raw score', async () => {
+  await t.test('the clipper gates on the per-frame score', async () => {
     const src = await import('node:fs').then((fs) =>
       fs.readFileSync('utils/clipper.js', 'utf-8')
     );
