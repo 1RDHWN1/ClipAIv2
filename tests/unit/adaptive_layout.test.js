@@ -4,7 +4,7 @@ import assert from 'node:assert';
 import path from 'node:path';
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
-import { buildGamingStreamerFilterGraph, buildStackedSplitFilterGraph, buildAdaptiveSplitFilterGraph } from '../../utils/clipper.js';
+import { buildGamingStreamerFilterGraph, buildStackedSplitFilterGraph, buildAdaptiveSplitFilterGraph, resolveLayoutMode } from '../../utils/clipper.js';
 
 test('Adaptive Multi-Layout Engine (Milestone 4)', async (t) => {
   await t.test('Case 1: buildGamingStreamerFilterGraph generates valid dimensions and filter syntax', () => {
@@ -138,21 +138,20 @@ test('Adaptive Multi-Layout Engine (Milestone 4)', async (t) => {
   });
 
   await t.test('Case 7: auto_split transitions to gaming_streamer when persistent webcam is detected', async () => {
-    // When webcamBox has score >= 4.0, buildGamingStreamerFilterGraph should be preferred
+    // Delegates to the real resolver instead of re-implementing the rule, so the
+    // test cannot drift from production behaviour.
     const webcamBox = {
       x: 843,
       y: 396,
       width: 437,
       height: 324,
       quadrant: 'bottom_right',
-      score: 42.86,
+      per_frame_score: 2.86,
+      detections: 15,
     };
 
-    let effectiveLayoutMode = 'auto_split';
-    if (effectiveLayoutMode === 'auto_split' && webcamBox && webcamBox.score >= 4.0) {
-      effectiveLayoutMode = 'gaming_streamer';
-    }
-
-    assert.strictEqual(effectiveLayoutMode, 'gaming_streamer', 'Must transition to gaming_streamer');
+    const r = resolveLayoutMode('auto_split', webcamBox);
+    assert.strictEqual(r.layoutMode, 'gaming_streamer', 'Must transition to gaming_streamer');
+    assert.strictEqual(r.webcamIsUsable, true);
   });
 });

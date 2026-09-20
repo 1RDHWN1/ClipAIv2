@@ -25,7 +25,7 @@ test('Gaming Streamer Webcam Detection & Positioning', async (t) => {
     assert.ok(graph.filterComplex.includes('vstack=inputs=2'), 'Must stack vertically');
   });
 
-  await t.test('Case 2: default fallback coordinates clamp safely to bottom-right corner', () => {
+  await t.test('Case 2: default fallback centres the crop instead of a blind corner', () => {
     const graph = buildGamingStreamerFilterGraph({
       srcWidth: 1280,
       srcHeight: 720,
@@ -35,11 +35,19 @@ test('Gaming Streamer Webcam Detection & Positioning', async (t) => {
 
     // defaultCamW = 1280 * 0.35 = 448
     // defaultCamH = 720 * 0.45 = 324
-    // defaultCamX = 1280 - 448 = 832 (bottom-right)
-    // defaultCamY = 720 - 324 = 396 (bottom-right)
+    // defaultCamX = (1280 - 448) / 2 = 416 (centre)
+    // defaultCamY = (720 - 324) / 2 = 198 (centre)
+    //
+    // A blind bottom-right anchor used to crop (832:396) — empty background on
+    // any non-gameplay source, which is the "cropped some random corner"
+    // failure. Without a detected webcam box the centre is the safe framing.
     assert.ok(
-      graph.filterComplex.includes('crop=448:324:832:396'),
-      `Default webcam should anchor to bottom-right corner (832:396), got: ${graph.filterComplex}`
+      graph.filterComplex.includes('crop=448:324:416:198'),
+      `Default webcam should centre the crop (416:198), got: ${graph.filterComplex}`
+    );
+    assert.ok(
+      !graph.filterComplex.includes('crop=448:324:832:396'),
+      'Default must NOT anchor to the bottom-right corner any more'
     );
   });
 
