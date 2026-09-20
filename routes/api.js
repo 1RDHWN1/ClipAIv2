@@ -4,6 +4,7 @@ import { videoQueue } from '../queues/videoQueue.js';
 import { v4 as uuidv4 } from 'uuid';
 import { sanitizeVideoId } from '../utils/downloader.js';
 import { createRateLimiter } from '../utils/rateLimiter.js';
+import { deleteJobOutputs, reapOutputs } from '../utils/outputReaper.js';
 
 const router = express.Router();
 
@@ -188,6 +189,73 @@ router.get('/job/:jobId', async (req, res) => {
   } catch (err) {
     console.error('GET /job error:', err);
     res.status(500).json({ error: 'Gagal mendapatkan status job', detail: err.message });
+  }
+});
+
+/**
+ * DELETE /api/job/:jobId
+ * Hapus file output sebuah job dan bersihkan job dari queue (audit H7).
+ *
+ * Sebelum ini tidak ada cara menghapus hasil render sama sekali: file .mp4
+ * menumpuk tanpa batas sampai disk penuh.
+ */
+router.delete('/job/:jobId', requireApiKey, async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    if (!/^[A-Za-z0-9_-]{6,64}$/.test(String(jobId))) {
+      return res.status(400).json({ error: 'jobId tidak valid' });
+    }
+
+    const files = deleteJobOutputs(jobId);
+
+    // Job metadata di Redis juga dibersihkan bila masih ada.
+    let queueRemoved = false;
+    try {
+      const job = await videoQueue.getJob(jobId);
+      if (job) {
+        await job.remove();
+        queueRemoved = true;
+      }
+    } catch (_) {
+      // Job mungkin sudah kedaluwarsa dari Redis — bukan error fatal.
+    }
+
+    console.log(`🗑️  Job ${jobId} dihapus: ${files.deleted.length} file, ${(files.freedBytes / 1024 / 1024).toFixed(2)}MB`);
+
+    res.json({
+      success: true,
+      jobId,
+      deletedFiles: files.deleted,
+      deletedCount: files.deleted.length,
+      freedMB: (files.freedBytes / 1024 / 1024).toFixed(2),
+      queueJobRemoved: queueRemoved,
+    });
+  } catch (err) {
+    console.error('DELETE /job error:', err);
+    res.status(500).json({ error: 'Gagal menghapus job', detail: err.message });
+  }
+});
+
+/**
+ * POST /api/maintenance/reap
+ * Jalankan pembersihan output secara manual. `?dryRun=1` hanya melaporkan.
+ */
+router.post('/maintenance/reap', requireApiKey, async (req, res) => {
+  try {
+    const dryRun = req.query.dryRun === '1' || req.query.dryRun === 'true';
+    const result = reapOutputs({ dryRun });
+    res.json({
+      success: true,
+      dryRun,
+      scanned: result.scanned,
+      deletedCount: result.deleted.length,
+      freedMB: (result.freedBytes / 1024 / 1024).toFixed(2),
+      deletedFiles: result.deleted,
+    });
+  } catch (err) {
+    console.error('POST /maintenance/reap error:', err);
+    res.status(500).json({ error: 'Gagal menjalankan reaper', detail: err.message });
   }
 });
 

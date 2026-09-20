@@ -3,6 +3,7 @@ import fs from 'fs';
 import { Worker } from 'bullmq';
 import { redisConnection } from '../queues/videoQueue.js';
 import { downloadVideo, downloadAudioAndInfo, cleanupFiles } from '../utils/downloader.js';
+import { startOutputReaper } from '../utils/outputReaper.js';
 import { transcribeAudio, detectLanguageFromText, normalizeLanguageCode } from '../utils/transcriber.js';
 import { parseGeminiTranscript } from '../utils/geminiTranscriptParser.js';
 import { fetchGeminiApiTranscript } from '../utils/geminiVideoProvider.js';
@@ -307,6 +308,18 @@ worker.on('progress', (job, progress) => {
   console.log(`📊 Job ${job.id} progress: ${progress.percent}% - ${progress.message}`);
 });
 
+// ── Output lifecycle (audit finding H7) ─────────────────────────────────────
+// Rendered clips are never removed by BullMQ (removeOnComplete only prunes Redis
+// job metadata), so outputs/ grew unbounded — 501 MB with no retention policy.
+// The reaper prunes intermediate artifacts aggressively and final clips by TTL /
+// total-size budget. It is unref'd so it never keeps the process alive.
+const outputReaper = startOutputReaper({ runImmediately: true });
+console.log(
+  `🧹 Output reaper active (TTL ${process.env.OUTPUT_TTL_HOURS || 24}h, ` +
+  `budget ${process.env.OUTPUT_MAX_TOTAL_MB || 5 * 1024}MB, ` +
+  `interval ${process.env.OUTPUT_REAP_INTERVAL_MINUTES || 30}m)`
+);
+
 // Graceful shutdown
 // NOTE: `worker.close()` resolves once BullMQ releases its connections, but the
 // Node event loop can still hold other handles (Redis reconnect timers, etc.).
@@ -315,6 +328,7 @@ worker.on('progress', (job, progress) => {
 async function gracefulShutdown(signal) {
   console.log(`\n[worker] ${signal} received — closing worker...`);
   try {
+    outputReaper.stop();
     await worker.close();
     console.log('[worker] Worker closed gracefully.');
   } catch (err) {
