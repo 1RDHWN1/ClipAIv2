@@ -25,7 +25,12 @@ test('Branding: drawtext escaping', async (t) => {
     assert.strictEqual(escapeDrawtext('a:b'), 'a\\:b');
     assert.strictEqual(escapeDrawtext('a,b'), 'a\\,b');
     assert.strictEqual(escapeDrawtext('a;b'), 'a\\;b');
-    assert.strictEqual(escapeDrawtext("it's"), "it\\'s");
+    // An ASCII apostrophe is replaced by the typographic one (U+2019). Escaping
+    // it as \' does NOT work inside an FFmpeg single-quoted value: the quote
+    // still closes the string and FFmpeg then parses lte(t,5) as a filter name
+    // ("No such filter: '5)'"), which failed the whole render for any headline
+    // containing an apostrophe.
+    assert.strictEqual(escapeDrawtext("it's"), 'it’s');
     assert.strictEqual(escapeDrawtext('[x]'), '\\[x\\]');
     assert.strictEqual(escapeDrawtext('100%'), '100\\%');
   });

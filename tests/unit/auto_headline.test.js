@@ -45,7 +45,7 @@ test('Auto Headline: branding configuration & drawtext overlay', async (t) => {
     assert.ok(f.includes("text='Kafir\\: Dari Gelar ke Aksi Biadab'"));
     assert.ok(f.includes('box=1:boxcolor=#FFFFFF@0.95'));
     assert.ok(f.includes('x=(w-text_w)/2'));
-    assert.ok(f.includes('y=160'));
+    assert.ok(f.includes('y=120'));
     assert.ok(f.includes("enable='lte(t,5)'"));
   });
 
