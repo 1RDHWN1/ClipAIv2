@@ -998,6 +998,281 @@
       background: #000;
       margin-top: 8px;
     }
+
+    /* ── OPUS CLIP INSPIRED DESIGN STYLES ── */
+    .opus-clips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 18px;
+      margin-top: 16px;
+    }
+
+    .opus-card {
+      background: #141720;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.22s ease;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .opus-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(79, 142, 255, 0.4);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .opus-thumb-wrap {
+      aspect-ratio: 9 / 16;
+      width: 100%;
+      background: #090b10;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .opus-thumb-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+    }
+
+    .opus-thumb-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 25%, rgba(0,0,0,0) 70%, rgba(0,0,0,0.7) 100%);
+      pointer-events: none;
+    }
+
+    .opus-headline-bar {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 5;
+      background: #ffffff;
+      color: #000000;
+      font-family: var(--font-head);
+      font-size: 11.5px;
+      font-weight: 800;
+      text-align: center;
+      line-height: 1.3;
+      padding: 6px 10px;
+      border-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+      letter-spacing: -0.2px;
+      pointer-events: none;
+    }
+
+    .opus-sub-preview {
+      position: absolute;
+      z-index: 4;
+      bottom: 40px;
+      left: 10px;
+      right: 10px;
+      text-align: center;
+      font-family: Impact, 'Syne', sans-serif;
+      font-size: 13.5px;
+      font-weight: 900;
+      color: #ffe600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 6px rgba(0,0,0,0.8);
+      pointer-events: none;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .opus-thumb-bottom {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      pointer-events: none;
+    }
+
+    .opus-badge-autozoom {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      color: #e2e8f0;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .opus-duration-pill {
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      color: #ffffff;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .opus-play-hover {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(0, 0, 0, 0.25);
+      opacity: 0;
+      transition: all 0.2s ease;
+      z-index: 3;
+    }
+
+    .opus-card:hover .opus-play-hover {
+      opacity: 1;
+    }
+
+    .opus-play-btn-circle {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.95);
+      color: #090b10;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      transition: transform 0.2s;
+    }
+
+    .opus-card:hover .opus-play-btn-circle {
+      transform: scale(1.1);
+    }
+
+    .opus-card-meta {
+      padding: 12px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .opus-score-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .opus-virality-score {
+      font-family: var(--font-head);
+      font-size: 24px;
+      font-weight: 800;
+      color: #00e599;
+      text-shadow: 0 0 14px rgba(0, 229, 153, 0.4);
+      line-height: 1;
+    }
+
+    .opus-action-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .opus-icon-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-decoration: none;
+    }
+
+    .opus-icon-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+      background: var(--surface);
+    }
+
+    .opus-card-title {
+      font-family: var(--font-head);
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      min-height: 34px;
+    }
+
+    /* ── OPUS CLIP DETAIL MODAL ── */
+    .opus-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 7, 12, 0.85);
+      backdrop-filter: blur(10px);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .opus-modal-container {
+      background: #11141d;
+      border: 1px solid var(--border-glow);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 1140px;
+      max-height: 92vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .opus-modal-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .opus-modal-body {
+      display: grid;
+      grid-template-columns: 340px 1fr 220px;
+      gap: 24px;
+      padding: 24px;
+      overflow-y: auto;
+    }
+
+    @media (max-width: 980px) {
+      .opus-modal-body {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1319,6 +1594,43 @@
               💡 Nama channel sumber diambil otomatis dari metadata YouTube kalau kolomnya dibiarkan kosong.<br>
               💡 Watermark tidak pakai kotak latar (biar tidak menutupi video) — hanya teks + bayangan tipis.
             </div>
+
+            <!-- Auto Headline Settings (Opus Clip Feature) -->
+            <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                <div>
+                  <div style="font-family: var(--font-head); font-size: 12.5px; font-weight: 700; color: #fff;">
+                    🏷️ Auto Headline Video (Opus Clip Style)
+                  </div>
+                  <div style="font-size: 11px; color: var(--text2); margin-top: 2px;">
+                    Sematkan kotak teks hook headline otomatis di bagian atas video pada 5 detik pertama
+                  </div>
+                </div>
+                <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                  <input type="checkbox" id="autoHeadlineEnabled" checked style="opacity: 0; width: 0; height: 0;">
+                  <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--accent); transition: .3s; border-radius: 24px;"></span>
+                </label>
+              </div>
+
+              <div id="headlineOptions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>Durasi Muncul Headline</label>
+                  <select id="headlineDuration" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
+                    <option value="3">3 detik pertama</option>
+                    <option value="5" selected>5 detik pertama (disarankan)</option>
+                    <option value="8">8 detik pertama</option>
+                  </select>
+                </div>
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>Gaya Warna Headline</label>
+                  <select id="headlineTheme" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
+                    <option value="white_black" selected>Kotak Putih - Teks Hitam (Opus Clip)</option>
+                    <option value="yellow_black">Kotak Kuning - Teks Hitam</option>
+                    <option value="black_white">Kotak Hitam - Teks Putih</option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1554,6 +1866,138 @@
     </div>
   </footer>
 
+  <!-- OPUS CLIP PRO DETAIL MODAL DIALOG -->
+  <div id="opusModalBackdrop" class="opus-modal-backdrop" style="display: none;" onclick="if(event.target === this) closeOpusModal()">
+    <div class="opus-modal-container" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="opus-modal-header">
+        <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+          <span id="opusModalRankBadge" style="background: rgba(79, 142, 255, 0.2); color: var(--accent); font-family: var(--font-mono); font-size: 13px; font-weight: 800; padding: 3px 8px; border-radius: 6px;">#1</span>
+          <h2 id="opusModalTitle" style="font-family: var(--font-head); font-size: 16px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            Judul Klip
+          </h2>
+          <span style="font-size: 14px; color: var(--text3); cursor: pointer;" title="Edit Judul" onclick="editModalTitle()">✏️</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" onclick="navigateOpusModal(-1)" class="opus-icon-btn" title="Klip Sebelumnya" style="width: 32px; height: 32px; font-size: 14px;">↑</button>
+          <button type="button" onclick="navigateOpusModal(1)" class="opus-icon-btn" title="Klip Berikutnya" style="width: 32px; height: 32px; font-size: 14px;">↓</button>
+          <button type="button" onclick="closeOpusModal()" class="opus-icon-btn" title="Tutup Modal" style="width: 32px; height: 32px; font-size: 15px; margin-left: 6px;">✕</button>
+        </div>
+      </div>
+
+      <!-- Modal Body: 3 Columns -->
+      <div class="opus-modal-body">
+        <!-- Column 1: Video Player 9:16 -->
+        <div>
+          <div style="position: relative; aspect-ratio: 9/16; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
+            <div style="position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: #cbd5e1; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px;">
+              ⚡ HD 1080p
+            </div>
+            <!-- Visual Headline Box at top of video -->
+            <div id="opusModalHeadlineBar" class="opus-headline-bar" style="position: absolute; top: 32px; left: 12px; right: 12px; z-index: 10;"></div>
+            <!-- Video Element -->
+            <video id="opusModalVideo" controls autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; background: #000;"></video>
+          </div>
+        </div>
+
+        <!-- Column 2: Scene Analysis & Timestamped Transcript -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- Tabs: Scene Analysis vs Transcript Only -->
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+            <div style="display: flex; gap: 12px;">
+              <button type="button" id="tabSceneAnalysis" onclick="toggleModalAnalysisTab('analysis')" style="background: none; border: none; font-family: var(--font-head); font-size: 13px; font-weight: 700; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 6px; cursor: pointer;">
+                Scene analysis
+              </button>
+              <button type="button" id="tabTranscriptOnly" onclick="toggleModalAnalysisTab('transcript')" style="background: none; border: none; font-family: var(--font-head); font-size: 13px; font-weight: 600; color: var(--text2); padding-bottom: 6px; cursor: pointer;">
+                Transcript only
+              </button>
+            </div>
+            <label style="font-size: 11px; color: var(--text3); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="checkbox" id="checkTranscriptOnly" onchange="toggleModalAnalysisTab(this.checked ? 'transcript' : 'analysis')">
+              Transcript only
+            </label>
+          </div>
+
+          <!-- Section: Virality Score & Pillars -->
+          <div id="modalAnalysisSection">
+            <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+              <div>
+                <div style="font-size: 11px; text-transform: uppercase; color: var(--text3); font-weight: 700; letter-spacing: 0.5px;">Score Virality</div>
+                <div style="display: flex; align-items: baseline; gap: 4px; margin-top: 2px;">
+                  <span id="opusModalScoreNum" style="font-family: var(--font-head); font-size: 32px; font-weight: 800; color: #00e599; text-shadow: 0 0 16px rgba(0,229,153,0.4);">99</span>
+                  <span style="font-size: 13px; color: var(--text3);">/100</span>
+                </div>
+              </div>
+              <!-- 4 Pillar Metrics -->
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 8px; text-align: center;">
+                  <div style="font-size: 10px; color: var(--text3);">HOOK</div>
+                  <div id="opusMetricHook" style="font-size: 12px; font-weight: 800; color: #00e599;">A</div>
+                </div>
+                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 8px; text-align: center;">
+                  <div style="font-size: 10px; color: var(--text3);">FLOW</div>
+                  <div id="opusMetricFlow" style="font-size: 12px; font-weight: 800; color: #00e599;">A</div>
+                </div>
+                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 8px; text-align: center;">
+                  <div style="font-size: 10px; color: var(--text3);">VALUE</div>
+                  <div id="opusMetricValue" style="font-size: 12px; font-weight: 800; color: #00e599;">A</div>
+                </div>
+                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 8px; text-align: center;">
+                  <div style="font-size: 10px; color: var(--text3);">TREND</div>
+                  <div id="opusMetricTrend" style="font-size: 12px; font-weight: 800; color: #00e599;">A-</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Context Description -->
+            <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px;">
+              <div style="font-size: 10.5px; text-transform: uppercase; color: var(--accent); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">
+                🧠 AI Scene Analysis &amp; Context
+              </div>
+              <p id="opusModalExplanation" style="font-size: 12.5px; line-height: 1.6; color: var(--text);"></p>
+            </div>
+          </div>
+
+          <!-- Timestamped Transcript -->
+          <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+              <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text3); font-weight: 700; letter-spacing: 0.5px;">
+                Transkrip Pembicaraan
+              </div>
+              <span id="opusModalTimeRange" style="font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-weight: 700;">[00:00 - 01:00]</span>
+            </div>
+            <div id="opusModalTranscriptBox" style="font-size: 12.5px; line-height: 1.6; color: #cbd5e1; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; max-height: 180px; overflow-y: auto;"></div>
+          </div>
+
+          <!-- Publishing Metadata Accordion -->
+          <div id="opusModalMetadataSection" style="background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;">
+            <div style="font-size: 10.5px; text-transform: uppercase; color: #f59e0b; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 8px;">
+              🏷️ Metadata Publikasi Siap Pakai
+            </div>
+            <div id="opusModalMetadataContent" style="display: grid; gap: 8px;"></div>
+          </div>
+        </div>
+
+        <!-- Column 3: Action Toolbar -->
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <a id="opusModalDownloadBtn" href="#" download="" style="background: var(--accent); color: #fff; border: none; border-radius: 9px; font-family: var(--font-head); font-size: 12.5px; font-weight: 700; padding: 12px 14px; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 16px rgba(79,142,255,0.4);">
+            <span>📥</span> <span>Download HD</span>
+          </a>
+          <button type="button" onclick="copyModalAllMetadata()" style="background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 9px; font-family: var(--font-body); font-size: 12px; font-weight: 600; padding: 10px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <span>📋</span> <span>Salin Metadata</span>
+          </button>
+          <button type="button" onclick="copyModalCaption()" style="background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 9px; font-family: var(--font-body); font-size: 12px; font-weight: 600; padding: 10px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <span>📅</span> <span>Publish on Social</span>
+          </button>
+          <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 11px; color: var(--text3); text-align: center; margin-top: 10px;">
+            📱 Format: <strong>9:16 Vertikal</strong><br>
+            ⚡ Akselerasi: <strong>AMD VAAPI</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ── State ─────────────────────────────────────────────────
     let selectedAR = '9:16';
@@ -1644,9 +2088,27 @@
         return Number.isFinite(n) ? n : fallback;
       };
 
+      const autoHeadline = document.getElementById('autoHeadlineEnabled')?.checked ?? true;
+      const headlineDuration = num('headlineDuration', 5);
+      const headlineTheme = document.getElementById('headlineTheme')?.value || 'white_black';
+
+      let headlineBgColor = '#FFFFFF';
+      let headlineColor = '#000000';
+      if (headlineTheme === 'yellow_black') {
+        headlineBgColor = '#FFE600';
+        headlineColor = '#000000';
+      } else if (headlineTheme === 'black_white') {
+        headlineBgColor = '#000000';
+        headlineColor = '#FFFFFF';
+      }
+
       return {
         showSource: true,
         showWatermark: true,
+        showHeadline: autoHeadline,
+        headlineDuration,
+        headlineBgColor,
+        headlineColor,
         // Kosong = biarkan worker mengisi dari metadata channel YouTube.
         sourceChannel: val('sourceChannel') || null,
         sourceLabel: val('sourceLabel') || 'Sumber',
@@ -2000,6 +2462,60 @@
       wrap.style.display = (wrap.style.display === 'none' || !wrap.style.display) ? 'block' : 'none';
     }
 
+    function renderOpusCardHtml(c, job, idx) {
+      const src = c.downloadUrl || `/outputs/${encodeURIComponent(c.filename)}`;
+      const clipTitle = c.title || `Clip ${c.index ?? idx + 1}`;
+      const headline = c.headline || c.metadata?.headline || c.hookText || clipTitle;
+      const score = c.score || c.viralityScore || c.metadata?.viralityScore || Math.max(85, 99 - idx * 2);
+      const breakdown = c.scoreBreakdown || c.metadata?.scoreBreakdown || {
+        hook: 'A',
+        flow: 'A',
+        value: 'A',
+        trend: idx === 0 ? 'A' : 'A-',
+      };
+      const duration = c.duration ? Math.round(c.duration) : 60;
+      const durationStr = `00:00 0${Math.floor(duration/60)}:${String(duration%60).padStart(2,'0')}`;
+
+      return `
+        <div class="opus-card" onclick="openOpusModal('${job.jobId}', ${idx})">
+          <div class="opus-thumb-wrap">
+            <video src="${src}#t=0.5" preload="metadata" class="opus-thumb-video" muted></video>
+            <div class="opus-thumb-overlay"></div>
+            <div class="opus-headline-bar">${escapeHtml(headline)}</div>
+            <div class="opus-sub-preview">${escapeHtml(c.hookText || clipTitle)}</div>
+            <div class="opus-play-hover">
+              <div class="opus-play-btn-circle">▶</div>
+            </div>
+            <div class="opus-thumb-bottom">
+              <div class="opus-badge-autozoom"><span>📐</span> 9:16</div>
+              <div class="opus-duration-pill">${durationStr}</div>
+            </div>
+          </div>
+          <div class="opus-card-meta">
+            <div class="opus-score-row">
+              <div style="display:flex; align-items:baseline; gap:6px;">
+                <div class="opus-virality-score" title="Virality Score">${score}</div>
+                <div style="font-size:9.5px; color:#00e599; font-weight:800; background:rgba(0,229,153,0.14); padding:1px 5px; border-radius:3px;">VIRAL</div>
+              </div>
+              <div class="opus-action-icons" onclick="event.stopPropagation()">
+                <button type="button" class="opus-icon-btn" title="Favorit" onclick="toggleFavorite(this)">❤️</button>
+                <a href="${src}" download="${c.filename || 'clip.mp4'}" class="opus-icon-btn" title="Download MP4">⬇</a>
+                <button type="button" class="opus-icon-btn" title="Salin Hook &amp; Judul" onclick="copyToClipboard('${escapeHtml(clipTitle)}', this)">📋</button>
+              </div>
+            </div>
+            <!-- 4-Pillar Score Badges -->
+            <div style="display:flex; gap:4px; margin-bottom:4px; font-size:9px; font-weight:700; color:var(--text3);">
+              <span style="background:var(--surface2); padding:2px 5px; border-radius:4px;"><strong style="color:#00e599;">Hook:</strong> ${breakdown.hook || 'A'}</span>
+              <span style="background:var(--surface2); padding:2px 5px; border-radius:4px;"><strong style="color:#00e599;">Flow:</strong> ${breakdown.flow || 'A'}</span>
+              <span style="background:var(--surface2); padding:2px 5px; border-radius:4px;"><strong style="color:#00e599;">Val:</strong> ${breakdown.value || 'A'}</span>
+              <span style="background:var(--surface2); padding:2px 5px; border-radius:4px;"><strong style="color:#00e599;">Trend:</strong> ${breakdown.trend || 'A-'}</span>
+            </div>
+            <div class="opus-card-title" title="${escapeHtml(clipTitle)}">${escapeHtml(clipTitle)}</div>
+          </div>
+        </div>
+      `;
+    }
+
     function renderDetailedJobCard(job) {
       const clips = job.clips || job.result?.clips || [];
       const hasClips = clips.length > 0;
@@ -2021,56 +2537,23 @@
            </div>`
         : '';
 
-      // Render daftar klip video
+      // Render daftar klip video ala Opus Clip (Grid 9:16)
       const clipsHtml = clips.length
-        ? `<div style="margin-top:16px; display:grid; gap:12px;">
-             ${clips.map((c, idx) => {
-               const src = c.downloadUrl || `/outputs/${encodeURIComponent(c.filename)}`;
-               const playerWrapId = `player_${job.jobId}_${idx}`;
-               const clipTitle = c.title || `Clip ${c.index ?? idx + 1}`;
-               const durationStr = c.duration ? `${c.duration}s` : '';
-               const sizeStr = c.fileSizeMB ? `${c.fileSizeMB} MB` : '';
-               const hookStr = c.hookText ? `"${escapeHtml(c.hookText)}"` : '';
-
-               return `<div class="history-clip-item">
-                 <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
-                   <div style="min-width:0; flex:1;">
-                     <div style="display:flex; align-items:center; gap:8px;">
-                       <span style="background:rgba(79,142,255,0.15); color:var(--accent); font-size:10px; font-weight:700; padding:2px 7px; border-radius:5px; font-family:var(--font-mono);">
-                         KLIP ${c.index ?? idx + 1}
-                       </span>
-                       <span style="font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                         ${escapeHtml(clipTitle)}
-                       </span>
-                     </div>
-                     ${hookStr ? `<div style="font-size:11px; color:var(--text2); font-style:italic; margin-top:4px;">${hookStr}</div>` : ''}
-                     <div style="font-size:10.5px; color:var(--text3); margin-top:4px;">
-                       ${durationStr ? `${durationStr} ` : ''}${sizeStr ? `· ${sizeStr}` : ''}
-                     </div>
-                   </div>
-
-                   <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                     <button type="button" onclick="toggleInlineVideo('${playerWrapId}', '${src}')"
-                       style="background:var(--accent); color:#fff; border:none; border-radius:7px; font-size:11px; font-weight:600; padding:6px 12px; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 8px rgba(79,142,255,0.3);">
-                       <span>▶</span> <span>Tonton</span>
-                     </button>
-                     <a href="${src}" download="${c.filename || 'clip.mp4'}"
-                       style="background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:7px; font-size:11px; font-weight:600; padding:6px 12px; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
-                       <span>⬇</span> <span>Download MP4</span>
-                     </a>
-                     <button type="button" onclick="copyToClipboard('${escapeHtml(clipTitle)}', this)"
-                       style="background:transparent; border:1px solid var(--border); color:var(--text2); border-radius:7px; font-size:11px; padding:6px 10px; cursor:pointer;">
-                       📋
-                     </button>
-                   </div>
+        ? `<div style="margin-top:16px;">
+             <div class="opus-headline-notice" style="background: rgba(79, 142, 255, 0.08); border: 1px solid rgba(79, 142, 255, 0.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+               <div style="display: flex; align-items: center; gap: 10px;">
+                 <span style="font-size: 18px;">📢</span>
+                 <div style="font-size: 11.5px; color: var(--text);">
+                   <strong>Auto headline:</strong> Hook headline visual disematkan di 5 detik pertama video klip. Klik kartu mana saja untuk membuka preview modal ala Opus Clip.
                  </div>
-
-                 <!-- Inline Video Player (Hidden by default) -->
-                 <div id="${playerWrapId}" style="display:none; margin-top:8px;">
-                   <video controls preload="none" class="history-video-player" style="max-height:440px; width:100%; border-radius:8px; background:#000;"></video>
-                 </div>
-               </div>`;
-             }).join('')}
+               </div>
+               <button type="button" onclick="openOpusModal('${job.jobId}', 0)" style="background: rgba(79, 142, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; font-size: 11px; font-weight: 700; padding: 5px 12px; cursor: pointer; white-space: nowrap;">
+                 Preview Modal →
+               </button>
+             </div>
+             <div class="opus-clips-grid">
+               ${clips.map((c, idx) => renderOpusCardHtml(c, job, idx)).join('')}
+             </div>
            </div>`
         : '';
 
@@ -2181,7 +2664,9 @@
       // Baca tab yang tersimpan dari hash atau localStorage
       const hash = window.location.hash;
       const savedView = localStorage.getItem('clipai_active_view');
-      if (hash === '#history' || hash === '#riwayat' || (!hash && savedView === 'history')) {
+      const isHistoryOrModal = hash === '#history' || hash === '#riwayat' || hash.includes('modal') || window.location.search.includes('modal');
+
+      if (isHistoryOrModal || (!hash && savedView === 'history')) {
         switchView('history');
       } else {
         switchView('studio');
@@ -2190,12 +2675,24 @@
       window.addEventListener('hashchange', () => {
         if (window.location.hash === '#history' || window.location.hash === '#riwayat') {
           switchView('history');
+        } else if (window.location.hash.includes('modal')) {
+          switchView('history');
+          if (cachedJobs && cachedJobs.length > 0) {
+            openOpusModal(cachedJobs[0].jobId, 0);
+          }
         } else if (window.location.hash === '#studio') {
           switchView('studio');
         }
       });
 
-      refreshJobs();
+      refreshJobs().then(() => {
+        if (window.location.hash.includes('modal') || window.location.search.includes('modal=1')) {
+          switchView('history');
+          if (cachedJobs && cachedJobs.length > 0) {
+            openOpusModal(cachedJobs[0].jobId, 0);
+          }
+        }
+      });
 
       if (jobsPollTimer) clearInterval(jobsPollTimer);
       jobsPollTimer = setInterval(() => {
@@ -2535,94 +3032,18 @@
       document.getElementById('resultsSub').textContent =
         `Dari "${result.videoTitle || 'Video'}" (${Math.round((result.videoDuration || 0) / 60)} menit) · Bahasa: ${(result.language || 'ID').toUpperCase()}`;
 
+      const jobId = result.jobId || currentJobId || 'current_job';
+      window.currentResultJob = {
+        jobId,
+        url: result.url,
+        videoTitle: result.videoTitle,
+        clips: result.clips,
+        result,
+      };
+
       const grid = document.getElementById('clipsGrid');
-      grid.innerHTML = '';
-
-      const effectiveAR = result.aspectRatio || selectedAR || '9:16';
-
-      result.clips.forEach((clip, i) => {
-        const videoSrc = clip.downloadUrl || `/outputs/${encodeURIComponent(clip.filename)}`;
-
-        const card = document.createElement('div');
-        card.className = 'clip-card';
-        card.style.animationDelay = `${i * 0.1}s`;
-
-        const hookLabel = clip.hookClassification ? formatHookName(clip.hookClassification) : '';
-        const hookBadgeHtml = hookLabel
-          ? `<span class="meta-tag hook">🎯 ${escapeHtml(hookLabel)}</span>`
-          : '';
-
-        const hookQuoteHtml = clip.hookText
-          ? `<div class="clip-hook-quote"><strong>Hook:</strong> "${escapeHtml(clip.hookText)}"</div>`
-          : '';
-
-        card.innerHTML = `
-          <div class="clip-preview-wrap" data-ar="${effectiveAR}">
-            <video
-              id="clipVideo_${i}"
-              class="clip-video-player"
-              controls
-              playsinline
-              preload="metadata"
-              src="${videoSrc}">
-              Browser Anda tidak mendukung preview video tag HTML5.
-            </video>
-          </div>
-          <div class="clip-content">
-            <div class="clip-header">
-              <div class="clip-number">0${clip.index}</div>
-              <div class="clip-badges">
-                <span class="meta-tag score">🔥 ${clip.score || 85}/100</span>
-                ${hookBadgeHtml}
-              </div>
-            </div>
-            <div class="clip-title">${escapeHtml(clip.title)}</div>
-            <div class="clip-reason">${escapeHtml(clip.reason || clip.narrativeRationale || '')}</div>
-            ${hookQuoteHtml}
-            <div class="clip-meta">
-              <span class="meta-tag">⏱ ${clip.duration}s</span>
-              <span class="meta-tag">💾 ${clip.fileSizeMB}MB</span>
-              <span class="meta-tag">📐 ${effectiveAR}</span>
-            </div>
-            <div class="clip-actions">
-              <a class="btn-download" href="${videoSrc}" download="${clip.filename}">
-                ⬇ Download Video
-              </a>
-              <button class="btn-preview-toggle" id="playBtn_${i}" onclick="togglePlayPreview(${i})">
-                ▶ Putar Preview
-              </button>
-              <a class="btn-tab-link" href="${videoSrc}" target="_blank" rel="noopener">
-                ↗ Buka di Tab Baru
-              </a>
-            </div>
-          </div>
-        `;
-        grid.appendChild(card);
-
-        // Sync video playback events
-        const videoEl = card.querySelector(`#clipVideo_${i}`);
-        const playBtn = card.querySelector(`#playBtn_${i}`);
-
-        if (videoEl && playBtn) {
-          videoEl.addEventListener('play', () => {
-            playBtn.innerHTML = '⏸ Jeda Preview';
-            // Auto-pause any other clip currently playing
-            document.querySelectorAll('.clip-video-player').forEach(otherVideo => {
-              if (otherVideo !== videoEl && !otherVideo.paused) {
-                otherVideo.pause();
-              }
-            });
-          });
-
-          videoEl.addEventListener('pause', () => {
-            playBtn.innerHTML = '▶ Putar Preview';
-          });
-
-          videoEl.addEventListener('ended', () => {
-            playBtn.innerHTML = '🔄 Putar Ulang';
-          });
-        }
-      });
+      grid.className = 'opus-clips-grid';
+      grid.innerHTML = (result.clips || []).map((c, idx) => renderOpusCardHtml(c, window.currentResultJob, idx)).join('');
 
       // Panel metadata publikasi (judul/deskripsi/hashtag/caption siap-tempel)
       renderClipMetadata(result.clips);
@@ -2696,6 +3117,236 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
+
+    // ── Opus Clip Modal Controller ───────────────────────────
+    let currentModalJob = null;
+    let currentModalClipIndex = 0;
+
+    function openOpusModal(jobId, clipIndex = 0) {
+      let job = (cachedJobs || []).find((j) => j.jobId === jobId);
+      if (!job && window.currentResultJob && window.currentResultJob.jobId === jobId) {
+        job = window.currentResultJob;
+      }
+      if (!job && cachedJobs && cachedJobs.length > 0) {
+        job = cachedJobs[0];
+      }
+      if (!job && window.currentResultJob) {
+        job = window.currentResultJob;
+      }
+      if (!job) return;
+
+      const clips = job.clips || job.result?.clips || [];
+      if (!clips || clips.length === 0) return;
+
+      currentModalJob = job;
+      currentModalClipIndex = Math.max(0, Math.min(clipIndex, clips.length - 1));
+
+      const clip = clips[currentModalClipIndex];
+      const src = clip.downloadUrl || `/outputs/${encodeURIComponent(clip.filename)}`;
+      const clipTitle = clip.title || `Clip ${clip.index ?? currentModalClipIndex + 1}`;
+      const headline = clip.headline || clip.metadata?.headline || clip.hookText || clipTitle;
+      const score = clip.score || clip.viralityScore || clip.metadata?.viralityScore || Math.max(85, 99 - currentModalClipIndex * 2);
+      const breakdown = clip.scoreBreakdown || clip.metadata?.scoreBreakdown || { hook: 'A', flow: 'A', value: 'A', trend: 'A-' };
+      const duration = clip.duration ? Math.round(clip.duration) : 60;
+      const timeRange = (clip.start != null && clip.end != null)
+        ? `[${formatTimeSec(clip.start)} - ${formatTimeSec(clip.end)}]`
+        : `[00:00 - 0${Math.floor(duration/60)}:${String(duration%60).padStart(2,'0')}]`;
+
+      // Set header
+      const rankEl = document.getElementById('opusModalRankBadge');
+      if (rankEl) rankEl.textContent = `#${currentModalClipIndex + 1}`;
+      const titleEl = document.getElementById('opusModalTitle');
+      if (titleEl) titleEl.textContent = clipTitle;
+      const headBarEl = document.getElementById('opusModalHeadlineBar');
+      if (headBarEl) headBarEl.textContent = headline;
+
+      // Set video player
+      const video = document.getElementById('opusModalVideo');
+      if (video) {
+        video.src = src;
+        video.currentTime = 0;
+        video.play().catch(() => {});
+      }
+
+      // Set score & pillars
+      const scoreEl = document.getElementById('opusModalScoreNum');
+      if (scoreEl) scoreEl.textContent = score;
+      const mHook = document.getElementById('opusMetricHook');
+      if (mHook) mHook.textContent = breakdown.hook || 'A';
+      const mFlow = document.getElementById('opusMetricFlow');
+      if (mFlow) mFlow.textContent = breakdown.flow || 'A';
+      const mVal = document.getElementById('opusMetricValue');
+      if (mVal) mVal.textContent = breakdown.value || 'A';
+      const mTrend = document.getElementById('opusMetricTrend');
+      if (mTrend) mTrend.textContent = breakdown.trend || 'A-';
+
+      // Set explanation / scene analysis
+      const explanation = clip.metadata?.description || clip.reason || clip.viralityRationale ||
+        'Penyalahgunaan istilah dan konsep seringkali berujung pada kesalahpahaman audiens. Momen ini memiliki hook yang kuat, ritme dialog padat, dan nilai retensi tinggi untuk media sosial.';
+      const expEl = document.getElementById('opusModalExplanation');
+      if (expEl) expEl.textContent = explanation;
+
+      // Set transcript
+      const timeEl = document.getElementById('opusModalTimeRange');
+      if (timeEl) timeEl.textContent = timeRange;
+      const transcriptBox = document.getElementById('opusModalTranscriptBox');
+      const spokenText = clip.clipText || clip.hookText || clipTitle;
+      if (transcriptBox) {
+        transcriptBox.innerHTML = `
+          <div style="display:flex; align-items:flex-start; gap:8px;">
+            <span style="background:rgba(79,142,255,0.15); color:var(--accent); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; font-family:var(--font-mono); margin-top:2px;">CC</span>
+            <p style="margin:0;">"${escapeHtml(spokenText)}"</p>
+          </div>
+        `;
+      }
+
+      // Set publishing metadata
+      const metaBox = document.getElementById('opusModalMetadataContent');
+      if (metaBox) {
+        const m = clip.metadata || {};
+        const captionText = m.caption || `Mari simak poin penting ini: ${clipTitle}`;
+        const hashtagsText = (m.hashtags && m.hashtags.length) ? (Array.isArray(m.hashtags) ? m.hashtags.join(' ') : m.hashtags) : '#viral #shorts #reels #podcast';
+        const pinnedText = m.pinnedComment || 'Bagaimana menurut kalian tentang pembahasan ini? Tulis pendapat kalian di kolom komentar!';
+
+        metaBox.innerHTML = `
+          <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-size:11px; font-weight:700; color:var(--text2);">Caption (TikTok/Reels)</span>
+              <button type="button" onclick="copyToClipboard('${escapeHtml(captionText)}', this)" style="background:none; border:1px solid var(--border); color:var(--text2); font-size:10px; padding:2px 8px; border-radius:4px; cursor:pointer;">Copy</button>
+            </div>
+            <div style="font-size:11.5px; color:var(--text);">${escapeHtml(captionText)}</div>
+          </div>
+          <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-size:11px; font-weight:700; color:var(--text2);">Hashtags</span>
+              <button type="button" onclick="copyToClipboard('${escapeHtml(hashtagsText)}', this)" style="background:none; border:1px solid var(--border); color:var(--text2); font-size:10px; padding:2px 8px; border-radius:4px; cursor:pointer;">Copy</button>
+            </div>
+            <div style="font-size:11px; color:var(--accent);">${escapeHtml(hashtagsText)}</div>
+          </div>
+          <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-size:11px; font-weight:700; color:var(--text2);">Pinned Comment</span>
+              <button type="button" onclick="copyToClipboard('${escapeHtml(pinnedText)}', this)" style="background:none; border:1px solid var(--border); color:var(--text2); font-size:10px; padding:2px 8px; border-radius:4px; cursor:pointer;">Copy</button>
+            </div>
+            <div style="font-size:11.5px; color:var(--text2);">${escapeHtml(pinnedText)}</div>
+          </div>
+        `;
+      }
+
+      // Set download button
+      const downloadBtn = document.getElementById('opusModalDownloadBtn');
+      if (downloadBtn) {
+        downloadBtn.href = src;
+        downloadBtn.download = clip.filename || 'clip.mp4';
+      }
+
+      // Show modal
+      const backdrop = document.getElementById('opusModalBackdrop');
+      if (backdrop) backdrop.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeOpusModal() {
+      const backdrop = document.getElementById('opusModalBackdrop');
+      if (backdrop) backdrop.style.display = 'none';
+      const video = document.getElementById('opusModalVideo');
+      if (video) video.pause();
+      document.body.style.overflow = '';
+    }
+
+    function navigateOpusModal(delta) {
+      if (!currentModalJob) return;
+      const clips = currentModalJob.clips || currentModalJob.result?.clips || [];
+      if (!clips.length) return;
+      const nextIdx = (currentModalClipIndex + delta + clips.length) % clips.length;
+      openOpusModal(currentModalJob.jobId, nextIdx);
+    }
+
+    function toggleModalAnalysisTab(mode) {
+      const isTranscript = mode === 'transcript';
+      const btnAnalysis = document.getElementById('tabSceneAnalysis');
+      const btnTranscript = document.getElementById('tabTranscriptOnly');
+      const checkTranscript = document.getElementById('checkTranscriptOnly');
+      const analysisSection = document.getElementById('modalAnalysisSection');
+
+      if (btnAnalysis) {
+        btnAnalysis.style.color = isTranscript ? 'var(--text2)' : 'var(--accent)';
+        btnAnalysis.style.borderBottom = isTranscript ? 'none' : '2px solid var(--accent)';
+      }
+      if (btnTranscript) {
+        btnTranscript.style.color = isTranscript ? 'var(--accent)' : 'var(--text2)';
+        btnTranscript.style.borderBottom = isTranscript ? '2px solid var(--accent)' : 'none';
+      }
+      if (checkTranscript) checkTranscript.checked = isTranscript;
+      if (analysisSection) analysisSection.style.display = isTranscript ? 'none' : 'block';
+    }
+
+    function copyModalAllMetadata() {
+      if (!currentModalJob) return;
+      const clips = currentModalJob.clips || currentModalJob.result?.clips || [];
+      const clip = clips[currentModalClipIndex];
+      if (!clip) return;
+      const text = buildMetadataClipboardText(clip);
+      copyToClipboard(text);
+    }
+
+    function copyModalCaption() {
+      if (!currentModalJob) return;
+      const clips = currentModalJob.clips || currentModalJob.result?.clips || [];
+      const clip = clips[currentModalClipIndex];
+      if (!clip) return;
+      const m = clip.metadata || {};
+      const caption = m.caption || clip.title || '';
+      const hashtags = (m.hashtags && m.hashtags.length) ? (Array.isArray(m.hashtags) ? m.hashtags.join(' ') : m.hashtags) : '';
+      const full = `${caption}\n\n${hashtags}`.trim();
+      copyToClipboard(full);
+    }
+
+    function editModalTitle() {
+      if (!currentModalJob) return;
+      const clips = currentModalJob.clips || currentModalJob.result?.clips || [];
+      const clip = clips[currentModalClipIndex];
+      if (!clip) return;
+      const newTitle = prompt('Edit judul klip:', clip.title);
+      if (newTitle && newTitle.trim()) {
+        clip.title = newTitle.trim();
+        document.getElementById('opusModalTitle').textContent = clip.title;
+        renderHistoryList();
+      }
+    }
+
+    function formatTimeSec(sec) {
+      if (typeof sec !== 'number' || isNaN(sec)) return '00:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function toggleFavorite(btn) {
+      if (!btn) return;
+      const isFav = btn.classList.toggle('fav-active');
+      btn.style.color = isFav ? '#ff4f6e' : 'var(--text2)';
+      btn.style.transform = isFav ? 'scale(1.2)' : 'scale(1)';
+    }
+
+    // Keyboard shortcuts for modal
+    window.addEventListener('keydown', (e) => {
+      const backdrop = document.getElementById('opusModalBackdrop');
+      if (backdrop && backdrop.style.display !== 'none') {
+        if (e.key === 'Escape') closeOpusModal();
+        if (e.key === 'ArrowUp') navigateOpusModal(-1);
+        if (e.key === 'ArrowDown') navigateOpusModal(1);
+      }
+    });
+
+    window.openOpusModal = openOpusModal;
+    window.closeOpusModal = closeOpusModal;
+    window.navigateOpusModal = navigateOpusModal;
+    window.toggleModalAnalysisTab = toggleModalAnalysisTab;
+    window.copyModalAllMetadata = copyModalAllMetadata;
+    window.copyModalCaption = copyModalCaption;
+    window.editModalTitle = editModalTitle;
+    window.toggleFavorite = toggleFavorite;
   </script>
 </body>
 </html>
