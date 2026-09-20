@@ -1001,6 +1001,47 @@
           </div>
         </div>
 
+        <!-- Publishing Metadata Panel (judul, deskripsi, hashtag, caption) -->
+        <div class="metadata-card" style="margin-bottom: 24px; padding: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 18px;">🏷️</span>
+              <div>
+                <div style="font-family: var(--font-head); font-size: 13px; font-weight: 700; color: var(--text);">
+                  Judul &amp; Deskripsi Viral
+                </div>
+                <div style="font-size: 11px; color: var(--text2);">
+                  AI menyusun judul, deskripsi, hashtag &amp; caption siap-tempel per klip
+                </div>
+              </div>
+            </div>
+            <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+              <input type="checkbox" id="metadataEnabled" checked onchange="toggleMetadataSettings()" style="opacity: 0; width: 0; height: 0;">
+              <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--border); transition: .3s; border-radius: 24px;"></span>
+            </label>
+          </div>
+
+          <div id="metadataSettings" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="option-group" style="margin-bottom:0;">
+              <label>Gaya Metadata</label>
+              <select id="metadataMode" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
+                <option value="viral" selected>🔥 Viral (max scroll-stop)</option>
+                <option value="seo">🔍 SEO (optimasi pencarian)</option>
+                <option value="simple">📄 Sederhana (lugas, no clickbait)</option>
+              </select>
+            </div>
+            <div class="option-group" style="margin-bottom:0;">
+              <label>Platform Target</label>
+              <select id="targetPlatform" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
+                <option value="all" selected>🌐 Semua (TikTok + Shorts + Reels)</option>
+                <option value="tiktok">🎵 TikTok</option>
+                <option value="shorts">▶️ YouTube Shorts</option>
+                <option value="reels">📸 Instagram Reels</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <!-- Auto Subtitle Customization Panel -->
         <div class="subtitle-card" style="margin-bottom: 24px; padding: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px;">
           <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -1150,6 +1191,9 @@
 
       <div class="clips-grid" id="clipsGrid"></div>
 
+      <!-- Panel metadata publikasi (judul, deskripsi, hashtag, caption) -->
+      <div id="metadataResults" style="display:none; margin-top:28px;"></div>
+
       <button class="btn-reset" onclick="resetForm()">← Proses Video Baru</button>
     </div>
   </div>
@@ -1221,6 +1265,125 @@
       const enabled = document.getElementById('subtitlesEnabled')?.checked;
       const wrap = document.getElementById('subtitleOptionsWrap');
       if (wrap) wrap.style.display = enabled ? 'block' : 'none';
+    }
+
+    // ── Publishing Metadata Controls ─────────────────────────
+    function toggleMetadataSettings() {
+      const enabled = document.getElementById('metadataEnabled')?.checked;
+      const wrap = document.getElementById('metadataSettings');
+      if (wrap) wrap.style.display = enabled ? 'grid' : 'none';
+    }
+
+    /**
+     * Salin teks ke clipboard, dengan fallback untuk browser/konteks yang
+     * memblokir navigator.clipboard (mis. halaman non-HTTPS).
+     */
+    async function copyToClipboard(text, btn) {
+      const original = btn ? btn.textContent : '';
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        if (btn) {
+          btn.textContent = '✓ Tersalin';
+          setTimeout(() => { btn.textContent = original; }, 1500);
+        }
+      } catch (err) {
+        if (btn) {
+          btn.textContent = '✗ Gagal';
+          setTimeout(() => { btn.textContent = original; }, 1500);
+        }
+      }
+    }
+
+    /**
+     * Bangun blok metadata siap-tempel (judul + deskripsi + hashtag + caption +
+     * komentar pin) untuk satu klip. Dipakai tombol "Copy semua".
+     */
+    function buildMetadataClipboardText(clip) {
+      const m = clip.metadata;
+      if (!m) return clip.title || '';
+      const lines = [];
+      if (m.title || clip.title) lines.push(`JUDUL:\n${m.title || clip.title}`);
+      if (m.caption) lines.push(`CAPTION:\n${m.caption}`);
+      if (m.description) lines.push(`DESKRIPSI:\n${m.description}`);
+      if (Array.isArray(m.hashtags) && m.hashtags.length) lines.push(`HASHTAG:\n${m.hashtags.join(' ')}`);
+      if (m.pinnedComment) lines.push(`KOMENTAR PIN:\n${m.pinnedComment}`);
+      if (Array.isArray(m.trendKeywords) && m.trendKeywords.length) {
+        lines.push(`KEYWORD TREND:\n${m.trendKeywords.join(', ')}`);
+      }
+      return lines.join('\n\n');
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Render panel metadata untuk semua klip. Aman terhadap metadata null
+     * (mode off / generator gagal) — panelnya cuma tidak muncul.
+     */
+    function renderClipMetadata(clips) {
+      const wrap = document.getElementById('metadataResults');
+      if (!wrap) return;
+
+      const withMeta = (clips || []).filter((c) => c && c.metadata);
+      if (withMeta.length === 0) {
+        wrap.style.display = 'none';
+        wrap.innerHTML = '';
+        return;
+      }
+
+      const cards = withMeta.map((clip, i) => {
+        const m = clip.metadata;
+        const hashtags = (m.hashtags || [])
+          .map((t) => `<span style="display:inline-block; background:rgba(79,142,255,0.12); color:var(--accent); border:1px solid rgba(79,142,255,0.25); border-radius:5px; padding:2px 7px; margin:2px 3px 2px 0; font-size:10px; font-family:var(--font-mono);">${escapeHtml(t)}</span>`)
+          .join('');
+
+        const block = (label, value) => value
+          ? `<div style="margin-bottom:10px;">
+               <div style="font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text2); margin-bottom:4px;">${label}</div>
+               <div style="font-size:12px; line-height:1.55; color:var(--text); white-space:pre-wrap;">${escapeHtml(value)}</div>
+             </div>`
+          : '';
+
+        return `<div style="background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
+            <div style="font-family:var(--font-head); font-size:12px; font-weight:700; color:var(--accent);">KLIP ${clip.index ?? i + 1}</div>
+            <button onclick="copyToClipboard(buildMetadataClipboardText(${JSON.stringify(clip).replace(/"/g, '&quot;')}), this)"
+              style="background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text2); font-size:10px; padding:4px 9px; cursor:pointer; font-family:var(--font-mono);">Copy semua</button>
+          </div>
+          ${block('Judul', m.title || clip.title)}
+          ${block('Caption', m.caption)}
+          ${block('Deskripsi', m.description)}
+          ${hashtags ? `<div style="margin-bottom:10px;"><div style="font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text2); margin-bottom:5px;">Hashtag</div><div>${hashtags}</div></div>` : ''}
+          ${block('Komentar Pin', m.pinnedComment)}
+          ${(m.trendKeywords && m.trendKeywords.length) ? `<div style="font-size:10px; color:var(--text2); margin-top:8px;">🔎 Trend: ${escapeHtml(m.trendKeywords.join(' · '))}</div>` : ''}
+        </div>`;
+      }).join('');
+
+      wrap.style.display = 'block';
+      wrap.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+          <span style="font-size:18px;">🏷️</span>
+          <div style="font-family:var(--font-head); font-size:13px; font-weight:700; color:var(--text);">Metadata Publikasi Siap-Tempel</div>
+        </div>
+        ${cards}
+      `;
     }
 
     function toggleAdvancedSubtitleSettings() {
@@ -1429,6 +1592,14 @@
         aiModel = customAiModelInput.value.trim();
       }
 
+      // Metadata publikasi: mode 'off' kalau toggle dimatikan, supaya backend
+      // melewati panggilan AI tambahan sepenuhnya.
+      const metadataToggle = document.getElementById('metadataEnabled');
+      const metadataMode = (metadataToggle && metadataToggle.checked)
+        ? (document.getElementById('metadataMode')?.value || 'viral')
+        : 'off';
+      const targetPlatform = document.getElementById('targetPlatform')?.value || 'all';
+
       try {
         const res = await fetch('/api/process', {
           method: 'POST',
@@ -1441,6 +1612,8 @@
             subtitleConfig,
             layoutMode,
             aiModel: aiModel && aiModel !== '__custom__' ? aiModel : undefined,
+            metadataMode,
+            targetPlatform,
           }),
         });
 
@@ -1617,11 +1790,17 @@
           });
         }
       });
+
+      // Panel metadata publikasi (judul/deskripsi/hashtag/caption siap-tempel)
+      renderClipMetadata(result.clips);
     }
 
     // Explicitly expose on window
     window.showResults = showResults;
     window.togglePlayPreview = togglePlayPreview;
+    window.toggleMetadataSettings = toggleMetadataSettings;
+    window.copyToClipboard = copyToClipboard;
+    window.buildMetadataClipboardText = buildMetadataClipboardText;
 
     function togglePlayPreview(index) {
       const video = document.getElementById(`clipVideo_${index}`);
