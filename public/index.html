@@ -856,6 +856,148 @@
         justify-content: center;
       }
     }
+
+    /* ── Main App Navigation & Dedicated Views ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 24px 0 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+
+    .app-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 4px;
+      border-radius: 12px;
+    }
+
+    .nav-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: 9px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text2);
+      font-family: var(--font-head);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .nav-tab:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+
+    .nav-tab.active {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 2px 14px rgba(79, 142, 255, 0.4);
+    }
+
+    .nav-tab-badge {
+      background: rgba(255, 255, 255, 0.22);
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 10px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .nav-tab:not(.active) .nav-tab-badge {
+      background: rgba(79, 142, 255, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(79, 142, 255, 0.3);
+    }
+
+    /* Filter chips on History page */
+    .filter-chip {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-family: var(--font-body);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.2s;
+    }
+
+    .filter-chip:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .filter-chip.active {
+      background: rgba(79, 142, 255, 0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .chip-count {
+      background: var(--surface);
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    .filter-chip.active .chip-count {
+      background: rgba(79, 142, 255, 0.25);
+      color: #fff;
+    }
+
+    /* History Card layout */
+    .history-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 22px;
+      transition: all 0.25s ease;
+    }
+
+    .history-card:hover {
+      border-color: var(--border-glow);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .history-clip-item {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .history-video-player {
+      width: 100%;
+      max-height: 480px;
+      border-radius: 10px;
+      background: #000;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
@@ -864,10 +1006,24 @@
 
   <div class="container">
     <header>
-      <a class="logo" href="/">
+      <a class="logo" href="#studio" onclick="switchView('studio'); return false;">
         <div class="logo-icon">🎬</div>
         <span class="logo-text">Clip<span>AI</span></span>
       </a>
+
+      <!-- Main Navigation Tabs: Studio vs Riwayat -->
+      <nav class="app-nav" id="appNav">
+        <button type="button" class="nav-tab active" id="tabStudioBtn" onclick="switchView('studio')">
+          <span class="nav-tab-icon">⚡</span>
+          <span>Buat Klip</span>
+        </button>
+        <button type="button" class="nav-tab" id="tabHistoryBtn" onclick="switchView('history')">
+          <span class="nav-tab-icon">📁</span>
+          <span>Riwayat Klip</span>
+          <span id="navHistoryBadge" class="nav-tab-badge" style="display:none;">0</span>
+        </button>
+      </nav>
+
       <div style="display: flex; align-items: center; gap: 8px;">
         <span id="hwBadge" class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10B981; border-color: rgba(16, 185, 129, 0.3);">⚡ GPU Active</span>
         <span class="badge">AI Powered</span>
@@ -878,50 +1034,41 @@
       </div>
     </header>
 
-    <!-- Job tertinggal dari sesi sebelumnya -->
-    <div id="leftoverBanner" style="display:none; margin-bottom:20px; padding:13px 16px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); border-radius:12px; justify-content:space-between; align-items:center; gap:12px;">
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span style="font-size:17px;">⏳</span>
-        <div>
-          <div style="font-family:var(--font-head); font-size:12px; font-weight:700; color:#F59E0B;">
-            Ada <span id="leftoverCount">0</span> job tertinggal di antrian
-          </div>
-          <div style="font-size:11px; color:var(--text2); margin-top:2px;">
-            Job ini otomatis dikerjakan worker. Batalkan kalau tidak mau dilanjutkan.
-          </div>
-        </div>
-      </div>
-      <button onclick="stopEverything()" style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4); color:#F59E0B; border-radius:7px; font-family:var(--font-body); font-size:11px; font-weight:600; padding:6px 12px; cursor:pointer; white-space:nowrap;">
-        Batalkan Semua
-      </button>
-    </div>
-
-    <!-- Riwayat & status job — TETAP ADA walau halaman di-refresh -->
-    <section id="jobsPanel" style="display:none; margin-bottom:26px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-        <div style="display:flex; align-items:center; gap:9px;">
-          <span style="font-size:16px;">📋</span>
-          <div style="font-family:var(--font-head); font-size:13px; font-weight:700; color:var(--text);">
-            Status &amp; Hasil Proses
+    <!-- Halaman 1: STUDIO / BUAT KLIP -->
+    <main id="viewStudio">
+      <!-- Job tertinggal dari sesi sebelumnya -->
+      <div id="leftoverBanner" style="display:none; margin-bottom:20px; padding:13px 16px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); border-radius:12px; justify-content:space-between; align-items:center; gap:12px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:17px;">⏳</span>
+          <div>
+            <div style="font-family:var(--font-head); font-size:12px; font-weight:700; color:#F59E0B;">
+              Ada <span id="leftoverCount">0</span> job tertinggal di antrian
+            </div>
+            <div style="font-size:11px; color:var(--text2); margin-top:2px;">
+              Job ini otomatis dikerjakan worker. Batalkan kalau tidak mau dilanjutkan.
+            </div>
           </div>
         </div>
-        <button onclick="refreshJobs(true)" style="background:transparent; border:1px solid var(--border); color:var(--text2); border-radius:7px; font-family:var(--font-body); font-size:11px; padding:5px 10px; cursor:pointer;">
-          ↻ Segarkan
-        </button>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button onclick="switchView('history')" style="background:transparent; border:1px solid rgba(245,158,11,0.4); color:#F59E0B; border-radius:7px; font-family:var(--font-body); font-size:11px; font-weight:600; padding:6px 12px; cursor:pointer; white-space:nowrap;">
+            Lihat di Riwayat →
+          </button>
+          <button onclick="stopEverything()" style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4); color:#F59E0B; border-radius:7px; font-family:var(--font-body); font-size:11px; font-weight:600; padding:6px 12px; cursor:pointer; white-space:nowrap;">
+            Batalkan Semua
+          </button>
+        </div>
       </div>
-      <div id="jobsList" style="display:grid; gap:11px;"></div>
-    </section>
 
-    <section class="hero">
-      <div class="hero-eyebrow">YouTube → Short Clips</div>
-      <h1 class="hero-title">
-        Ubah Video Panjang<br/>jadi <span class="highlight">Clip Viral</span>
-      </h1>
-      <p class="hero-sub">
-        Paste URL YouTube, AI kami otomatis analisis dan potong momen terbaik.
-        Siap untuk TikTok, Reels & YouTube Shorts.
-      </p>
-    </section>
+      <section class="hero">
+        <div class="hero-eyebrow">YouTube → Short Clips</div>
+        <h1 class="hero-title">
+          Ubah Video Panjang<br/>jadi <span class="highlight">Clip Viral</span>
+        </h1>
+        <p class="hero-sub">
+          Paste URL YouTube, AI kami otomatis analisis dan potong momen terbaik.
+          Siap untuk TikTok, Reels & YouTube Shorts.
+        </p>
+      </section>
 
     <div class="features">
       <div class="feature">
@@ -1329,6 +1476,75 @@
 
       <button class="btn-reset" onclick="resetForm()">← Proses Video Baru</button>
     </div>
+    </main>
+
+    <!-- Halaman 2: DEDICATED RIWAYAT & ARSIP KLIP -->
+    <main id="viewHistory" style="display:none; margin-bottom:40px;">
+      <!-- History Header -->
+      <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:24px; padding-bottom:18px; border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:var(--accent); font-weight:700; margin-bottom:6px;">
+            Library &amp; Archive
+          </div>
+          <h1 style="font-family:var(--font-head); font-size:26px; font-weight:800; color:var(--text); letter-spacing:-0.5px;">
+            📁 Riwayat Klip &amp; Galeri
+          </h1>
+          <p style="font-size:12px; color:var(--text2); margin-top:4px;">
+            Semua hasil klip video, metadata viral, dan status rendering tersimpan permanen di sini.
+          </p>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button onclick="refreshJobs(true)" style="background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px; font-family:var(--font-body); font-size:12px; font-weight:600; padding:8px 14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s;">
+            <span>↻</span> <span>Segarkan</span>
+          </button>
+          <button onclick="switchView('studio')" style="background:var(--accent); border:none; color:#fff; border-radius:8px; font-family:var(--font-body); font-size:12px; font-weight:600; padding:8px 14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 10px rgba(79,142,255,0.3);">
+            <span>⚡</span> <span>Buat Klip Baru</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter & Search Toolbar -->
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px 18px; margin-bottom:22px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span style="font-size:11px; text-transform:uppercase; color:var(--text3); font-weight:700; letter-spacing:0.5px;">Filter:</span>
+          <button type="button" class="filter-chip active" id="chipFilterAll" onclick="setHistoryFilter('all')">
+            Semua <span id="countFilterAll" class="chip-count">0</span>
+          </button>
+          <button type="button" class="filter-chip" id="chipFilterCompleted" onclick="setHistoryFilter('completed')">
+            ✅ Selesai <span id="countFilterCompleted" class="chip-count">0</span>
+          </button>
+          <button type="button" class="filter-chip" id="chipFilterActive" onclick="setHistoryFilter('active')">
+            ⚙️ Diproses <span id="countFilterActive" class="chip-count">0</span>
+          </button>
+          <button type="button" class="filter-chip" id="chipFilterFailed" onclick="setHistoryFilter('failed')">
+            ❌ Gagal <span id="countFilterFailed" class="chip-count">0</span>
+          </button>
+        </div>
+
+        <div style="position:relative; min-width:240px; flex:1; max-width:360px;">
+          <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:13px; color:var(--text3);">🔍</span>
+          <input type="text" id="historySearchInput" placeholder="Cari judul video atau link YouTube..." oninput="renderHistoryList()"
+            style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:8px 12px 8px 34px; font-size:12px; color:var(--text); outline:none; font-family:var(--font-body);" />
+        </div>
+      </div>
+
+      <!-- Jobs List Container -->
+      <div id="historyJobsList" style="display:grid; gap:16px;"></div>
+
+      <!-- Empty State -->
+      <div id="historyEmptyState" style="display:none; text-align:center; padding:60px 20px; background:var(--surface); border:1px dashed var(--border); border-radius:16px;">
+        <div style="font-size:40px; margin-bottom:12px;">📁</div>
+        <div style="font-family:var(--font-head); font-size:16px; font-weight:700; color:var(--text); margin-bottom:6px;">
+          Belum Ada Riwayat Klip
+        </div>
+        <p style="font-size:12px; color:var(--text2); max-width:420px; margin:0 auto 18px;">
+          Video yang Anda proses akan otomatis diarsipkan di halaman ini lengkap dengan preview video, opsi unduh, dan metadata medsos.
+        </p>
+        <button onclick="switchView('studio')" style="background:var(--accent); color:#fff; border:none; border-radius:8px; font-family:var(--font-body); font-size:12px; font-weight:600; padding:10px 18px; cursor:pointer;">
+          ⚡ Mulai Buat Klip Sekarang
+        </button>
+      </div>
+    </main>
   </div>
 
   <footer>
@@ -1613,44 +1829,112 @@
       initRestore();
     });
 
-    // ── Riwayat & pemulihan state ────────────────────────────
+    // ── Navigation & View Switching (Studio vs Riwayat) ────────
+    let currentView = 'studio';
+    let cachedJobs = [];
+    let currentHistoryFilter = 'all';
     let jobsPollTimer = null;
 
-    /**
-     * Muat daftar job dari server dan render sebagai kartu status.
-     * Ini yang membuat progress TIDAK hilang saat halaman di-refresh.
-     */
-    async function refreshJobs(showSpinner) {
-      const panel = document.getElementById('jobsPanel');
-      const list = document.getElementById('jobsList');
-      if (!panel || !list) return;
+    function switchView(viewName) {
+      currentView = viewName;
+      const btnStudio = document.getElementById('tabStudioBtn');
+      const btnHistory = document.getElementById('tabHistoryBtn');
+      const viewStudio = document.getElementById('viewStudio');
+      const viewHistory = document.getElementById('viewHistory');
 
-      try {
-        const res = await fetch('/api/jobs?limit=15');
-        if (!res.ok) return;
-        const data = await res.json();
-        const jobs = data.jobs || [];
-
-        if (jobs.length === 0) {
-          panel.style.display = 'none';
-          return;
-        }
-
-        panel.style.display = 'block';
-        list.innerHTML = jobs.map(renderJobCard).join('');
-
-        // Sinkronkan tampilan progress utama dengan job yang sedang berjalan.
-        const running = jobs.find((j) => j.state === 'active' || j.state === 'waiting');
-        syncProgressUI(running);
-      } catch (_) {
-        // Server sedang mati/restart — biarkan tampilan terakhir di layar.
+      if (viewName === 'history') {
+        if (btnStudio) btnStudio.classList.remove('active');
+        if (btnHistory) btnHistory.classList.add('active');
+        if (viewStudio) viewStudio.style.display = 'none';
+        if (viewHistory) viewHistory.style.display = 'block';
+        window.location.hash = '#history';
+        try { localStorage.setItem('clipai_active_view', 'history'); } catch (_) {}
+        refreshJobs();
+      } else {
+        if (btnStudio) btnStudio.classList.add('active');
+        if (btnHistory) btnHistory.classList.remove('active');
+        if (viewStudio) viewStudio.style.display = 'block';
+        if (viewHistory) viewHistory.style.display = 'none';
+        window.location.hash = '#studio';
+        try { localStorage.setItem('clipai_active_view', 'studio'); } catch (_) {}
       }
     }
 
-    function jobStateMeta(state) {
+    function setHistoryFilter(filter) {
+      currentHistoryFilter = filter;
+      const map = {
+        all: 'chipFilterAll',
+        completed: 'chipFilterCompleted',
+        active: 'chipFilterActive',
+        failed: 'chipFilterFailed',
+      };
+      Object.entries(map).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('active', key === filter);
+      });
+      renderHistoryList();
+    }
+
+    async function refreshJobs(showSpinner) {
+      try {
+        const res = await fetch('/api/jobs?limit=50');
+        if (!res.ok) return;
+        const data = await res.json();
+        cachedJobs = data.jobs || [];
+
+        updateHistoryBadge();
+        updateFilterCounts();
+        renderHistoryList();
+
+        // Sinkronkan progress bar di halaman Buat Klip bila ada job aktif
+        const running = cachedJobs.find((j) => j.state === 'active' || j.state === 'waiting');
+        syncProgressUI(running);
+      } catch (_) {}
+    }
+
+    function updateHistoryBadge() {
+      const badge = document.getElementById('navHistoryBadge');
+      if (!badge) return;
+      const activeCount = cachedJobs.filter((j) => j.state === 'active' || j.state === 'waiting').length;
+      const completedCount = cachedJobs.filter((j) => j.state === 'completed' || (j.clips && j.clips.length > 0)).length;
+
+      if (activeCount > 0) {
+        badge.style.display = 'inline-block';
+        badge.textContent = `⚙️ ${activeCount}`;
+        badge.title = `${activeCount} video sedang diproses`;
+      } else if (completedCount > 0) {
+        badge.style.display = 'inline-block';
+        badge.textContent = completedCount;
+        badge.title = `${completedCount} video di riwayat`;
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function updateFilterCounts() {
+      const all = cachedJobs.length;
+      const completed = cachedJobs.filter((j) => j.state === 'completed' || (j.clips && j.clips.length > 0)).length;
+      const active = cachedJobs.filter((j) => j.state === 'active' || j.state === 'waiting').length;
+      const failed = cachedJobs.filter((j) => j.state === 'failed' && (!j.clips || j.clips.length === 0)).length;
+
+      const elAll = document.getElementById('countFilterAll');
+      const elCompleted = document.getElementById('countFilterCompleted');
+      const elActive = document.getElementById('countFilterActive');
+      const elFailed = document.getElementById('countFilterFailed');
+
+      if (elAll) elAll.textContent = all;
+      if (elCompleted) elCompleted.textContent = completed;
+      if (elActive) elActive.textContent = active;
+      if (elFailed) elFailed.textContent = failed;
+    }
+
+    function jobStateMeta(state, hasClips) {
+      if (hasClips && state !== 'active') {
+        return { icon: '✅', label: 'Selesai', color: '#10B981', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.32)' };
+      }
       switch (state) {
         case 'active':    return { icon: '⚙️', label: 'Sedang Diproses', color: '#4F8EFF', bg: 'rgba(79,142,255,0.10)', border: 'rgba(79,142,255,0.32)' };
-        case 'waiting':   return { icon: '⏳', label: 'Menunggu',         color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
+        case 'waiting':   return { icon: '⏳', label: 'Menunggu Antrian', color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
         case 'delayed':   return { icon: '⏳', label: 'Menunggu',         color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
         case 'completed': return { icon: '✅', label: 'Selesai',          color: '#10B981', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.32)' };
         case 'failed':    return { icon: '❌', label: 'Gagal',            color: '#EF4444', bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.32)' };
@@ -1658,84 +1942,187 @@
       }
     }
 
-    function renderJobCard(job) {
-      const meta = jobStateMeta(job.state);
-      const title = job.videoTitle || job.url || 'Job';
-      const when = job.createdAt ? new Date(job.createdAt).toLocaleString('id-ID') : '';
-      const clips = job.result?.clips || [];
-      const pct = job.state === 'completed' ? 100 : (job.percent || 0);
+    function renderHistoryList() {
+      const list = document.getElementById('historyJobsList');
+      const empty = document.getElementById('historyEmptyState');
+      if (!list) return;
 
-      // Baris progress untuk job yang sedang jalan.
-      const progressRow = (job.state === 'active')
-        ? `<div style="margin-top:9px;">
-             <div style="height:4px; background:var(--border); border-radius:3px; overflow:hidden;">
-               <div style="width:${pct}%; height:100%; background:${meta.color}; transition:width .4s;"></div>
+      const search = (document.getElementById('historySearchInput')?.value || '').toLowerCase().trim();
+
+      const filtered = cachedJobs.filter((job) => {
+        const hasClips = Array.isArray(job.clips) && job.clips.length > 0;
+        const isDone = job.state === 'completed' || hasClips;
+
+        if (currentHistoryFilter === 'completed' && !isDone) return false;
+        if (currentHistoryFilter === 'active' && job.state !== 'active' && job.state !== 'waiting') return false;
+        if (currentHistoryFilter === 'failed' && (job.state !== 'failed' || hasClips)) return false;
+
+        if (search) {
+          const matchTitle = (job.videoTitle || '').toLowerCase().includes(search);
+          const matchUrl = (job.url || '').toLowerCase().includes(search);
+          const matchClips = (job.clips || []).some((c) => (c.title || '').toLowerCase().includes(search));
+          if (!matchTitle && !matchUrl && !matchClips) return false;
+        }
+
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        list.innerHTML = '';
+        if (empty) empty.style.display = 'block';
+        return;
+      }
+
+      if (empty) empty.style.display = 'none';
+      list.innerHTML = filtered.map(renderDetailedJobCard).join('');
+    }
+
+    function toggleInlineVideo(wrapId, videoSrc) {
+      const wrap = document.getElementById(wrapId);
+      if (!wrap) return;
+      if (wrap.style.display === 'none' || !wrap.style.display) {
+        wrap.style.display = 'block';
+        const video = wrap.querySelector('video');
+        if (video) {
+          if (!video.src) video.src = videoSrc;
+          video.play().catch(() => {});
+        }
+      } else {
+        wrap.style.display = 'none';
+        const video = wrap.querySelector('video');
+        if (video) video.pause();
+      }
+    }
+
+    function toggleCardMetadata(wrapId) {
+      const wrap = document.getElementById(wrapId);
+      if (!wrap) return;
+      wrap.style.display = (wrap.style.display === 'none' || !wrap.style.display) ? 'block' : 'none';
+    }
+
+    function renderDetailedJobCard(job) {
+      const clips = job.clips || job.result?.clips || [];
+      const hasClips = clips.length > 0;
+      const meta = jobStateMeta(job.state, hasClips);
+      const title = job.videoTitle || job.url || 'Video Tanpa Judul';
+      const when = job.createdAt ? new Date(job.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+      const pct = (job.state === 'completed' || hasClips) ? 100 : (job.percent || 0);
+
+      // Baris progress
+      const progressHtml = (job.state === 'active')
+        ? `<div style="margin-top:14px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
+             <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px;">
+               <span style="color:var(--text); font-weight:600;">${escapeHtml(job.message || 'Sedang memproses...')}</span>
+               <span style="color:${meta.color}; font-weight:700;">${pct}%</span>
              </div>
-             <div style="font-size:10px; color:var(--text2); margin-top:5px;">
-               ${escapeHtml(job.message || 'Memproses...')} ${pct ? `· ${pct}%` : ''}
+             <div style="height:6px; background:var(--surface); border-radius:4px; overflow:hidden;">
+               <div style="width:${pct}%; height:100%; background:${meta.color}; transition:width .4s ease;"></div>
              </div>
            </div>`
         : '';
 
-      // Hasil: daftar klip dengan tombol tonton/unduh — inilah yang dulu hilang.
+      // Render daftar klip video
       const clipsHtml = clips.length
-        ? `<div style="margin-top:11px; display:grid; gap:8px;">
-             ${clips.map((c) => {
+        ? `<div style="margin-top:16px; display:grid; gap:12px;">
+             ${clips.map((c, idx) => {
                const src = c.downloadUrl || `/outputs/${encodeURIComponent(c.filename)}`;
-               return `<div style="display:flex; align-items:center; justify-content:space-between; gap:10px;
-                            background:var(--bg2); border:1px solid var(--border); border-radius:9px; padding:9px 11px;">
-                 <div style="min-width:0;">
-                   <div style="font-size:11px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                     ${escapeHtml(c.title || `Clip ${c.index}`)}
+               const playerWrapId = `player_${job.jobId}_${idx}`;
+               const clipTitle = c.title || `Clip ${c.index ?? idx + 1}`;
+               const durationStr = c.duration ? `${c.duration}s` : '';
+               const sizeStr = c.fileSizeMB ? `${c.fileSizeMB} MB` : '';
+               const hookStr = c.hookText ? `"${escapeHtml(c.hookText)}"` : '';
+
+               return `<div class="history-clip-item">
+                 <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
+                   <div style="min-width:0; flex:1;">
+                     <div style="display:flex; align-items:center; gap:8px;">
+                       <span style="background:rgba(79,142,255,0.15); color:var(--accent); font-size:10px; font-weight:700; padding:2px 7px; border-radius:5px; font-family:var(--font-mono);">
+                         KLIP ${c.index ?? idx + 1}
+                       </span>
+                       <span style="font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                         ${escapeHtml(clipTitle)}
+                       </span>
+                     </div>
+                     ${hookStr ? `<div style="font-size:11px; color:var(--text2); font-style:italic; margin-top:4px;">${hookStr}</div>` : ''}
+                     <div style="font-size:10.5px; color:var(--text3); margin-top:4px;">
+                       ${durationStr ? `${durationStr} ` : ''}${sizeStr ? `· ${sizeStr}` : ''}
+                     </div>
                    </div>
-                   <div style="font-size:10px; color:var(--text3); margin-top:2px;">
-                     ${c.duration ? `${c.duration}s` : ''} ${c.fileSizeMB ? `· ${c.fileSizeMB}MB` : ''}
+
+                   <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                     <button type="button" onclick="toggleInlineVideo('${playerWrapId}', '${src}')"
+                       style="background:var(--accent); color:#fff; border:none; border-radius:7px; font-size:11px; font-weight:600; padding:6px 12px; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 8px rgba(79,142,255,0.3);">
+                       <span>▶</span> <span>Tonton</span>
+                     </button>
+                     <a href="${src}" download="${c.filename || 'clip.mp4'}"
+                       style="background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:7px; font-size:11px; font-weight:600; padding:6px 12px; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+                       <span>⬇</span> <span>Download MP4</span>
+                     </a>
+                     <button type="button" onclick="copyToClipboard('${escapeHtml(clipTitle)}', this)"
+                       style="background:transparent; border:1px solid var(--border); color:var(--text2); border-radius:7px; font-size:11px; padding:6px 10px; cursor:pointer;">
+                       📋
+                     </button>
                    </div>
                  </div>
-                 <div style="display:flex; gap:6px; flex-shrink:0;">
-                   <a href="${src}" target="_blank" rel="noopener"
-                      style="background:var(--accent); color:#fff; border-radius:6px; font-size:10px;
-                             padding:5px 9px; text-decoration:none; font-weight:600;">▶ Tonton</a>
-                   <a href="${src}" download="${c.filename || ''}"
-                      style="background:transparent; border:1px solid var(--border); color:var(--text2);
-                             border-radius:6px; font-size:10px; padding:5px 9px; text-decoration:none;">⬇</a>
+
+                 <!-- Inline Video Player (Hidden by default) -->
+                 <div id="${playerWrapId}" style="display:none; margin-top:8px;">
+                   <video controls preload="none" class="history-video-player" style="max-height:440px; width:100%; border-radius:8px; background:#000;"></video>
                  </div>
                </div>`;
              }).join('')}
            </div>`
         : '';
 
-      const failHtml = (job.state === 'failed' && job.failedReason)
-        ? `<div style="margin-top:8px; font-size:10.5px; color:#EF4444;">${escapeHtml(job.failedReason)}</div>`
+      // Viral Metadata accordion
+      const metadataObj = job.result?.metadata || job.metadata;
+      const metaAccordionId = `meta_${job.jobId}`;
+      const metaHtml = (metadataObj && Array.isArray(metadataObj.clips) && metadataObj.clips.length > 0)
+        ? `<div style="margin-top:14px;">
+             <button type="button" onclick="toggleCardMetadata('${metaAccordionId}')"
+               style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#F59E0B; border-radius:8px; font-size:11px; font-weight:600; padding:7px 12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+               <span>🏷️</span> <span>Lihat Metadata Medsos (Viral Hook, Caption &amp; Hashtag)</span>
+             </button>
+             <div id="${metaAccordionId}" style="display:none; margin-top:12px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:14px;">
+               ${metadataObj.clips.map((mc, mi) => `
+                 <div style="margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                   <div style="font-family:var(--font-head); font-size:12px; font-weight:700; color:var(--accent); margin-bottom:6px;">
+                     Klip ${mc.index ?? mi + 1}: ${escapeHtml(mc.title || '')}
+                   </div>
+                   ${mc.caption ? `<div style="font-size:11px; color:var(--text); margin-bottom:6px; white-space:pre-wrap;"><strong>Caption:</strong> ${escapeHtml(mc.caption)}</div>` : ''}
+                   ${mc.hashtags ? `<div style="font-size:10.5px; color:var(--accent); margin-bottom:6px;"><strong>Hashtags:</strong> ${escapeHtml(Array.isArray(mc.hashtags) ? mc.hashtags.join(' ') : mc.hashtags)}</div>` : ''}
+                   ${mc.pinnedComment ? `<div style="font-size:10.5px; color:var(--text2);"><strong>Pinned Comment:</strong> ${escapeHtml(mc.pinnedComment)}</div>` : ''}
+                 </div>
+               `).join('')}
+             </div>
+           </div>`
         : '';
 
-      // Job yang selesai bisa dibuka lagi ke tab hasil lengkap (metadata dll).
-      const openBtn = (job.state === 'completed' && job.result)
-        ? `<button onclick="showJobResult('${job.jobId}')"
-             style="background:rgba(16,185,129,0.13); border:1px solid rgba(16,185,129,0.35); color:#10B981;
-                    border-radius:7px; font-family:var(--font-body); font-size:10px; font-weight:600;
-                    padding:5px 10px; cursor:pointer; white-space:nowrap;">Lihat Hasil Lengkap</button>`
+      const failHtml = (job.state === 'failed' && job.failedReason && !hasClips)
+        ? `<div style="margin-top:12px; padding:10px 14px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); border-radius:10px; font-size:11.5px; color:#EF4444;">
+             <strong>Keterangan:</strong> ${escapeHtml(job.failedReason)}
+           </div>`
         : '';
 
-      return `<div style="background:var(--surface); border:1px solid ${meta.border}; border-radius:12px; padding:13px 15px;">
-        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
-          <div style="display:flex; align-items:center; gap:9px; min-width:0;">
-            <span style="font-size:15px;">${meta.icon}</span>
-            <div style="min-width:0;">
-              <div style="font-size:12px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:420px;">
-                ${escapeHtml(title)}
-              </div>
-              <div style="font-size:10px; color:var(--text3); margin-top:3px;">
-                <span style="color:${meta.color}; font-weight:600;">${meta.label}</span>
-                ${clips.length ? ` · ${clips.length} clip` : ''}
-                ${when ? ` · ${when}` : ''}
-              </div>
+      return `<div class="history-card">
+        <div class="history-card-header">
+          <div style="min-width:0; flex:1;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap;">
+              <span class="badge" style="background:${meta.bg}; color:${meta.color}; border-color:${meta.border}; font-size:11px; padding:3px 10px;">
+                ${meta.icon} ${meta.label}
+              </span>
+              ${when ? `<span style="font-size:11px; color:var(--text3);">${when}</span>` : ''}
+              ${clips.length ? `<span style="font-size:11px; color:var(--text2); font-weight:600;">· ${clips.length} Klip Dihasilkan</span>` : ''}
             </div>
+            <h2 style="font-family:var(--font-head); font-size:15px; font-weight:700; color:var(--text); line-height:1.4;">
+              ${escapeHtml(title)}
+            </h2>
+            ${job.url ? `<a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" style="font-size:11px; color:var(--accent); text-decoration:none; display:inline-block; margin-top:2px;">🔗 Buka Video YouTube Asli ↗</a>` : ''}
           </div>
-          ${openBtn}
         </div>
-        ${progressRow}
+        ${progressHtml}
         ${clipsHtml}
+        ${metaHtml}
         ${failHtml}
       </div>`;
     }
@@ -1779,6 +2166,7 @@
           throw new Error('Hasil job belum tersedia');
         }
         showResults({ ...data.result, aspectRatio: data.result.aspectRatio || selectedAR });
+        switchView('studio');
         document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (err) {
         showError(`Gagal membuka hasil: ${err.message}`);
@@ -1789,18 +2177,29 @@
      * Saat halaman dimuat: muat riwayat, dan kalau ada job yang masih jalan
      * tampilkan progress-nya lagi (dulu ini hilang total setelah refresh).
      */
-    async function initRestore() {
-      await refreshJobs();
+    function initRestore() {
+      // Baca tab yang tersimpan dari hash atau localStorage
+      const hash = window.location.hash;
+      const savedView = localStorage.getItem('clipai_active_view');
+      if (hash === '#history' || hash === '#riwayat' || (!hash && savedView === 'history')) {
+        switchView('history');
+      } else {
+        switchView('studio');
+      }
 
-      // Polling ringan selama ada job aktif.
-      if (jobsPollTimer) clearInterval(jobsPollTimer);
-      jobsPollTimer = setInterval(async () => {
-        await refreshJobs();
-        const stillRunning = document.getElementById('jobsList')?.innerHTML.includes('Sedang Diproses');
-        if (!stillRunning) {
-          clearInterval(jobsPollTimer);
-          jobsPollTimer = null;
+      window.addEventListener('hashchange', () => {
+        if (window.location.hash === '#history' || window.location.hash === '#riwayat') {
+          switchView('history');
+        } else if (window.location.hash === '#studio') {
+          switchView('studio');
         }
+      });
+
+      refreshJobs();
+
+      if (jobsPollTimer) clearInterval(jobsPollTimer);
+      jobsPollTimer = setInterval(() => {
+        refreshJobs();
       }, 5000);
     }
 
@@ -2238,6 +2637,11 @@
     window.refreshJobs = refreshJobs;
     window.showJobResult = showJobResult;
     window.initRestore = initRestore;
+    window.switchView = switchView;
+    window.setHistoryFilter = setHistoryFilter;
+    window.renderHistoryList = renderHistoryList;
+    window.toggleInlineVideo = toggleInlineVideo;
+    window.toggleCardMetadata = toggleCardMetadata;
     window.toggleBrandingSettings = toggleBrandingSettings;
     window.collectBrandingConfig = collectBrandingConfig;
     window.copyToClipboard = copyToClipboard;
