@@ -232,7 +232,7 @@ export function sanitizeHeadline(rawHeadline, fallbackTitle = '', hookText = '')
   let prev;
   do {
     prev = text;
-    text = text.replace(/^(you know,?|well,?|so,?|like,?|uh,?|um,?|look,?|actually,?)\s+/i, '');
+    text = text.replace(/^(you know,?|well,?|so,?|like,?|uh,?|um,?|look,?|actually,?|i mean,?|i think\s*(that)?|i believe\s*(that)?|there is no doubt\s*(that)?|it seems to me\s*(that)?)\s+/i, '');
   } while (text !== prev);
 
   // 3. Remove stutter repetitions (e.g. "you you" -> "you", "if if" -> "if", "the the" -> "the")
@@ -245,6 +245,13 @@ export function sanitizeHeadline(rawHeadline, fallbackTitle = '', hookText = '')
   // 5. If it starts with conversational lowercase pattern, polish it:
   if (/^you can't just be/i.test(text)) {
     text = text.replace(/^you can't just be/i, 'Stop Being');
+  }
+
+  // Strip trailing dangling conjunctions/prepositions:
+  text = text.replace(/(^|\s+)(that|and|so|because|to|of|in|with|for|as|is|are|was|were)$/i, '');
+
+  if (!text || text.trim().length < 5) {
+    text = fallbackTitle || hookText || 'Viral Topic';
   }
 
   // 6. Convert to clean Title Case for headline impact
