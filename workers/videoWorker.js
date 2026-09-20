@@ -39,7 +39,9 @@ const worker = new Worker(
     if (subtitleConfig?.enabled) {
       console.log(`   Auto Subtitles: ENABLED (Preset: ${subtitleConfig.preset || 'hormozi'})`);
     } else {
-      console.log(`   Auto Subtitles: DISABLED`);
+      // Sengaja mencolok: video tanpa takarir sering terlihat seperti bug,
+      // jadi katakan terus terang bahwa ini memang dimatikan.
+      console.log(`   Auto Subtitles: DISABLED (video tidak akan punya takarir)`);
     }
     if (aiModel) {
       console.log(`   AI Model Override: ${aiModel}`);

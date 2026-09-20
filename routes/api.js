@@ -115,7 +115,13 @@ router.post('/process', requireApiKey, processRateLimiter, async (req, res) => {
       ? transcriptText.trim()
       : null;
 
-    // Normalisasi konfigurasi subtitle jika disediakan
+    // Normalisasi konfigurasi subtitle.
+    //
+    // PENTING: default-nya HARUS sama dengan default UI (checkbox "Auto
+    // Subtitles" aktif). Sebelumnya, kalau klien tidak mengirim subtitleConfig
+    // sama sekali, subtitle diam-diam MATI — video keluar tanpa takarir dan
+    // tidak ada satu pun pesan error yang menjelaskan kenapa. Default yang
+    // konsisten membuat perilakunya bisa diprediksi.
     let cleanSubtitleConfig = null;
     if (subtitleConfig && typeof subtitleConfig === 'object') {
       const rawFontSize = subtitleConfig.fontSize ? Number(subtitleConfig.fontSize) : undefined;
@@ -128,7 +134,11 @@ router.post('/process', requireApiKey, processRateLimiter, async (req, res) => {
         primaryColor: typeof subtitleConfig.primaryColor === 'string' ? subtitleConfig.primaryColor : undefined,
         position: subtitleConfig.position || 'bottom',
       };
-    } else if (subtitleConfig === true || subtitleConfig === 'true') {
+    } else if (subtitleConfig === false || subtitleConfig === 'false') {
+      // Dimatikan secara eksplisit.
+      cleanSubtitleConfig = { enabled: false, preset: 'hormozi' };
+    } else {
+      // Tidak dikirim / true -> ikuti default UI (aktif).
       cleanSubtitleConfig = { enabled: true, preset: 'hormozi' };
     }
 
