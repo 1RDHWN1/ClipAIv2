@@ -454,7 +454,8 @@ export async function downloadClipSection(rawUrl, start, end, outputPath) {
   const sectionSpec = `*${startTime}-${endTime}`;
 
   console.log(`📥 Downloading video section only [${sectionSpec}]: ${url}`);
-  const formatChain = 'bestvideo[vcodec^=avc1][height<=720]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc][height<=720]+bestaudio/best[vcodec^=avc][height<=720]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best';
+  // Prefer Full HD 1080p for crisp, sharp 9:16 vertical cropping (yields 608px width instead of blurry 405px)
+  const formatChain = 'bestvideo[vcodec^=avc1][height<=1080]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc][height<=1080]+bestaudio/bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo[height<=720]+bestaudio/best[height<=720]/best';
 
   const sectionStrategies = [
     [
@@ -474,7 +475,7 @@ export async function downloadClipSection(rawUrl, start, end, outputPath) {
       ...YTDLP_BASE_ARGS, '--retries', '3', '--fragment-retries', '3',
       '--extractor-args', 'youtube:player_client=android,web',
       '--download-sections', sectionSpec,
-      '-f', 'best[height<=720]/best', '--merge-output-format', 'mp4',
+      '-f', 'best[height<=1080]/best[height<=720]/best', '--merge-output-format', 'mp4',
       '-o', outputPath, '--force-keyframes-at-cuts', '--', url,
     ],
   ];
