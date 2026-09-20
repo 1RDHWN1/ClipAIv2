@@ -1042,6 +1042,89 @@
           </div>
         </div>
 
+        <!-- Branding Panel (atribusi sumber + watermark channel) -->
+        <div class="branding-card" style="margin-bottom: 24px; padding: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 18px;">💧</span>
+              <div>
+                <div style="font-family: var(--font-head); font-size: 13px; font-weight: 700; color: var(--text);">
+                  Sumber &amp; Watermark
+                </div>
+                <div style="font-size: 11px; color: var(--text2);">
+                  Cantumkan channel sumber &amp; watermark channel kamu di dalam video
+                </div>
+              </div>
+            </div>
+            <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+              <input type="checkbox" id="brandingEnabled" onchange="toggleBrandingSettings()" style="opacity: 0; width: 0; height: 0;">
+              <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--border); transition: .3s; border-radius: 24px;"></span>
+            </label>
+          </div>
+
+          <div id="brandingSettings" style="display: none;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div class="option-group" style="margin-bottom:0;">
+                <label>Channel Sumber (Atribusi)</label>
+                <input type="text" id="sourceChannel" placeholder="Otomatis dari YouTube" style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 11px; outline:none;">
+              </div>
+              <div class="option-group" style="margin-bottom:0;">
+                <label>Label Sumber</label>
+                <input type="text" id="sourceLabel" value="Sumber" style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 11px; outline:none;">
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div class="option-group" style="margin-bottom:0;">
+                <label>Watermark Channel Kamu</label>
+                <input type="text" id="watermarkText" placeholder="contoh: @channelkamu" style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 11px; outline:none;">
+              </div>
+              <div class="option-group" style="margin-bottom:0;">
+                <label>Posisi Watermark</label>
+                <select id="watermarkPosition" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
+                  <option value="bottom-right" selected>↘ Kanan Bawah</option>
+                  <option value="bottom-left">↙ Kiri Bawah</option>
+                  <option value="top-right">↗ Kanan Atas</option>
+                  <option value="top-left">↖ Kiri Atas</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+              <div class="option-group" style="margin-bottom:0;">
+                <label>Posisi Sumber</label>
+                <select id="sourcePosition" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
+                  <option value="top-left" selected>↖ Kiri Atas</option>
+                  <option value="top-right">↗ Kanan Atas</option>
+                  <option value="bottom-left">↙ Kiri Bawah</option>
+                  <option value="bottom-right">↘ Kanan Bawah</option>
+                </select>
+              </div>
+              <div class="option-group" style="margin-bottom:0;">
+                <label>Durasi Muncul Sumber</label>
+                <select id="sourceDuration" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
+                  <option value="3">3 detik</option>
+                  <option value="4" selected>4 detik</option>
+                  <option value="6">6 detik</option>
+                  <option value="10">10 detik</option>
+                </select>
+              </div>
+              <div class="option-group" style="margin-bottom:0;">
+                <label>Ukuran Watermark</label>
+                <select id="watermarkFontSize" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
+                  <option value="22">Kecil</option>
+                  <option value="30" selected>Sedang</option>
+                  <option value="42">Besar</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="margin-top:12px; font-size:10px; color:var(--text3); line-height:1.5;">
+              💡 Nama channel sumber diambil otomatis dari metadata YouTube kalau kolomnya dibiarkan kosong.
+            </div>
+          </div>
+        </div>
+
         <!-- Auto Subtitle Customization Panel -->
         <div class="subtitle-card" style="margin-bottom: 24px; padding: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px;">
           <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -1272,6 +1355,41 @@
       const enabled = document.getElementById('metadataEnabled')?.checked;
       const wrap = document.getElementById('metadataSettings');
       if (wrap) wrap.style.display = enabled ? 'grid' : 'none';
+    }
+
+    // ── Branding Controls ────────────────────────────────────
+    function toggleBrandingSettings() {
+      const enabled = document.getElementById('brandingEnabled')?.checked;
+      const wrap = document.getElementById('brandingSettings');
+      if (wrap) wrap.style.display = enabled ? 'block' : 'none';
+    }
+
+    /**
+     * Kumpulkan konfigurasi branding dari form. Mengembalikan null kalau
+     * toggle-nya mati, supaya backend tidak menggambar apa pun.
+     */
+    function collectBrandingConfig() {
+      const toggle = document.getElementById('brandingEnabled');
+      if (!toggle || !toggle.checked) return null;
+
+      const val = (id) => document.getElementById(id)?.value?.trim() || '';
+      const num = (id, fallback) => {
+        const n = Number(document.getElementById(id)?.value);
+        return Number.isFinite(n) ? n : fallback;
+      };
+
+      return {
+        showSource: true,
+        showWatermark: true,
+        // Kosong = biarkan worker mengisi dari metadata channel YouTube.
+        sourceChannel: val('sourceChannel') || null,
+        sourceLabel: val('sourceLabel') || 'Sumber',
+        sourcePosition: document.getElementById('sourcePosition')?.value || 'top-left',
+        sourceDuration: num('sourceDuration', 4),
+        watermarkText: val('watermarkText') || null,
+        watermarkPosition: document.getElementById('watermarkPosition')?.value || 'bottom-right',
+        watermarkFontSize: num('watermarkFontSize', 30),
+      };
     }
 
     /**
@@ -1600,6 +1718,8 @@
         : 'off';
       const targetPlatform = document.getElementById('targetPlatform')?.value || 'all';
 
+      const branding = collectBrandingConfig();
+
       try {
         const res = await fetch('/api/process', {
           method: 'POST',
@@ -1614,6 +1734,7 @@
             aiModel: aiModel && aiModel !== '__custom__' ? aiModel : undefined,
             metadataMode,
             targetPlatform,
+            branding,
           }),
         });
 
@@ -1799,6 +1920,8 @@
     window.showResults = showResults;
     window.togglePlayPreview = togglePlayPreview;
     window.toggleMetadataSettings = toggleMetadataSettings;
+    window.toggleBrandingSettings = toggleBrandingSettings;
+    window.collectBrandingConfig = collectBrandingConfig;
     window.copyToClipboard = copyToClipboard;
     window.buildMetadataClipboardText = buildMetadataClipboardText;
 
