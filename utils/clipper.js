@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import 'dotenv/config';
 import { buildAudioCrossfadeFilter } from './boundarySnapper.js';
 import { downloadClipSection } from './downloader.js';
-import { generateAssSubtitles } from './subtitleGenerator.js';
+import { generateAssSubtitles, escapeAssPath } from './subtitleGenerator.js';
 
 const OUTPUT_DIR = process.env.OUTPUT_DIR || './outputs';
 const SPEAKER_TRACKING_ENABLED = process.env.SPEAKER_TRACKING_ENABLED !== 'false';
@@ -184,7 +184,7 @@ export function buildAdaptiveSplitFilterGraph({
 
   let outputMap = '[vraw]';
   if (subtitleAssPath) {
-    const escapedAss = subtitleAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    const escapedAss = escapeAssPath(subtitleAssPath);
     filterParts.push(`[vraw]ass='${escapedAss}'[vout]`);
     outputMap = '[vout]';
   }
@@ -233,7 +233,7 @@ export function buildGamingStreamerFilterGraph({
 
   let outputMap = '[vraw]';
   if (subtitleAssPath) {
-    const escapedAss = subtitleAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    const escapedAss = escapeAssPath(subtitleAssPath);
     filterParts.push(`[vraw]ass='${escapedAss}'[v]`);
     outputMap = '[v]';
   } else {
@@ -525,7 +525,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         let filterComplex = graph.filterComplex;
         let outMap = graph.outputMap;
         if (options.subtitleAssPath) {
-          const escapedAss = options.subtitleAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+          const escapedAss = escapeAssPath(options.subtitleAssPath);
           filterComplex += `;${graph.outputMap}ass='${escapedAss}'[vout]`;
           outMap = '[vout]';
         }
@@ -618,7 +618,7 @@ function buildVideoFilter({ srcWidth, srcHeight, aspectRatio, clip, speakerTurns
   }
 
   if (subtitleAssPath) {
-    const escapedAssPath = subtitleAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    const escapedAssPath = escapeAssPath(subtitleAssPath);
     filters.push(`ass='${escapedAssPath}'`);
   }
 
