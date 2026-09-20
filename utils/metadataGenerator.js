@@ -229,7 +229,11 @@ export function sanitizeHeadline(rawHeadline, fallbackTitle = '', hookText = '')
   text = text.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
 
   // 2. Remove filler openings like "You know,", "You know if", "Uh,", "Um,", "Like,"
-  text = text.replace(/^(you know,?|well,?|so,?|like,?|uh,?|um,?|look,?|actually,?)\s+/i, '');
+  let prev;
+  do {
+    prev = text;
+    text = text.replace(/^(you know,?|well,?|so,?|like,?|uh,?|um,?|look,?|actually,?)\s+/i, '');
+  } while (text !== prev);
 
   // 3. Remove stutter repetitions (e.g. "you you" -> "you", "if if" -> "if", "the the" -> "the")
   text = text.replace(/\b([a-zA-Z]+)\s+\1\b/gi, '$1');
@@ -243,10 +247,18 @@ export function sanitizeHeadline(rawHeadline, fallbackTitle = '', hookText = '')
     text = text.replace(/^you can't just be/i, 'Stop Being');
   }
 
-  // 6. Ensure it starts with an uppercase letter
-  if (text.length > 0) {
-    text = text.charAt(0).toUpperCase() + text.slice(1);
-  }
+  // 6. Convert to clean Title Case for headline impact
+  const minorWords = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'from', 'by', 'of', 'in']);
+  text = text
+    .split(/\s+/)
+    .map((word, idx) => {
+      const lower = word.toLowerCase();
+      if (idx > 0 && minorWords.has(lower)) {
+        return lower;
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
 
   // 7. Strip trailing periods/ellipses so it looks like a clean headline
   text = text.replace(/[.…]+$/, '').trim();
