@@ -497,40 +497,39 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       });
       cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap)
                .outputOptions(['-map 0:a?']);
-    } else if ((layoutMode === 'split_screen' || layoutMode === 'auto_split') && aspectRatio === '9:16') {
-      let graph;
-      if (options.wideIntervals && options.wideIntervals.length > 0) {
-        const defaultX = Math.floor((srcWidth - Math.min(srcWidth, Math.floor(srcHeight * 9 / 16))) / 2);
-        const soloXExpr = buildSpeakerAwareCropX({
-          srcWidth,
-          cropWidth: Math.min(srcWidth, Math.floor(srcHeight * 9 / 16)),
-          clip,
-          speakerTurns: options.speakerTurns || [],
-          speakerOrder: options.speakerOrder || [],
-          defaultX,
-          faceTrackingPlan: options.faceTrackingPlan || [],
-        });
-        graph = buildAdaptiveSplitFilterGraph({
-          srcWidth,
-          srcHeight,
-          soloCropXExpr: soloXExpr,
-          wideIntervals: options.wideIntervals,
-          subtitleAssPath: options.subtitleAssPath,
-        });
-      } else {
-        graph = buildStackedSplitFilterGraph({
-          srcWidth,
-          srcHeight,
-        });
-        let filterComplex = graph.filterComplex;
-        let outMap = graph.outputMap;
-        if (options.subtitleAssPath) {
-          const escapedAss = escapeAssPath(options.subtitleAssPath);
-          filterComplex += `;${graph.outputMap}ass='${escapedAss}'[vout]`;
-          outMap = '[vout]';
-        }
-        graph = { filterComplex, outputMap: outMap };
+    } else if (layoutMode === 'auto_split' && aspectRatio === '9:16') {
+      const defaultX = Math.floor((srcWidth - Math.min(srcWidth, Math.floor(srcHeight * 9 / 16))) / 2);
+      const soloXExpr = buildSpeakerAwareCropX({
+        srcWidth,
+        cropWidth: Math.min(srcWidth, Math.floor(srcHeight * 9 / 16)),
+        clip,
+        speakerTurns: options.speakerTurns || [],
+        speakerOrder: options.speakerOrder || [],
+        defaultX,
+        faceTrackingPlan: options.faceTrackingPlan || [],
+      });
+      const graph = buildAdaptiveSplitFilterGraph({
+        srcWidth,
+        srcHeight,
+        soloCropXExpr: soloXExpr,
+        wideIntervals: options.wideIntervals || [],
+        subtitleAssPath: options.subtitleAssPath,
+      });
+      cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap)
+               .outputOptions(['-map 0:a?']);
+    } else if (layoutMode === 'split_screen' && aspectRatio === '9:16') {
+      let graph = buildStackedSplitFilterGraph({
+        srcWidth,
+        srcHeight,
+      });
+      let filterComplex = graph.filterComplex;
+      let outMap = graph.outputMap;
+      if (options.subtitleAssPath) {
+        const escapedAss = escapeAssPath(options.subtitleAssPath);
+        filterComplex += `;${graph.outputMap}ass='${escapedAss}'[vout]`;
+        outMap = '[vout]';
       }
+      graph = { filterComplex, outputMap: outMap };
       cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap)
                .outputOptions(['-map 0:a?']);
     } else {
