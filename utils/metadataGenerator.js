@@ -23,7 +23,14 @@ export const DEFAULT_METADATA_MODE = 'viral';
 
 // Bounds from the platforms we target — exceeding them gets content truncated
 // silently by the uploader, or rejected outright.
-export const TITLE_MAX_CHARS = 100;   // YouTube Shorts hard limit
+//
+// TITLE_MAX_CHARS is the HARD cap (what we truncate at). The prompt's TARGET is
+// much shorter (28-40) because a Shorts title is read in a fraction of a second:
+// long titles get cut off in-feed and bury the hook. This cap exists only to
+// stop a runaway model, not as a goal to reach.
+export const TITLE_MAX_CHARS = 60;
+export const TITLE_TARGET_MIN_CHARS = 28;
+export const TITLE_TARGET_MAX_CHARS = 40;
 export const TIKTOK_CAPTION_MAX_CHARS = 2200;
 export const REELS_CAPTION_MAX_CHARS = 2200;
 export const HASHTAG_MAX_COUNT = 30;
@@ -119,14 +126,20 @@ export function buildMetadataPrompt(clipInputs, options = {}) {
     viral: isEn
       ? [
           `STYLE = VIRAL: engineered for maximum scroll-stop and share impulse while staying fully honest about the content.`,
-          `- title: max 60 characters, front-load the hook in the first 40 characters (that is the part viewers actually see before truncation). Use a curiosity gap, a stake, a number, or a bold claim that the clip genuinely delivers on.`,
+          `- title: HARD LIMIT 45 characters, TARGET 28-40. Short beats clever — every word must earn its place.`,
+          `  Front-load the hook in the first 25 characters. Cut articles, filler and context ("Obama discusses...").`,
+          `  If you can drop a word and keep the meaning, drop it. A punchy 30-char title beats a rambling 45-char one.`,
+          `  Use a curiosity gap, a stake, a number, or a bold claim that the clip genuinely delivers on.`,
           `- description: 3-5 sentences. Open with a curiosity-driven first line (this is what shows in-feed), then give real substance, then a soft CTA.`,
           `- hashtags: 12-20 tags mixing broad reach and specific niche.`,
           `- caption: a punchy 1-2 line version tuned per target platform.`,
         ]
       : [
           `GAYA = VIRAL: dirancang untuk menghentikan scroll dan memicu share, tapi tetap jujur dengan isi klipnya.`,
-          `- title: maks 60 karakter, taruh hook-nya di 40 karakter pertama (itu bagian yang benar-benar terlihat sebelum terpotong). Pakai curiosity gap, taruhan/stakes, angka, atau klaim berani yang memang dipenuhi isi klip.`,
+          `- title: BATAS KERAS 45 karakter, TARGET 28-40. Pendek lebih baik daripada pintar — setiap kata harus berguna.`,
+          `  Taruh hook di 25 karakter pertama. Buang kata sambung, basa-basi, dan konteks ("Obama membahas...").`,
+          `  Kalau satu kata bisa dibuang tanpa mengubah makna, buang. Judul 30 karakter yang padat mengalahkan 45 karakter yang bertele-tele.`,
+          `  Pakai curiosity gap, taruhan/stakes, angka, atau klaim berani yang memang dipenuhi isi klip.`,
           `- description: 3-5 kalimat. Buka dengan kalimat pertama yang memicu rasa penasaran (ini yang tampil di feed), lalu beri substansi nyata, lalu CTA halus.`,
           `- hashtags: 12-20 tag campuran jangkauan luas dan niche spesifik.`,
           `- caption: versi 1-2 baris yang punchy, disesuaikan per platform target.`,
@@ -246,8 +259,10 @@ export function buildMetadataPrompt(clipInputs, options = {}) {
     `- pinnedComment: a short engagement-bait comment the creator can pin to drive replies (ask a genuine question the clip makes people want to answer).`,
     ``,
     `FLAT vs SCROLL-STOPPING — study these pairs. The left column is what to NEVER produce:`,
-    `  FLAT title:    "Obama Discusses the Importance of Convictions"`,
-    `  HOOK title:    "Your Convictions Are Being Tested Right Now"`,
+    `  FLAT title:    "Obama Discusses the Importance of Convictions" (50 chars)`,
+    `  HOOK title:    "They Want You Scared. Stay Anyway." (35 chars)`,
+    `  FLAT title:    "Why You Should Never Give Up On Your Beliefs" (48 chars)`,
+    `  HOOK title:    "Your Beliefs Cost Nothing. That's the Problem." (44 chars)`,
     `  FLAT caption:  "Mari simak poin penting ini: Obama: Your Convictions Are Being Tested Right Now"`,
     `  HOOK caption:  "Obama just said the quiet part out loud: most people never get tested, so their beliefs stay untested."`,
     `  FLAT comment:  "Bagaimana menurut kalian tentang pembahasan ini?"`,
@@ -257,6 +272,7 @@ export function buildMetadataPrompt(clipInputs, options = {}) {
     ``,
     `The FLAT versions are summaries. The HOOK versions create a reason to stop scrolling.`,
     `Every field you output must read like the right column.`,
+    `Remember the title rule: 28-40 characters, hard limit 45. Count before you answer.`,
     ``,
     ...platformHint,
     ``,
@@ -291,6 +307,117 @@ export function buildMetadataPrompt(clipInputs, options = {}) {
   ]
     .filter((line) => line !== null)
     .join('\n');
+}
+
+/**
+ * Trim a too-long title down to the target length WITHOUT gutting its hook.
+ *
+ * Naive truncation ("slice + ellipsis") is the worst option: it usually keeps a
+ * rambling lead-in and cuts off the payoff. Instead we:
+ *   1. drop trailing subordinate clauses (" — because ...", ", which ...")
+ *   2. drop a weak leading label ("Obama: ...", "Video: ...") if a strong hook follows
+ *   3. cut on a word boundary, never mid-word
+ *   4. strip dangling stop-words the cut leaves behind ("and", "the", "of")
+ *
+ * Returns null when nothing sensible can be done (caller keeps the original).
+ *
+ * @param {string} title
+ * @returns {string|null}
+ */
+export function trimTitleToTarget(title) {
+  if (typeof title !== 'string') return null;
+  let t = title.trim();
+  if (t.length <= TITLE_TARGET_MAX_CHARS) return t;
+
+  // 1. Drop trailing subordinate clauses — the hook is almost always up front.
+  const clauseCuts = [
+    /\s*[—–-]\s*(because|since|which|who|that|so|as)\b.*$/i,
+    /,\s*(because|since|which|who|that|so|as|and then)\b.*$/i,
+    /\s+(because|since|which)\b.*$/i,
+  ];
+  for (const re of clauseCuts) {
+    const cut = t.replace(re, '').trim();
+    if (cut.length >= TITLE_TARGET_MIN_CHARS && cut.length < t.length) {
+      t = cut;
+      break;
+    }
+  }
+
+  // 2. Drop a weak leading label ("Obama: ...", "Video: ...") when a hook follows.
+  const labelMatch = t.match(/^([A-Z][\w'’.]{1,14}):\s+(.+)$/);
+  if (labelMatch && labelMatch[2].length >= TITLE_TARGET_MIN_CHARS) {
+    t = labelMatch[2].trim();
+  }
+
+  if (t.length <= TITLE_TARGET_MAX_CHARS) return t;
+
+  // 3. Prefer a COMPLETE first sentence over a mid-thought word cut.
+  //    "They Want You Scared. Stay Anyway. Here Is The Full..." -> "They Want You Scared."
+  //    A whole thought beats a dangling fragment every time.
+  const firstSentence = t.match(/^(.{15,}?[.!?])(?:\s|$)/);
+  if (firstSentence) {
+    const s = firstSentence[1].trim();
+    if (s.length >= 15 && s.length <= TITLE_TARGET_MAX_CHARS) {
+      return s;
+    }
+  }
+
+  // 4. Cut at a CLAUSE boundary (comma / conjunction) in the ORIGINAL string.
+  //
+  //    Splitting and re-joining mangles the text ("The One Habit, Separates
+  //    People, Succeed"), so we instead find separator POSITIONS and slice the
+  //    original — the kept prefix is always verbatim.
+  //
+  //    "The One Habit That Separates People Who Succeed From Those Who Talk"
+  //      -> "The One Habit That Separates People"   (a whole phrase, 39 chars)
+  //    Accept up to the HARD cap: a complete 45-char phrase reads far better
+  //    than a broken 30-char fragment, and 45 is still legal.
+  const separators = /(?:,\s+|\s+(?:and|but|because|so|which|that|while|when|who|from|as)\s+)/gi;
+  let bestCut = null;
+  let m;
+  while ((m = separators.exec(t)) !== null) {
+    const prefix = t.slice(0, m.index).trim().replace(/[.,;:—–-]+$/, '').trim();
+    if (prefix.length < TITLE_TARGET_MIN_CHARS || prefix.length > TITLE_MAX_CHARS) continue;
+    // Prefer the prefix CLOSEST to the target length — the longest one can
+    // overshoot well past the target even while staying under the hard cap.
+    if (!bestCut || Math.abs(prefix.length - TITLE_TARGET_MAX_CHARS) < Math.abs(bestCut.length - TITLE_TARGET_MAX_CHARS)) {
+      bestCut = prefix;
+    }
+  }
+  if (bestCut) return bestCut;
+
+  // 5. Last resort: word-boundary cut at the TARGET length, then the HARD cap.
+  //    (Cutting at TARGET keeps it short; the hard cap below is a safety net.)
+  const cutAt = (text, limit) => {
+    const words = text.split(/\s+/);
+    const kept = [];
+    let len = 0;
+    for (const w of words) {
+      const add = kept.length === 0 ? w.length : w.length + 1;
+      if (len + add > limit) break;
+      kept.push(w);
+      len += add;
+    }
+    return kept.join(' ').trim();
+  };
+
+  let out = cutAt(t, TITLE_TARGET_MAX_CHARS);
+  // If that produced nothing usable, take the hard cap worth of words.
+  if (out.length < TITLE_TARGET_MIN_CHARS) out = cutAt(t, TITLE_MAX_CHARS);
+
+  // 6. Strip dangling stop-words AND possessive pronouns the cut left behind —
+  //    "Give Up On Your" is a broken fragment, not a title.
+  const DANGLING = /[\s,;:]+(and|or|but|the|a|an|of|to|in|on|for|with|that|which|is|are|was|were|be|as|at|by|from|so|then|your|our|their|his|her|my|its|this|these|those)$/i;
+  let prev;
+  do {
+    prev = out;
+    out = out.replace(DANGLING, '').trim();
+  } while (out !== prev);
+  out = out.replace(/[\s,;:—–-]+$/, '').trim();
+
+  // A fragment that still ends mid-thought is worse than the original title.
+  if (out.length < TITLE_TARGET_MIN_CHARS) return null;
+  return out;
 }
 
 /**
@@ -438,9 +565,17 @@ export function normalizeClipMetadata(raw) {
       .slice(0, 8);
   }
 
-  // Title is the one field worth truncating rather than dropping: a 140-char
-  // title still beats no title, but it must not break the platform limit.
+  // Title: hard-cap it, but ALSO trim a title that merely runs long.
+  //
+  // A Shorts title is read in a fraction of a second and gets cut off in-feed,
+  // so a 55-character title buries its own hook. We trim on a WORD boundary
+  // (never mid-word) once it passes TITLE_TARGET_MAX_CHARS, and only fall back
+  // to an ellipsis if a single unbreakable word overflows the hard cap.
   let safeTitle = title;
+  if (safeTitle && safeTitle.length > TITLE_TARGET_MAX_CHARS) {
+    const trimmed = trimTitleToTarget(safeTitle);
+    if (trimmed) safeTitle = trimmed;
+  }
   if (safeTitle && safeTitle.length > TITLE_MAX_CHARS) {
     safeTitle = safeTitle.slice(0, TITLE_MAX_CHARS - 1).trimEnd() + '…';
   }
