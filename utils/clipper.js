@@ -514,6 +514,37 @@ async function clipVideo(inputPath, outputPath, clip, srcWidth, srcHeight, aspec
   }
 }
 
+/**
+ * Safety net for a mistake that costs the whole render: CPU-only filters
+ * (drawtext) must never be linked after `hwupload`, because the label then
+ * carries `vaapi` surfaces and ffmpeg fails with "Filter not found".
+ *
+ * Call this on a completed graph to assert the upload is the LAST stage.
+ *
+ * @param {string} filterComplex
+ * @throws {Error} when a CPU filter is chained after hwupload
+ */
+function assertGpuUploadIsLast(filterComplex) {
+  if (typeof filterComplex !== 'string') return;
+
+  // Split into chained filter runs (each `;`-separated statement ends in a label).
+  for (const statement of filterComplex.split(';')) {
+    const uploadIdx = statement.indexOf('hwupload');
+    if (uploadIdx === -1) continue;
+
+    const after = statement.slice(uploadIdx + 'hwupload'.length);
+    // Only `[label]` output naming is legal after the upload; any further
+    // `,filter` in the same statement would run on GPU surfaces.
+    const offending = after.match(/,\s*([a-zA-Z0-9_]+)/);
+    if (offending) {
+      throw new Error(
+        `Filter "${offending[1]}" is chained after hwupload, which only works on CPU frames. ` +
+        `Draw CPU filters (e.g. branding/drawtext) BEFORE the hardware upload.`
+      );
+    }
+  }
+}
+
 function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio, options = {}) {
   return new Promise((resolve, reject) => {
     const duration = clip.end - clip.start;
@@ -579,6 +610,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         filterComplex += `;${outputMap}format=nv12,hwupload[hwout]`;
         outputMap = '[hwout]';
       }
+      assertGpuUploadIsLast(filterComplex);
       cmd = cmd.complexFilter(filterComplex, outputMap)
                .outputOptions(['-map 0:a?']);
     } else if (layoutMode === 'auto_split' && aspectRatio === '9:16') {
@@ -608,6 +640,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         filterComplex += `;${outputMap}format=nv12,hwupload[hwout]`;
         outputMap = '[hwout]';
       }
+      assertGpuUploadIsLast(filterComplex);
       cmd = cmd.complexFilter(filterComplex, outputMap)
                .outputOptions(['-map 0:a?']);
     } else if (layoutMode === 'split_screen' && aspectRatio === '9:16') {
@@ -629,6 +662,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         filterComplex += `;${outMap}format=nv12,hwupload[hwout]`;
         outMap = '[hwout]';
       }
+      assertGpuUploadIsLast(filterComplex);
       cmd = cmd.complexFilter(filterComplex, outMap)
                .outputOptions(['-map 0:a?']);
     } else {
@@ -645,10 +679,15 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       if (brandingCfg) {
         vfFilter = appendBrandingToVideoFilters(vfFilter, brandingCfg);
       }
+      // IMPORTANT: the hardware upload must come AFTER every CPU filter
+      // (drawtext included). hwupload hands the encoder a `vaapi` surface, and
+      // drawtext cannot run on it — "Filter not found" / impossible format
+      // conversion. So branding is drawn on CPU frames, then uploaded.
       if (useGpu) {
         vfFilter = vfFilter ? `${vfFilter},format=nv12,hwupload` : 'format=nv12,hwupload';
       }
       if (vfFilter) {
+        assertGpuUploadIsLast(vfFilter);
         cmd = cmd.videoFilters(vfFilter);
       }
     }

@@ -250,7 +250,15 @@ function alphaOf(opacity) {
  * @returns {string[]} one or more drawtext filter strings (without the leading label)
  */
 export function buildBrandingFilters(cfg, options = {}) {
-  if (!brandingIsActive(cfg)) return [];
+  // Normalise FIRST, then test for activity. Testing the raw object would
+  // mis-handle a partially-shaped config (e.g. one that only sets colours),
+  // and every emitted value below must already be a resolved default rather
+  // than `undefined`/`NaN` — ffmpeg rejects those with "Invalid argument".
+  const c = normalizeBrandingConfig(cfg);
+
+  // A raw config carrying only a channel/text is activated here; a normalised
+  // one passes straight through. Checked AFTER normalisation so both work.
+  if (!brandingIsActive(c)) return [];
 
   const fontFile = options.fontFile !== undefined ? options.fontFile : resolveFontFile();
   if (!fontFile) {
@@ -266,46 +274,46 @@ export function buildBrandingFilters(cfg, options = {}) {
   const filters = [];
   const fontPart = `fontfile='${escapeDrawtext(fontFile)}'`;
 
-  const sourceText = cfg.sourceChannel
-    ? `${cfg.sourceLabel || 'Sumber'}: ${cfg.sourceChannel}`
-    : (cfg.sourceLabel || '');
+  const sourceText = c.sourceChannel
+    ? `${c.sourceLabel || 'Sumber'}: ${c.sourceChannel}`
+    : (c.sourceLabel || '');
 
-  if (cfg.showSource && sourceText) {
-    // The attribution is the FIRST thing to go if the font cannot be read, and
+  if (c.showSource && sourceText) {
+    // The attribution is the first thing to go if the font cannot be read, and
     // it is drawn with a translucent box so it stays legible over any footage.
     filters.push(
       `drawtext=${fontPart}` +
       `:text='${escapeDrawtext(sourceText)}'` +
-      `:fontcolor=${cfg.sourceColor}@1.0` +
-      `:fontsize=${Math.round(cfg.watermarkFontSize * 0.85)}` +
-      `:box=1:boxcolor=${cfg.sourceBgColor}@0.72:boxborderw=16` +
-      `:x=${xExprFor(cfg.sourcePosition)}` +
-      `:y=${yExprFor(cfg.sourcePosition)}` +
-      `:enable='lte(t,${cfg.sourceDuration})'`
+      `:fontcolor=${c.sourceColor}@1.0` +
+      `:fontsize=${Math.round(c.watermarkFontSize * 0.85)}` +
+      `:box=1:boxcolor=${c.sourceBgColor}@0.72:boxborderw=16` +
+      `:x=${xExprFor(c.sourcePosition)}` +
+      `:y=${yExprFor(c.sourcePosition)}` +
+      `:enable='lte(t,${c.sourceDuration})'`
     );
   }
 
-  if (cfg.showWatermark && cfg.watermarkText) {
-    const alpha = alphaOf(cfg.watermarkOpacity);
+  if (c.showWatermark && c.watermarkText) {
+    const alpha = alphaOf(c.watermarkOpacity);
     const parts = [
       `drawtext=${fontPart}`,
-      `text='${escapeDrawtext(cfg.watermarkText)}'`,
-      `fontcolor=${cfg.watermarkColor}@${alpha}`,
-      `fontsize=${cfg.watermarkFontSize}`,
+      `text='${escapeDrawtext(c.watermarkText)}'`,
+      `fontcolor=${c.watermarkColor}@${alpha}`,
+      `fontsize=${c.watermarkFontSize}`,
       // A drop shadow is what keeps thin, semi-transparent text legible over
       // busy footage without adding a solid box.
-      `shadowcolor=#000000@${alphaOf(Math.min(1, cfg.watermarkOpacity + 0.25))}`,
+      `shadowcolor=#000000@${alphaOf(Math.min(1, c.watermarkOpacity + 0.25))}`,
       `shadowx=2`,
       `shadowy=2`,
-      `x=${xExprFor(cfg.watermarkPosition, 30)}`,
-      `y=${yExprFor(cfg.watermarkPosition, 30)}`,
+      `x=${xExprFor(c.watermarkPosition, 30)}`,
+      `y=${yExprFor(c.watermarkPosition, 30)}`,
     ];
 
     // A background box is OPT-IN: by default the watermark floats over the
     // video so it does not obscure the picture.
-    if (cfg.watermarkBackground) {
+    if (c.watermarkBackground) {
       parts.push(`box=1`);
-      parts.push(`boxcolor=${cfg.watermarkBgColor}@${alphaOf(cfg.watermarkOpacity * 0.5)}`);
+      parts.push(`boxcolor=${c.watermarkBgColor}@${alphaOf(c.watermarkOpacity * 0.5)}`);
       parts.push(`boxborderw=10`);
     }
 
@@ -316,11 +324,20 @@ export function buildBrandingFilters(cfg, options = {}) {
 }
 
 /**
- * Append branding onto an existing output label inside a filter_complex graph.
+ * Append branding onto an existing filter chain inside a filter_complex graph.
+ *
+ * The branding filters are CPU filters, so they MUST be appended while the
+ * chain still carries CPU frames — i.e. BEFORE any `hwupload`. Chaining them on
+ * a vaapi surface makes ffmpeg fail with "Filter not found".
+ *
+ * The filters are appended to the SAME chain as `inputLabel` rather than being
+ * emitted as a separate `;[label],drawtext=…` statement. A standalone statement
+ * whose input label is a short name like `[v]` is parsed by ffmpeg as a filter
+ * called `v` ("No such filter: ''"), which killed the whole render.
  *
  * @param {string} filterComplex   the graph built so far
- * @param {string} inputLabel      label to consume, e.g. '[vout]'
- * @param {Object} cfg             normalised branding config
+ * @param {string} inputLabel      label of the chain tail, e.g. '[vraw]' (CPU frames)
+ * @param {Object} cfg             branding config (normalised or raw)
  * @param {Object} [options]
  * @returns {{ filterComplex: string, outputLabel: string }}
  */
@@ -330,10 +347,32 @@ export function appendBrandingToGraph(filterComplex, inputLabel, cfg, options = 
     return { filterComplex, outputLabel: inputLabel };
   }
 
-  const label = inputLabel.replace(/^\[|\]$/g, '');
-  const chain = `${label}${filters.map((f) => `,${f}`).join('')}[branded]`;
+  const label = inputLabel.startsWith('[') ? inputLabel : `[${inputLabel}]`;
+  const suffix = filters.map((f) => `,${f}`).join('');
+
+  // Find the statement that PRODUCES `label` and extend it in place:
+  //   `[vraw]ass='…'[v]`  ->  `[vraw]ass='…',drawtext=…,drawtext=…[branded]`
+  // This keeps a single chain, so no free-standing label reference is needed.
+  const parts = filterComplex.split(';');
+  let extended = false;
+
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const stmt = parts[i];
+    if (stmt.endsWith(label)) {
+      parts[i] = `${stmt.slice(0, -label.length)}${suffix}[branded]`;
+      extended = true;
+      break;
+    }
+  }
+
+  if (!extended) {
+    // The label was not produced by this graph (caller handed us a bare chain):
+    // append it as its own statement, which is valid for a daisy-chained input.
+    parts.push(`${label}${suffix}[branded]`);
+  }
+
   return {
-    filterComplex: `${filterComplex};${chain}`,
+    filterComplex: parts.join(';'),
     outputLabel: '[branded]',
   };
 }
