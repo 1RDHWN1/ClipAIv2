@@ -207,6 +207,67 @@ export function buildMetadataPrompt(clipInputs, options = {}) {
 }
 
 /**
+ * Sanitize and polish an Auto Headline.
+ *
+ * Prevents raw spoken dialogue from reaching the video burned-in headline.
+ * Strips stuttering ('you you', 'if if', 'oon if'), filler openings
+ * ('you know', 'like', 'uh', 'um'), lowercase trailing dialogue, and caps length.
+ *
+ * @param {string} rawHeadline
+ * @param {string} [fallbackTitle]
+ * @param {string} [hookText]
+ * @returns {string}
+ */
+export function sanitizeHeadline(rawHeadline, fallbackTitle = '', hookText = '') {
+  let text = typeof rawHeadline === 'string' && rawHeadline.trim() ? rawHeadline.trim() : '';
+
+  if (!text) {
+    text = fallbackTitle || hookText || 'Viral Topic';
+  }
+
+  // 1. Remove quotes around the headline if model added them
+  text = text.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+
+  // 2. Remove filler openings like "You know,", "You know if", "Uh,", "Um,", "Like,"
+  text = text.replace(/^(you know,?|well,?|so,?|like,?|uh,?|um,?|look,?|actually,?)\s+/i, '');
+
+  // 3. Remove stutter repetitions (e.g. "you you" -> "you", "if if" -> "if", "the the" -> "the")
+  text = text.replace(/\b([a-zA-Z]+)\s+\1\b/gi, '$1');
+  text = text.replace(/\b([a-zA-Z]+)\s+\1\b/gi, '$1');
+
+  // 4. Remove hallucinated stutter garbage like "oon if", "oon"
+  text = text.replace(/\boon\s+/gi, '');
+
+  // 5. If it starts with conversational lowercase pattern, polish it:
+  if (/^you can't just be/i.test(text)) {
+    text = text.replace(/^you can't just be/i, 'Stop Being');
+  }
+
+  // 6. Ensure it starts with an uppercase letter
+  if (text.length > 0) {
+    text = text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  // 7. Strip trailing periods/ellipses so it looks like a clean headline
+  text = text.replace(/[.…]+$/, '').trim();
+
+  // 8. If text is too long (> 8 words) or too wordy, prefer fallbackTitle if cleaner
+  const words = text.split(/\s+/);
+  if (words.length > 8 && fallbackTitle && fallbackTitle.split(/\s+/).length <= 8) {
+    text = fallbackTitle.replace(/[.…]+$/, '').trim();
+  } else if (words.length > 8) {
+    text = words.slice(0, 7).join(' ');
+  }
+
+  // Cap at 60 characters for on-screen box
+  if (text.length > 60) {
+    text = text.slice(0, 58).trim() + '…';
+  }
+
+  return text;
+}
+
+/**
  * Sanitise + normalise one raw metadata object from the model.
  * Never throws; unknown shapes degrade to null fields.
  *
@@ -218,8 +279,9 @@ export function normalizeClipMetadata(raw) {
 
   const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
-  const headline = str(raw.headline);
+  const rawHl = str(raw.headline);
   const title = str(raw.title);
+  const headline = rawHl ? sanitizeHeadline(rawHl, title, str(raw.hookText)) : (title ? sanitizeHeadline(title) : null);
   const description = str(raw.description);
   const caption = str(raw.caption);
   const pinnedComment = str(raw.pinnedComment);
