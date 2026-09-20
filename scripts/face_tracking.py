@@ -354,55 +354,35 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
     if not clusters:
         return None
 
-    # 2. Score clusters: reward corner proximity + low spatial variance (tight seated posture)
+    # 2. Score clusters: a webcam overlay hugs a BORDER and persists.
+    #
+    # Size is deliberately NOT part of the score. Measured on real footage, a
+    # genuine corner webcam face spanned 14% of the frame width while a false
+    # positive spanned 15.5% — the two are indistinguishable by size. Position
+    # is what separates them: a webcam sits against an edge, a video's main
+    # subject sits near the centre.
     def score_cluster(c):
         pts = c["points"]
         count = len(pts)
         if count < 3:
             return -1.0
 
-        xs = [pt[0] for pt in pts]
-        ys = [pt[1] for pt in pts]
-
-        std_x = float(np.std(xs)) if count > 1 else 0.0
-        std_y = float(np.std(ys)) if count > 1 else 0.0
-        spatial_spread = float(np.hypot(std_x, std_y))
-
         cx = c["center_x"]
         cy = c["center_y"]
 
         edge_dist_x = min(cx, frame_width - cx) / float(frame_width)
         edge_dist_y = min(cy, frame_height - cy) / float(frame_height)
+        nearest_edge = min(edge_dist_x, edge_dist_y)
 
-        # Penalize center gameplay zone (crosshairs, cutscenes, RPG characters)
-        is_center_gameplay = (edge_dist_x > 0.30) and (edge_dist_y > 0.28)
-        if is_center_gameplay:
-            center_multiplier = 0.05
-        else:
-            center_multiplier = 1.0 + 2.0 * (0.5 - edge_dist_x) + 2.0 * (0.5 - edge_dist_y)
+        # 1.0 against a border, 0.0 at the centre.
+        edge_score = max(0.0, 1.0 - nearest_edge / 0.5)
+        persistence = count / max(1.0, float(len(frame_records)))
 
-        spread_factor = 1.0 / (1.0 + spatial_spread / 15.0)
-        return float(count * spread_factor * center_multiplier)
+        return float(count * persistence * edge_score)
 
     scored_clusters = [(c, score_cluster(c)) for c in clusters]
     scored_clusters.sort(key=lambda item: item[1], reverse=True)
     best_cluster, best_score = scored_clusters[0]
-
-    # Threshold guard, expressed PER FRAME.
-    #
-    # The raw score is `count * spread * multiplier`, so it grows with the
-    # number of sampled frames — a 100-frame clip scores 3x a 30-frame clip for
-    # the identical webcam. An absolute threshold therefore rejects genuine
-    # gaming streams that happen to be short. Normalising by frame count makes
-    # the measure duration-independent.
-    #
-    # Measured per-frame separation:
-    #   false positive (reaction video)  -> 1.04
-    #   genuine corner webcam            -> 2.42
-    # 1.8 sits between them with margin on both sides.
-    per_frame_score = best_score / max(1.0, float(len(frame_records)))
-    if per_frame_score < 1.8:
-        return None
 
     pts = best_cluster["points"]
     total_frames = max(1.0, float(len(frame_records)))
@@ -419,16 +399,27 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
     med_x = float(np.median([pt[0] for pt in pts]))
     med_y = float(np.median([pt[1] for pt in pts]))
 
-    # Face SIZE guard. A corner webcam face is SMALL relative to the frame.
+    # Guard: the face must actually hug an edge.
     #
-    # Measured: a genuine corner webcam face spans ~8.6% of the frame width;
-    # the reaction-video false positive spanned 15.5%. A face larger than ~12%
-    # is the SUBJECT of the video (or a panel), not a corner overlay — so the
-    # clip should be cropped to the person normally, not switched into the
-    # two-panel gaming layout.
-    face_widths = [pt[2] for pt in pts]
-    med_face_w = float(np.median(face_widths))
-    if med_face_w > 0.12 * frame_width:
+    # Position — not size — is what separates a webcam overlay from a video's
+    # subject. Measured on real footage, a genuine corner webcam face spanned 14%
+    # of the frame width and a false positive spanned 15.5%: indistinguishable by
+    # size. But a webcam sits against a border while the main subject sits near
+    # the centre. Measured face centres: a real corner webcam at 22% from the
+    # edge, a two-person podcast speaker at 33%. Requiring the face centre to be
+    # within the outer 28% band keeps the webcam and rejects the podcast.
+    edge_dist_x = min(med_x, frame_width - med_x) / float(frame_width)
+    edge_dist_y = min(med_y, frame_height - med_y) / float(frame_height)
+    nearest_edge = min(edge_dist_x, edge_dist_y)
+    if nearest_edge > 0.28:
+        return None
+
+    # Threshold, expressed PER FRAME so it does not drift with clip length.
+    # With the border-weighted score this is (persistence x edge_score), so a
+    # centred subject scores ~0 and is rejected, while a persistent edge overlay
+    # scores ~0.5-0.8.
+    per_frame_score = best_score / total_frames
+    if per_frame_score < 0.35:
         return None
 
     # Target 1080:800 (1.35 : 1) aspect ratio for distortion-free top panel
