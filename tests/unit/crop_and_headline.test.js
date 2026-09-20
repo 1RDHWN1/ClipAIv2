@@ -6,8 +6,9 @@ import {
   headlineFromDescription,
   headlineRepeatsTitle,
 } from '../../utils/metadataGenerator.js';
+import { resolveFaceTrackingPython } from '../../utils/clipper.js';
 
-const PY = process.env.FACE_TRACKING_PYTHON || 'python3';
+const PY = process.env.FACE_TRACKING_PYTHON || resolveFaceTrackingPython();
 
 // ---------------------------------------------------------------------------
 // Crop safety: a reaction video must NOT be treated as a gaming stream.
