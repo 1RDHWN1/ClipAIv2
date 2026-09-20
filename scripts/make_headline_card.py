@@ -67,8 +67,8 @@ def wrap_text(draw, text, font, max_text_width):
     return lines
 
 
-def build_card(text, out_path, video_width=1080, font_size=34, radius=18,
-               bg='#FFFFFF', fg='#000000', padding_x=34, padding_y=18,
+def build_card(text, out_path, video_width=1080, font_size=56, radius=22,
+               bg='#FFFFFF', fg='#000000', padding_x=44, padding_y=26,
                max_lines=3, font_file=None, shadow=True):
     font_path = pick_font(font_file)
     if not font_path:
@@ -133,8 +133,8 @@ def main():
     ap.add_argument('--text', required=True)
     ap.add_argument('--out', required=True)
     ap.add_argument('--width', type=int, default=1080)
-    ap.add_argument('--font-size', type=int, default=34)
-    ap.add_argument('--radius', type=int, default=18)
+    ap.add_argument('--font-size', type=int, default=56)
+    ap.add_argument('--radius', type=int, default=22)
     ap.add_argument('--bg', default='#FFFFFF')
     ap.add_argument('--fg', default='#000000')
     ap.add_argument('--font-file', default=None)

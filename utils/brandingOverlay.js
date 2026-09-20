@@ -172,7 +172,7 @@ export function renderHeadlineCard(cfg, options = {}) {
     '--text', c.headlineText,
     '--out', options.outPath,
     '--width', String(options.videoWidth || 1080),
-    '--font-size', String(c.headlineFontSize || 34),
+    '--font-size', String(c.headlineFontSize || 56),
     '--radius', String(c.headlineRadius || HEADLINE_CARD_RADIUS),
     '--bg', c.headlineBgColor || '#FFFFFF',
     '--fg', c.headlineColor || '#000000',
@@ -263,10 +263,13 @@ export function normalizeBrandingConfig(input) {
 
   const headlineText = str(cfg.headlineText, 80);
   const showHeadline = cfg.showHeadline !== false && Boolean(headlineText || cfg.showHeadline === true);
+  // Ukuran headline harus proporsional terhadap LEBAR frame, bukan angka tetap.
+  // Referensi video viral: banner headline ~5-7% lebar frame. Di 1080px itu
+  // 54-76px. Sebelumnya default 34px (3.1%) — terbaca kecil di layar ponsel.
   const rawHeadlineFontSize = Number(cfg.headlineFontSize);
   const headlineFontSize = Number.isFinite(rawHeadlineFontSize)
-    ? Math.min(64, Math.max(18, Math.round(rawHeadlineFontSize)))
-    : 34;
+    ? Math.min(96, Math.max(24, Math.round(rawHeadlineFontSize)))
+    : 56;
   const headlineDuration = Math.min(30, Math.max(1, Number(cfg.headlineDuration) || 5));
   const headlineColor = hexColor(cfg.headlineColor, '#000000');
   const headlineBgColor = hexColor(cfg.headlineBgColor, '#FFFFFF');
@@ -465,7 +468,7 @@ export function buildBrandingFilters(cfg, options = {}) {
       `drawtext=${fontPart}` +
       `:text='${escapeDrawtext(c.headlineText)}'` +
       `:fontcolor=${c.headlineColor}@1.0` +
-      `:fontsize=${c.headlineFontSize || 36}` +
+      `:fontsize=${c.headlineFontSize || 56}` +
       `:box=1:boxcolor=${c.headlineBgColor}@0.95:boxborderw=18` +
       `:x=(w-text_w)/2` +
       `:y=120` +
