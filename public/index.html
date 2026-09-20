@@ -2462,10 +2462,31 @@
       wrap.style.display = (wrap.style.display === 'none' || !wrap.style.display) ? 'block' : 'none';
     }
 
+    function sanitizeHeadline(rawHeadline, fallbackTitle = '', hookText = '') {
+      let text = typeof rawHeadline === 'string' && rawHeadline.trim() ? rawHeadline.trim() : '';
+      if (!text) text = fallbackTitle || hookText || 'Viral Topic';
+      text = text.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+      text = text.replace(/^(you know,?|well,?|so,?|like,?|uh,?|um,?|look,?|actually,?)\s+/i, '');
+      text = text.replace(/\b([a-zA-Z]+)\s+\1\b/gi, '$1');
+      text = text.replace(/\b([a-zA-Z]+)\s+\1\b/gi, '$1');
+      text = text.replace(/\boon\s+/gi, '');
+      if (/^you can't just be/i.test(text)) text = text.replace(/^you can't just be/i, 'Stop Being');
+      if (text.length > 0) text = text.charAt(0).toUpperCase() + text.slice(1);
+      text = text.replace(/[.…]+$/, '').trim();
+      const words = text.split(/\s+/);
+      if (words.length > 8 && fallbackTitle && fallbackTitle.split(/\s+/).length <= 8) {
+        text = fallbackTitle.replace(/[.…]+$/, '').trim();
+      } else if (words.length > 8) {
+        text = words.slice(0, 7).join(' ');
+      }
+      if (text.length > 60) text = text.slice(0, 58).trim() + '…';
+      return text;
+    }
+
     function renderOpusCardHtml(c, job, idx) {
       const src = c.downloadUrl || `/outputs/${encodeURIComponent(c.filename)}`;
       const clipTitle = c.title || `Clip ${c.index ?? idx + 1}`;
-      const headline = c.headline || c.metadata?.headline || c.hookText || clipTitle;
+      const headline = sanitizeHeadline(c.headline || c.metadata?.headline, clipTitle, c.hookText);
       const score = c.score || c.viralityScore || c.metadata?.viralityScore || Math.max(85, 99 - idx * 2);
       const breakdown = c.scoreBreakdown || c.metadata?.scoreBreakdown || {
         hook: 'A',
@@ -2482,7 +2503,6 @@
             <video src="${src}#t=0.5" preload="metadata" class="opus-thumb-video" muted></video>
             <div class="opus-thumb-overlay"></div>
             <div class="opus-headline-bar">${escapeHtml(headline)}</div>
-            <div class="opus-sub-preview">${escapeHtml(c.hookText || clipTitle)}</div>
             <div class="opus-play-hover">
               <div class="opus-play-btn-circle">▶</div>
             </div>
@@ -3144,7 +3164,7 @@
       const clip = clips[currentModalClipIndex];
       const src = clip.downloadUrl || `/outputs/${encodeURIComponent(clip.filename)}`;
       const clipTitle = clip.title || `Clip ${clip.index ?? currentModalClipIndex + 1}`;
-      const headline = clip.headline || clip.metadata?.headline || clip.hookText || clipTitle;
+      const headline = sanitizeHeadline(clip.headline || clip.metadata?.headline, clipTitle, clip.hookText);
       const score = clip.score || clip.viralityScore || clip.metadata?.viralityScore || Math.max(85, 99 - currentModalClipIndex * 2);
       const breakdown = clip.scoreBreakdown || clip.metadata?.scoreBreakdown || { hook: 'A', flow: 'A', value: 'A', trend: 'A-' };
       const duration = clip.duration ? Math.round(clip.duration) : 60;
