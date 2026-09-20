@@ -301,7 +301,12 @@ const worker = new Worker(
       await job.updateProgress({ step: 4, message: 'Memotong dan me-render video (GPU & Auto Headline)...', percent: 75 });
 
       // Auto Headline diaktifkan secara default pada branding, kecuali dimatikan eksplisit
+      // Sama seperti di clipper.js: spread config mentah HARUS di awal.
+      // Kalau `...branding` ditaruh di akhir, nilai `null` dari form (mis.
+      // sourceChannel: null, headlineText: null) menimpa nilai turunan yang
+      // baru dihitung — atribusi channel YouTube ikut hilang tanpa error.
       const resolvedBranding = {
+        ...(branding || {}),
         showHeadline: branding?.showHeadline !== false,
         headlineDuration: branding?.headlineDuration || 5,
         headlineBgColor: branding?.headlineBgColor || '#FFFFFF',
@@ -314,7 +319,6 @@ const worker = new Worker(
         watermarkPosition: branding?.watermarkPosition || 'above-subtitles',
         watermarkOpacity: branding?.watermarkOpacity || 0.35,
         watermarkFontSize: branding?.watermarkFontSize || 30,
-        ...branding,
       };
 
       const processedClips = await processClips(videoPath, enrichedClips, jobId, aspectRatio, {
