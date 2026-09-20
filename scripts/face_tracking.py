@@ -300,9 +300,9 @@ def main():
 def detect_streamer_webcam(frame_records, frame_width, frame_height):
     """
     Detects persistent webcam overlay in gaming/screen-recording videos.
-    In a stream or screencast, the streamer's camera sits in one of the quadrants
-    (typically bottom-right, bottom-left, top-right, or top-left) with a relatively
-    consistent position across frames. Returns bounding box {x, y, width, height} or None.
+    Uses radius-based spatial clustering and variance analysis to reliably isolate
+    the streamer's static corner camera from moving in-game NPC characters or cutscenes.
+    Returns bounding box {x, y, width, height, center_x, center_y, quadrant, score} or None.
     """
     if not frame_records:
         return None
@@ -311,23 +311,91 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
     for fr in frame_records:
         for f in fr.get("faces", []):
             if f.get("has_visible_face", True):
-                face_pts.append((f["center_x"], f["center_y"], f.get("w", 0)))
+                fw = f.get("w", 0)
+                # Exclude full-screen cinematic faces (>40% width) or tiny noise (<3% width)
+                if 0.03 * frame_width <= fw <= 0.40 * frame_width:
+                    face_pts.append((f["center_x"], f["center_y"], fw, f.get("h", 0)))
 
     if len(face_pts) < 3:
         return None
 
-    xs = [p[0] for p in face_pts]
-    ys = [p[1] for p in face_pts]
-
     import numpy as np
-    med_x = float(np.median(xs))
-    med_y = float(np.median(ys))
 
-    cam_w = int(min(frame_width, round(frame_width * 0.35)))
+    # 1. Radius-based spatial clustering (radius = 12% of frame width)
+    radius_px = max(60.0, float(frame_width) * 0.12)
+    clusters = []
+
+    for p in face_pts:
+        matched = False
+        for c in clusters:
+            dist = float(np.hypot(p[0] - c["center_x"], p[1] - c["center_y"]))
+            if dist <= radius_px:
+                c["points"].append(p)
+                c["center_x"] = float(np.mean([pt[0] for pt in c["points"]]))
+                c["center_y"] = float(np.mean([pt[1] for pt in c["points"]]))
+                matched = True
+                break
+        if not matched:
+            clusters.append({
+                "center_x": float(p[0]),
+                "center_y": float(p[1]),
+                "points": [p]
+            })
+
+    if not clusters:
+        return None
+
+    # 2. Score clusters: reward corner proximity + low spatial variance (tight seated posture)
+    def score_cluster(c):
+        pts = c["points"]
+        count = len(pts)
+        if count < 3:
+            return -1.0
+
+        xs = [pt[0] for pt in pts]
+        ys = [pt[1] for pt in pts]
+
+        std_x = float(np.std(xs)) if count > 1 else 0.0
+        std_y = float(np.std(ys)) if count > 1 else 0.0
+        spatial_spread = float(np.hypot(std_x, std_y))
+
+        cx = c["center_x"]
+        cy = c["center_y"]
+
+        edge_dist_x = min(cx, frame_width - cx) / float(frame_width)
+        edge_dist_y = min(cy, frame_height - cy) / float(frame_height)
+
+        # Penalize center gameplay zone (crosshairs, cutscenes, RPG characters)
+        is_center_gameplay = (edge_dist_x > 0.30) and (edge_dist_y > 0.28)
+        if is_center_gameplay:
+            center_multiplier = 0.05
+        else:
+            center_multiplier = 1.0 + 2.0 * (0.5 - edge_dist_x) + 2.0 * (0.5 - edge_dist_y)
+
+        spread_factor = 1.0 / (1.0 + spatial_spread / 15.0)
+        return float(count * spread_factor * center_multiplier)
+
+    scored_clusters = [(c, score_cluster(c)) for c in clusters]
+    scored_clusters.sort(key=lambda item: item[1], reverse=True)
+    best_cluster, best_score = scored_clusters[0]
+
+    # Threshold guard: must have valid score >= 2.5
+    if best_score < 2.5:
+        return None
+
+    pts = best_cluster["points"]
+    med_x = float(np.median([pt[0] for pt in pts]))
+    med_y = float(np.median([pt[1] for pt in pts]))
+
+    # Target 1080:800 (1.35 : 1) aspect ratio for distortion-free top panel
     cam_h = int(min(frame_height, round(frame_height * 0.45)))
+    cam_w = int(min(frame_width, round(cam_h * (1080.0 / 800.0))))
 
     cam_x = int(max(0, min(frame_width - cam_w, round(med_x - cam_w / 2.0))))
     cam_y = int(max(0, min(frame_height - cam_h, round(med_y - cam_h / 2.0))))
+
+    quad_x = "right" if med_x >= frame_width * 0.5 else "left"
+    quad_y = "bottom" if med_y >= frame_height * 0.5 else "top"
 
     return {
         "x": cam_x,
@@ -335,7 +403,10 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
         "width": cam_w,
         "height": cam_h,
         "center_x": round(med_x, 1),
-        "center_y": round(med_y, 1)
+        "center_y": round(med_y, 1),
+        "quadrant": f"{quad_y}_{quad_x}",
+        "score": round(best_score, 2),
+        "detections": len(pts)
     }
 
 
