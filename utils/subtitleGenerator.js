@@ -520,6 +520,16 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 }
 
 /**
+ * Escapes backslashes and colons in an ASS file path for FFmpeg filter arguments
+ * @param {string} assPath
+ * @returns {string}
+ */
+export function escapeAssPath(assPath) {
+  if (!assPath || typeof assPath !== 'string') return '';
+  return assPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+}
+
+/**
  * Formats a Windows and cross-platform safe FFmpeg ASS subtitle filter argument
  * @param {string} assFilePath
  * @returns {string} e.g. ass='C\:/path/to/subs.ass'
@@ -530,6 +540,5 @@ export function formatFfmpegSubFilter(assFilePath) {
   if (!/^[a-zA-Z]:[\\/]/.test(cleanPath)) {
     cleanPath = path.resolve(cleanPath);
   }
-  const normalized = cleanPath.replace(/\\/g, '/').replace(/:/g, '\\:');
-  return `ass='${normalized}'`;
+  return `ass='${escapeAssPath(cleanPath)}'`;
 }
