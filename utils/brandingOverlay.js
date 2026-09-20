@@ -15,6 +15,10 @@
 //    on top of the finished frame instead of being cropped or covered by subs.
 
 import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
 export const VALID_WATERMARK_POSITIONS = [
   'top-left',
@@ -22,6 +26,16 @@ export const VALID_WATERMARK_POSITIONS = [
   'bottom-left',
   'bottom-right',
 ];
+
+// Headline card geometry. FFmpeg's drawtext can only draw a HARD-EDGED box
+// (`box=1`), which reads as stiff/dated on short-form video. So the headline is
+// rendered as a rounded PNG card (see scripts/make_headline_card.py) and
+// overlaid, giving soft corners, a subtle shadow and real padding.
+//
+// If Pillow or the generator script is unavailable we fall back to the plain
+// drawtext box — the headline must never disappear just because the nicer
+// renderer is missing.
+export const HEADLINE_CARD_RADIUS = 20;
 
 /**
  * Anchor values for the watermark/attribution text.
@@ -88,6 +102,92 @@ export function resolveFontFile() {
 export function resetFontCache() {
   cachedFont = undefined;
 }
+
+// ---------------------------------------------------------------------------
+// Rounded headline card (PNG overlay)
+// ---------------------------------------------------------------------------
+
+let cachedPython = undefined;
+
+/**
+ * Find a python interpreter that can `import PIL`. Returns null when none is
+ * usable, in which case the caller falls back to the drawtext box.
+ */
+export function resolvePythonWithPillow() {
+  if (cachedPython !== undefined) return cachedPython;
+
+  const candidates = [
+    process.env.BRANDING_PYTHON,
+    process.env.FACE_TRACKING_PYTHON,
+    'python3',
+    'python',
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      const probe = spawnSync(candidate, ['-c', 'import PIL'], { timeout: 5000 });
+      if (probe.status === 0) {
+        cachedPython = candidate;
+        return cachedPython;
+      }
+    } catch {
+      // Keep looking.
+    }
+  }
+
+  cachedPython = null;
+  return cachedPython;
+}
+
+/** Test seam for the python probe. */
+export function resetPythonCache() {
+  cachedPython = undefined;
+}
+
+/**
+ * Render the headline into a rounded-corner PNG.
+ *
+ * @param {Object} cfg   normalised branding config
+ * @param {Object} options
+ * @param {string} options.outPath     where to write the PNG
+ * @param {number} [options.videoWidth=1080]
+ * @returns {{ ok: boolean, width?: number, height?: number, margin?: number }}
+ */
+export function renderHeadlineCard(cfg, options = {}) {
+  const c = normalizeBrandingConfig(cfg);
+  if (!c.showHeadline || !c.headlineText) return { ok: false };
+
+  const python = resolvePythonWithPillow();
+  if (!python) return { ok: false };
+
+  const script = path.join(__dirname, '..', 'scripts', 'make_headline_card.py');
+  if (!fs.existsSync(script)) return { ok: false };
+
+  const args = [
+    script,
+    '--text', c.headlineText,
+    '--out', options.outPath,
+    '--width', String(options.videoWidth || 1080),
+    '--font-size', String(c.headlineFontSize || 34),
+    '--radius', String(c.headlineRadius || HEADLINE_CARD_RADIUS),
+    '--bg', c.headlineBgColor || '#FFFFFF',
+    '--fg', c.headlineColor || '#000000',
+  ];
+  const fontFile = resolveFontFile();
+  if (fontFile) args.push('--font-file', fontFile);
+
+  const result = spawnSync(python, args, { encoding: 'utf8', timeout: 20000 });
+  if (result.status !== 0) {
+    console.warn(`⚠️ [branding] Kartu headline gagal dibuat — pakai kotak drawtext. ${result.stderr || ''}`.trim());
+    return { ok: false };
+  }
+
+  // The script prints "<width> <height> <margin>".
+  const [w, h, margin] = String(result.stdout || '').trim().split(/\s+/).map(Number);
+  if (!Number.isFinite(w) || !Number.isFinite(h)) return { ok: false };
+  return { ok: true, width: w, height: h, margin: Number.isFinite(margin) ? margin : 0 };
+}
+
 
 /**
  * Escape a value for FFmpeg's drawtext filter.
@@ -166,6 +266,12 @@ export function normalizeBrandingConfig(input) {
   const headlineDuration = Math.min(30, Math.max(1, Number(cfg.headlineDuration) || 5));
   const headlineColor = hexColor(cfg.headlineColor, '#000000');
   const headlineBgColor = hexColor(cfg.headlineBgColor, '#FFFFFF');
+  // Rounded-corner card by default; set false to use the plain drawtext box.
+  const headlineRounded = cfg.headlineRounded !== false;
+  const rawRadius = Number(cfg.headlineRadius);
+  const headlineRadius = Number.isFinite(rawRadius)
+    ? Math.min(48, Math.max(0, Math.round(rawRadius)))
+    : HEADLINE_CARD_RADIUS;
 
   return {
     showSource: cfg.showSource !== false,
@@ -176,6 +282,8 @@ export function normalizeBrandingConfig(input) {
     headlineDuration,
     headlineColor,
     headlineBgColor,
+    headlineRounded,
+    headlineRadius,
     sourceLabel: str(cfg.sourceLabel, 80),
     sourceChannel: str(cfg.sourceChannel, 80),
     sourceColor: hexColor(cfg.sourceColor, '#FFFFFF'),
@@ -342,8 +450,10 @@ export function buildBrandingFilters(cfg, options = {}) {
     filters.push(parts.join(':'));
   }
 
-  if (c.showHeadline && c.headlineText) {
-    // Opus Clip style Auto Headline: prominent on-screen hook at the top for first N seconds
+  if (c.showHeadline && c.headlineText && !options.skipHeadlineDrawtext) {
+    // Opus Clip style Auto Headline: prominent on-screen hook at the top for first N seconds.
+    // This is the FALLBACK path — used only when the rounded PNG card could
+    // not be generated (no Pillow / no script). It draws a hard-edged box.
     filters.push(
       `drawtext=${fontPart}` +
       `:text='${escapeDrawtext(c.headlineText)}'` +
@@ -357,6 +467,38 @@ export function buildBrandingFilters(cfg, options = {}) {
   }
 
   return filters;
+}
+
+/**
+ * Build the filter statements that overlay a rounded headline card PNG.
+ *
+ * The card is a transparent PNG, so it composites cleanly over any footage.
+ * Like every other CPU filter it must run BEFORE `hwupload`.
+ *
+ * @param {Object} cfg        normalised branding config
+ * @param {string} cardPath   absolute path to the card PNG
+ * @param {Object} [options]
+ * @param {number} [options.cardWidth]  card width in px (for centring)
+ * @param {number} [options.y=120]      top offset
+ * @returns {{ movieInput: string, overlayFilter: string }|null}
+ */
+export function buildHeadlineCardFilters(cfg, cardPath, options = {}) {
+  const c = normalizeBrandingConfig(cfg);
+  if (!c.showHeadline || !c.headlineText || !cardPath) return null;
+
+  const y = Number.isFinite(Number(options.y)) ? Number(options.y) : 120;
+  // FFmpeg's `movie=` source takes a filter-graph-escaped path.
+  const escaped = String(cardPath)
+    .replace(/\\/g, '/')
+    .replace(/:/g, '\\:')
+    .replace(/'/g, "\\'");
+
+  return {
+    movieInput: `movie='${escaped}'[hlcard]`,
+    overlayFilter:
+      `[hlcard]format=rgba[hlcardrgba]` +
+      `;[base][hlcardrgba]overlay=(W-w)/2:${y}:enable='lte(t,${c.headlineDuration})'[hlout]`,
+  };
 }
 
 /**
