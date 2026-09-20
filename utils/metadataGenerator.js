@@ -165,6 +165,9 @@ export function buildMetadataPrompt(clipInputs, options = {}) {
     ``,
     ...modeDirectives[mode],
     ...languageBlock,
+    `- headline: a punchy 3-7 word high-impact visual hook headline for the top on-screen text banner (e.g. "Dehumanisasi: Ancaman Nyata di Balik Prasangka", "Stop Overexplaining: Rahasia Dihormati").`,
+    `- viralityScore: integer 80-99 evaluating the 4 pillars (hook impact, pacing, retention potential, payoff).`,
+    `- scoreBreakdown: object with 4 pillar grades, e.g. { "hook": "A", "flow": "A", "value": "A", "trend": "A-" }.`,
     `- trendKeywords: 3-6 topical keywords/topic-clusters this clip sits in (used for trend relevance), written in the same language as the rest.`,
     `- pinnedComment: a short engagement-bait comment the creator can pin to drive replies (ask a genuine question the clip makes people want to answer).`,
     ``,
@@ -186,8 +189,11 @@ export function buildMetadataPrompt(clipInputs, options = {}) {
     `  "clips": [`,
     `    {`,
     `      "index": 1,`,
+    `      "headline": "3-7 word on-screen hook headline",`,
     `      "title": "the publishing title",`,
-    `      "description": "the full description / caption body",`,
+    `      "viralityScore": 98,`,
+    `      "scoreBreakdown": { "hook": "A", "flow": "A", "value": "A", "trend": "A-" },`,
+    `      "description": "the full description / scene analysis",`,
     `      "hashtags": ["#tag1", "#tag2"],`,
     `      "caption": "short platform caption",`,
     `      "pinnedComment": "engagement question to pin",`,
@@ -212,10 +218,28 @@ export function normalizeClipMetadata(raw) {
 
   const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
+  const headline = str(raw.headline);
   const title = str(raw.title);
   const description = str(raw.description);
   const caption = str(raw.caption);
   const pinnedComment = str(raw.pinnedComment);
+
+  let viralityScore = null;
+  if (typeof raw.viralityScore === 'number' && Number.isFinite(raw.viralityScore)) {
+    viralityScore = Math.min(100, Math.max(0, Math.round(raw.viralityScore)));
+  } else if (typeof raw.score === 'number' && Number.isFinite(raw.score)) {
+    viralityScore = Math.min(100, Math.max(0, Math.round(raw.score)));
+  }
+
+  let scoreBreakdown = null;
+  if (raw.scoreBreakdown && typeof raw.scoreBreakdown === 'object') {
+    scoreBreakdown = {
+      hook: str(raw.scoreBreakdown.hook) || 'A',
+      flow: str(raw.scoreBreakdown.flow) || 'A',
+      value: str(raw.scoreBreakdown.value) || 'A',
+      trend: str(raw.scoreBreakdown.trend) || 'A-',
+    };
+  }
 
   let hashtags = [];
   if (Array.isArray(raw.hashtags)) {
@@ -253,10 +277,13 @@ export function normalizeClipMetadata(raw) {
     safeTitle = safeTitle.slice(0, TITLE_MAX_CHARS - 1).trimEnd() + '…';
   }
 
-  if (!safeTitle && !description && !caption && hashtags.length === 0) return null;
+  if (!safeTitle && !description && !caption && !headline && hashtags.length === 0) return null;
 
   return {
+    headline,
     title: safeTitle,
+    viralityScore,
+    scoreBreakdown,
     description,
     hashtags,
     caption,
@@ -484,12 +511,23 @@ export function applyMetadataToClips(clips, metadataByIndex) {
   return clips.map((clip) => {
     const idx = clip.clipIndex ?? clip.index;
     const meta = metadataByIndex.get(Number(idx)) || null;
-    if (!meta) return { ...clip, metadata: null };
+    if (!meta) {
+      return {
+        ...clip,
+        headline: clip.headline || clip.hookText || clip.title,
+        score: clip.score || clip.viralityScore || 95,
+        scoreBreakdown: clip.scoreBreakdown || { hook: 'A', flow: 'A', value: 'A', trend: 'A-' },
+        metadata: null,
+      };
+    }
 
     // Prefer the generated title, but never end up with NO title: fall back to
     // the analyzer's title, then to whatever was already there.
     const title = meta.title || clip.title;
+    const headline = meta.headline || clip.headline || clip.hookText || clip.title;
+    const score = meta.viralityScore ?? clip.score ?? clip.viralityScore ?? 96;
+    const scoreBreakdown = meta.scoreBreakdown || clip.scoreBreakdown || { hook: 'A', flow: 'A', value: 'A', trend: 'A-' };
 
-    return { ...clip, title, metadata: meta };
+    return { ...clip, title, headline, score, scoreBreakdown, metadata: meta };
   });
 }
