@@ -55,6 +55,92 @@ export function normalizeMetadataMode(mode) {
 }
 
 /**
+ * Proven viral title/headline patterns, derived from real high-view Shorts.
+ *
+ * Every rule below is backed by a specific video we measured, and the view
+ * counts are quoted so the model can weigh them. These are DATA, not opinion:
+ * the low-view example (20K) is included precisely because it shows the
+ * failure mode — a thumbnail that just repeats the title.
+ *
+ * @param {boolean} isEn
+ * @returns {string[]}
+ */
+export function viralPatterns(isEn) {
+  if (isEn) {
+    return [
+      `PROVEN PATTERNS — reverse-engineered from real Shorts and their view counts:`,
+      ``,
+      `  ✓ SPECIFIC NUMBER (5.4M views): "HOW MUCH YOUTUBE PAID ME FOR 1 BILLION VIEWS"`,
+      `    A real figure beats an adjective. "a billion" not "so many". Never invent a number.`,
+      ``,
+      `  ✓ PERSONAL STAKE (5.4M views): "...PAID ME..." — first person, a real consequence.`,
+      `    "I", "me", "my" makes it a story. Impersonal titles read like a press release.`,
+      ``,
+      `  ✓ DIRECT INSTRUCTION + NAMED TARGET (16M views): "How To Get A Picture With iShowSpeed"`,
+      `    Name the specific person/thing. "a celebrity" is vague; a name is a hook.`,
+      ``,
+      `  ✓ OPEN LOOP (612K views): "Material Penghasil Dingin Terbaik..." — the ellipsis`,
+      `    withholds the answer. Use it sparingly (once), never as a crutch.`,
+      ``,
+      `  ✓ EMOJI AS TONE, NOT DECORATION (16M views): "😂😭" adds emotion without eating`,
+      `    character budget. One or two at the END, never in the middle of the hook.`,
+      ``,
+      `  ✗ THUMBNAIL REPEATS TITLE (20K views — the failure): thumbnail read exactly`,
+      `    "PENYEBAB VIDEO SHORTS MAKIN SEPI PENONTON" and the title said the same thing.`,
+      `    Both slots said the same words, so the packaging wasted half its surface area.`,
+      `    RULE: the headline banner and the title must say DIFFERENT things —`,
+      `    title = the promise/stake, headline = the sharpest 3-5 word angle of it.`,
+      ``,
+      `TITLE vs HEADLINE — they are TWO different jobs:`,
+      `  • title    = the click promise (28-40 chars, carries the number/stake)`,
+      `  • headline = the on-screen hook banner (3-7 words, the boldest claim in the clip)`,
+      `  They must NOT repeat each other's words. Together they cover two angles of one idea.`,
+      `  Example pairing for the same clip:`,
+      `    title:    "Obama: They Want You Scared. Stay Anyway."`,
+      `    headline: "Crime Isn't Insurrection"`,
+      ``,
+    ];
+  }
+
+  return [
+    `POLA TERBUKTI — hasil reverse-engineering dari Shorts nyata beserta jumlah views:`,
+    ``,
+    `  ✓ ANGKA SPESIFIK (5,4jt views): "HOW MUCH YOUTUBE PAID ME FOR 1 BILLION VIEWS"`,
+    `    Angka nyata mengalahkan kata sifat. "1 miliar" bukan "banyak banget". Jangan mengarang angka.`,
+    ``,
+    `  ✓ STAKE PERSONAL (5,4jt views): "...PAID ME..." — orang pertama, ada konsekuensi nyata.`,
+    `    "aku", "gue", "saya" membuatnya jadi cerita. Judul impersonal terbaca seperti siaran pers.`,
+    ``,
+    `  ✓ KATA REVELATION (154rb views): "TERNYATA segini gaji Youtube Shorts 8000 tayangan!"`,
+    `    "Ternyata", "segini", "kok bisa" memicu rasa penasaran khas Indonesia. Pakai di depan.`,
+    ``,
+    `  ✓ INSTRUKSI LANGSUNG + TARGET SPESIFIK (16jt views): "How To Get A Picture With iShowSpeed"`,
+    `    Sebut nama orang/benda spesifiknya. "seorang artis" itu kabur; nama itu hook.`,
+    ``,
+    `  ✓ OPEN LOOP (612rb views): "Material Penghasil Dingin Terbaik..." — elipsis menahan jawaban.`,
+    `    Pakai secukupnya (sekali), jangan jadi tongkat penyangga.`,
+    ``,
+    `  ✓ EMOJI SEBAGAI NADA, BUKAN HIASAN (16jt views): "😂😭" menambah emosi tanpa makan`,
+    `    jatah karakter. Satu-dua saja di AKHIR, jangan di tengah hook.`,
+    ``,
+    `  ✗ THUMBNAIL MENGULANG JUDUL (20rb views — contoh kegagalan): thumbnail tertulis persis`,
+    `    "PENYEBAB VIDEO SHORTS MAKIN SEPI PENONTON" dan judulnya bilang hal yang sama.`,
+    `    Kedua slot memakai kata yang sama, jadi separuh ruang packaging terbuang sia-sia.`,
+    `    ATURAN: banner headline dan judul HARUS bilang hal BERBEDA —`,
+    `    judul = janji/stake, headline = sudut paling tajam 3-5 kata dari janji itu.`,
+    ``,
+    `JUDUL vs HEADLINE — dua pekerjaan berbeda:`,
+    `  • judul    = janji klik (28-40 karakter, membawa angka/stake)`,
+    `  • headline = banner hook di layar (3-7 kata, klaim paling berani di klip)`,
+    `  Keduanya TIDAK BOLEH mengulang kata satu sama lain. Bersama-sama mereka menutup dua sudut.`,
+    `  Contoh pasangan untuk klip yang sama:`,
+    `    judul:    "Obama: Mereka Mau Kamu Takut. Tetap Bertahan."`,
+    `    headline: "Kejahatan Bukan Makar"`,
+    ``,
+  ];
+}
+
+/**
  * Build the publishing-metadata prompt for a batch of clips.
  *
  * @param {Array<{index:number, title?:string, hookText?:string, viralityRationale?:string, clipText?:string, duration?:number}>} clipInputs
@@ -258,11 +344,15 @@ export function buildMetadataPrompt(clipInputs, options = {}) {
     `- trendKeywords: 3-6 topical keywords/topic-clusters this clip sits in (used for trend relevance), written in the same language as the rest.`,
     `- pinnedComment: a short engagement-bait comment the creator can pin to drive replies (ask a genuine question the clip makes people want to answer).`,
     ``,
+    ...viralPatterns(isEn),
+    ``,
     `FLAT vs SCROLL-STOPPING — study these pairs. The left column is what to NEVER produce:`,
     `  FLAT title:    "Obama Discusses the Importance of Convictions" (50 chars)`,
     `  HOOK title:    "They Want You Scared. Stay Anyway." (35 chars)`,
     `  FLAT title:    "Why You Should Never Give Up On Your Beliefs" (48 chars)`,
     `  HOOK title:    "Your Beliefs Cost Nothing. That's the Problem." (44 chars)`,
+    `  FLAT headline: "Convictions And Why They Matter" (repeats the title idea)`,
+    `  HOOK headline: "Crime Isn't Insurrection" (a DIFFERENT angle, 3-5 words)`,
     `  FLAT caption:  "Mari simak poin penting ini: Obama: Your Convictions Are Being Tested Right Now"`,
     `  HOOK caption:  "Obama just said the quiet part out loud: most people never get tested, so their beliefs stay untested."`,
     `  FLAT comment:  "Bagaimana menurut kalian tentang pembahasan ini?"`,
@@ -273,6 +363,7 @@ export function buildMetadataPrompt(clipInputs, options = {}) {
     `The FLAT versions are summaries. The HOOK versions create a reason to stop scrolling.`,
     `Every field you output must read like the right column.`,
     `Remember the title rule: 28-40 characters, hard limit 45. Count before you answer.`,
+    `Remember the headline rule: 3-7 words, and it must NOT repeat the title's words.`,
     ``,
     ...platformHint,
     ``,
@@ -798,6 +889,62 @@ export function parseMetadataPayload(rawContent) {
 }
 
 /**
+ * Does the headline just repeat the title?
+ *
+ * The 20K-view video in our dataset failed exactly here: the thumbnail read
+ * "PENYEBAB VIDEO SHORTS MAKIN SEPI PENONTON" and the title said the same
+ * thing, so the two slots wasted each other. Measured against the 5.4M-view
+ * video, whose thumbnail ("A BILLION VIEWS") said something the title didn't.
+ *
+ * Returns true when the headline shares most of its meaningful words with the
+ * title — the caller then prefers a different source (the hook line) instead.
+ *
+ * @param {string} headline
+ * @param {string} title
+ * @returns {boolean}
+ */
+export function headlineRepeatsTitle(headline, title) {
+  if (typeof headline !== 'string' || typeof title !== 'string') return false;
+  const STOP = new Set([
+    'the', 'a', 'an', 'and', 'or', 'but', 'of', 'to', 'in', 'on', 'for', 'with',
+    'is', 'are', 'was', 'were', 'be', 'as', 'at', 'by', 'from', 'that', 'this',
+    'it', 'its', 'you', 'your', 'they', 'their', 'we', 'our',
+    'yang', 'dan', 'di', 'ke', 'dari', 'itu', 'ini', 'untuk', 'dengan', 'kamu',
+    'aku', 'kita', 'adalah', 'akan', 'tidak', 'tak',
+  ]);
+  const words = (s) => s
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP.has(w));
+
+  const hw = words(headline);
+  const tw = new Set(words(title));
+  if (hw.length === 0 || tw.size === 0) return false;
+
+  const overlap = hw.filter((w) => tw.has(w)).length;
+  const ratio = overlap / hw.length;
+
+  // A SHORT headline reusing the title's key noun is a legitimate technique,
+  // not a repeat. "A Billion Views" under "How Much YouTube Paid Me For 1
+  // Billion Views" shares the noun on purpose — the short banner distils the
+  // title. That pairing is the 5.4M-view winner.
+  //
+  // What IS a repeat: the headline is a PREFIX of the title, i.e. the same
+  // words in the same order with the title merely continuing. "Obama: They
+  // Want You Scared" under "Obama: They Want You Scared. Stay Anyway." is the
+  // failure case — the banner and title say the identical thing.
+  if (hw.length <= 3) {
+    const norm = (s) => words(s).join(' ');
+    const h = norm(headline);
+    const t = norm(title);
+    return h.length > 0 && t.startsWith(h);
+  }
+
+  return ratio >= 0.6;
+}
+
+/**
  * Merge generated metadata into the clip list, preserving existing titles when
  * the generator returned nothing for that clip.
  *
@@ -827,7 +974,18 @@ export function applyMetadataToClips(clips, metadataByIndex) {
     // Prefer the generated title, but never end up with NO title: fall back to
     // the analyzer's title, then to whatever was already there.
     const title = meta.title || clip.title;
-    const headline = meta.headline || clip.headline || clip.hookText || clip.title;
+
+    // Headline must NOT repeat the title (the 20K-view failure mode). If the
+    // model echoed the title, fall back to the clip's spoken hook line, which
+    // is a genuinely different angle.
+    let headline = meta.headline || clip.headline || clip.hookText || clip.title;
+    if (headlineRepeatsTitle(headline, title)) {
+      const alt = clip.hookText && !headlineRepeatsTitle(clip.hookText, title)
+        ? clip.hookText
+        : (clip.headline && !headlineRepeatsTitle(clip.headline, title) ? clip.headline : headline);
+      headline = alt;
+    }
+
     const score = meta.viralityScore ?? clip.score ?? clip.viralityScore ?? 96;
     const scoreBreakdown = meta.scoreBreakdown || clip.scoreBreakdown || { hook: 'A', flow: 'A', value: 'A', trend: 'A-' };
 
