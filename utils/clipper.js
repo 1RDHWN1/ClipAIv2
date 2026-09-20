@@ -218,12 +218,15 @@ export function buildGamingStreamerFilterGraph({
   const targetCamW = camW || defaultCamW;
   const targetCamH = camH || defaultCamH;
 
+  const defaultCamX = srcWidth - targetCamW;
+  const defaultCamY = srcHeight - targetCamH;
+
   const targetCamX = typeof camX === 'number'
     ? Math.max(0, Math.min(srcWidth - targetCamW, Math.floor(camX)))
-    : 0;
+    : defaultCamX;
   const targetCamY = typeof camY === 'number'
     ? Math.max(0, Math.min(srcHeight - targetCamH, Math.floor(camY)))
-    : 0;
+    : defaultCamY;
 
   const filterParts = [
     `[0:v]crop=${targetCamW}:${targetCamH}:${targetCamX}:${targetCamY},scale=1080:800:force_original_aspect_ratio=increase,crop=1080:800,setsar=1[cam]`,
@@ -412,12 +415,14 @@ export async function processClips(videoPath, clips, jobId, aspectRatio = '9:16'
 
       const faceTrackingPlan = Array.isArray(trackingResult) ? trackingResult : (trackingResult?.plan || []);
       const wideIntervals = Array.isArray(trackingResult?.wideIntervals) ? trackingResult.wideIntervals : [];
+      const webcamBox = trackingResult?.webcamBox || null;
 
       await clipVideo(sourceForProcessing, outputPath, clipForProcessing, currentWidth, currentHeight, aspectRatio, {
         speakerTurns,
         speakerOrder,
         faceTrackingPlan,
         wideIntervals,
+        webcamBox,
         subtitleAssPath: tempAssFile,
         layoutMode: options.layoutMode || 'standard',
       });
@@ -493,6 +498,10 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       const graph = buildGamingStreamerFilterGraph({
         srcWidth,
         srcHeight,
+        camX: options.webcamBox?.x,
+        camY: options.webcamBox?.y,
+        camW: options.webcamBox?.width,
+        camH: options.webcamBox?.height,
         subtitleAssPath: options.subtitleAssPath,
       });
       cmd = cmd.complexFilter(graph.filterComplex, graph.outputMap)
@@ -1028,17 +1037,18 @@ async function getFaceTrackingPlan({ videoPath, clip, speakerTurns, aspectRatio 
     }
 
     if (result && Array.isArray(result.plan)) {
-      console.log(`   Face tracking plan ready: ${result.plan.length} segment(s), ${result.debug?.tracks || 0} face track(s), ${result.wideIntervals?.length || 0} wide interval(s)`);
+      console.log(`   Face tracking plan ready: ${result.plan.length} segment(s), ${result.debug?.tracks || 0} face track(s), ${result.wideIntervals?.length || 0} wide interval(s)${result.webcamBox ? ', webcam detected' : ''}`);
       return {
         plan: result.plan,
         wideIntervals: Array.isArray(result.wideIntervals) ? result.wideIntervals : [],
+        webcamBox: result.webcamBox || null,
       };
     }
   } catch (err) {
     console.warn(`   Face tracking fallback: ${err.message}`);
   }
 
-  return { plan: [], wideIntervals: [] };
+  return { plan: [], wideIntervals: [], webcamBox: null };
 }
 
 function runFaceTrackingScript(payload) {
