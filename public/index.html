@@ -891,7 +891,7 @@
       <div class="feature">
         <div class="feature-icon">🤖</div>
         <div class="feature-title">AI Analisis</div>
-        <div class="feature-sub">DeepSeek pilih momen terbaik</div>
+        <div class="feature-sub" id="heroAiModelSub">Model AI pilih momen terbaik</div>
       </div>
       <div class="feature">
         <div class="feature-icon">✂️</div>
@@ -984,6 +984,17 @@
               <span class="label">clips</span>
               <button id="btnPlus" onclick="changeClipCount(1)">+</button>
             </div>
+          </div>
+
+          <div class="option-group">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <label style="margin-bottom:0;">Model AI (LLM)</label>
+              <span id="aiModelBadge" style="font-size:10px; font-family:var(--font-mono); color:var(--accent); background:rgba(79,142,255,0.12); padding:2px 6px; border-radius:4px; border:1px solid rgba(79,142,255,0.25);">9Router</span>
+            </div>
+            <select id="aiModelSelect" onchange="handleAiModelChange()" style="width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 9px 12px; outline: none; cursor: pointer;">
+              <option value="" disabled selected>Memuat model...</option>
+            </select>
+            <input type="text" id="customAiModelInput" placeholder="Ketik model custom (contoh: openai/gpt-4o)..." style="display:none; width:100%; margin-top:8px; background:var(--bg2); border:1px solid var(--accent); border-radius:8px; color:var(--text); font-family:var(--font-mono); font-size:11px; padding:8px 10px; outline:none;" oninput="syncCustomModel()">
           </div>
         </div>
 
@@ -1254,7 +1265,97 @@
           if (hexSpan) hexSpan.textContent = e.target.value.toUpperCase();
         });
       }
+      fetchAiModels();
     });
+
+    // ── AI Model Management ────────────────────────────────────
+    async function fetchAiModels() {
+      const select = document.getElementById('aiModelSelect');
+      const badge = document.getElementById('aiModelBadge');
+      const heroSub = document.getElementById('heroAiModelSub');
+      if (!select) return;
+
+      try {
+        const res = await fetch('/api/models');
+        if (!res.ok) throw new Error('Failed to fetch models');
+        const data = await res.json();
+        const models = Array.isArray(data.models) ? data.models : [];
+        const defaultModel = data.defaultModel || 'xkiro/qwen/qwen3-max:free';
+
+        select.innerHTML = '';
+
+        const optGroupFast = document.createElement('optgroup');
+        optGroupFast.label = '⚡ Rekomendasi (Cepat & Cerdas)';
+
+        const optGroupAll = document.createElement('optgroup');
+        optGroupAll.label = '🌐 Semua Model 9Router / Gateway';
+
+        models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = m === defaultModel ? `⭐ ${m} (Default)` : m;
+          if (m === defaultModel) {
+            opt.selected = true;
+          }
+          if (m.includes('free') || m.includes('flash') || m.includes('pro') || m.includes('fast')) {
+            optGroupFast.appendChild(opt);
+          } else {
+            optGroupAll.appendChild(opt);
+          }
+        });
+
+        if (optGroupFast.children.length > 0) select.appendChild(optGroupFast);
+        if (optGroupAll.children.length > 0) select.appendChild(optGroupAll);
+
+        const customOpt = document.createElement('option');
+        customOpt.value = '__custom__';
+        customOpt.textContent = '✏️ Custom Model ID...';
+        select.appendChild(customOpt);
+
+        if (heroSub) {
+          heroSub.textContent = `${defaultModel} pilih momen viral`;
+        }
+        if (badge) {
+          badge.textContent = defaultModel.split('/')[0] || 'AI Active';
+        }
+      } catch (err) {
+        console.warn('Could not load AI models from server, using fallback:', err);
+        select.innerHTML = `
+          <option value="xkiro/qwen/qwen3-max:free" selected>⭐ xkiro/qwen/qwen3-max:free (Default)</option>
+          <option value="xkiro/google/gemini-3.8-flash">⚡ xkiro/google/gemini-3.8-flash</option>
+          <option value="pahri-fast">🚀 pahri-fast</option>
+          <option value="kr/claude-sonnet-4.5">🧠 kr/claude-sonnet-4.5</option>
+          <option value="__custom__">✏️ Custom Model ID...</option>
+        `;
+      }
+    }
+
+    function handleAiModelChange() {
+      const select = document.getElementById('aiModelSelect');
+      const customInput = document.getElementById('customAiModelInput');
+      const heroSub = document.getElementById('heroAiModelSub');
+      const badge = document.getElementById('aiModelBadge');
+      if (!select) return;
+
+      if (select.value === '__custom__') {
+        if (customInput) {
+          customInput.style.display = 'block';
+          customInput.focus();
+        }
+      } else {
+        if (customInput) customInput.style.display = 'none';
+        if (heroSub) heroSub.textContent = `${select.value} pilih momen viral`;
+        if (badge) badge.textContent = select.value.split('/')[0] || 'Selected';
+      }
+    }
+
+    function syncCustomModel() {
+      const customInput = document.getElementById('customAiModelInput');
+      const heroSub = document.getElementById('heroAiModelSub');
+      if (customInput && heroSub && customInput.value.trim()) {
+        heroSub.textContent = `${customInput.value.trim()} pilih momen viral`;
+      }
+    }
 
     // ── Process ───────────────────────────────────────────────
     async function startProcess() {
@@ -1290,6 +1391,12 @@
       document.getElementById('resultsSection').style.display = 'none';
 
       const layoutMode = document.getElementById('layoutModeSelect')?.value || 'standard';
+      const aiModelSelect = document.getElementById('aiModelSelect');
+      const customAiModelInput = document.getElementById('customAiModelInput');
+      let aiModel = aiModelSelect?.value || '';
+      if (aiModel === '__custom__' && customAiModelInput?.value.trim()) {
+        aiModel = customAiModelInput.value.trim();
+      }
 
       try {
         const res = await fetch('/api/process', {
@@ -1302,6 +1409,7 @@
             transcriptText,
             subtitleConfig,
             layoutMode,
+            aiModel: aiModel && aiModel !== '__custom__' ? aiModel : undefined,
           }),
         });
 
