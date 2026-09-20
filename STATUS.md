@@ -92,7 +92,41 @@ Kontrol: close two-shot sintetis (wajah 23%) → tetap terdeteksi ✓
 ## 📊 Status Test
 
 ```
-npm test                          → 398 pass, 0 fail
+npm test                          → 491 pass, 0 fail
 npm run verify                    → 6/6 acceptance criteria
 tests/stress/wide_shot_python_logic.py → 9/9 pass
+tests/stress/*.test.js            → (dijalankan terpisah; tidak termasuk `npm test`)
 ```
+
+---
+
+## 🔐 Audit Keamanan & Robustness (Sprint 1-3)
+
+Audit menyeluruh atas seluruh repo, tiap temuan diverifikasi dengan eksekusi
+nyata (bukan hanya membaca kode).
+
+### Selesai & terverifikasi
+
+| ID | Temuan | Bukti verifikasi |
+|---|---|---|
+| C1 | RCE: URL YouTube mentah disisipkan ke shell yt-dlp | payload `$(touch …)` dulu **jalan**, kini ditolak; `exec`→`execFile` |
+| C2 | `/api/process` tanpa auth & rate limit | 401 tanpa key, 429 setelah limit (uji HTTP) |
+| C3 | Tanpa batas body & panjang transkrip | `express.json({limit})` + `MAX_TRANSCRIPT_CHARS` |
+| L7 | `.env.backup.*` menyimpan kredensial | dihapus |
+| H1 | `-crf 23` menimpa `-preset`/`-b:v` | bitrate nyata **5.47 → 9.11 Mbps** |
+| H2 | `setsar=1` hilang + `enable=` bisa overflow | 128 interval **exit 244 → exit 0**; SAR **1:1** |
+| M2 | char cap subtitle tidak skala ke fontSize | caption **1080px → 860px** |
+| H3 | STAGE 5 melemahkan invariant no-mid-word-cut | collision **3/3 → 0/6** |
+| H7 | output tanpa lifecycle (501 MB) | reaper + `DELETE /api/job/:id`; **501→453 MB** |
+| H4 | `acquireLock` non-atomik (check-then-write) | 12 starter paralel: **2 → 1** pemenang |
+| H6 | mp3 bocor + cleanup tak di `finally` | cleanup di semua jalur exit |
+| M1 | `getVideoInfo(url)` mengarang 1280×720 | crop **405px → 607px** (33% terlalu zoom) |
+
+### Sisa (belum dikerjakan)
+
+- **ioredis retry storm** (`maxRetriesPerRequest: null`) — tanpa backoff saat
+  Redis mati, log spam tak terbatas.
+- **M4** face tracking 5 FPS × YOLOv8-Pose di CPU = bottleneck wall-clock.
+- **M6/L3** dependency tak terpakai: `youtubei.js`, `groq-sdk`, `multer`.
+- **M5/L5** dead code: jalur speaker-anchor (±150 baris) + duplikasi escaping ASS.
+- **L2** `PROJECT.md` menyebut preset `cyberpunk`, kode pakai `cyber`.
