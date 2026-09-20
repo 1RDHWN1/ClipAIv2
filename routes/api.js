@@ -374,6 +374,53 @@ router.get('/models', async (req, res) => {
 });
 
 /**
+ * GET /api/jobs
+ * Daftar job TERBARU (semua status) — dipakai UI supaya riwayat tidak hilang
+ * saat halaman di-refresh.
+ *
+ * Sebelumnya UI hanya menyimpan jobId di memori: begitu di-refresh, halaman
+ * kembali ke form kosong dan hasil render tidak bisa dijangkau lagi — padahal
+ * file-nya masih ada di disk. Endpoint ini membuat hasil bisa dipulihkan.
+ */
+router.get('/jobs', async (req, res) => {
+  try {
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 15));
+    const states = ['active', 'waiting', 'delayed', 'completed', 'failed'];
+
+    const jobs = await videoQueue.getJobs(states, 0, limit - 1, false);
+    jobs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    const summaries = [];
+    for (const job of jobs.slice(0, limit)) {
+      let state = 'unknown';
+      try { state = await job.getState(); } catch (_) {}
+
+      const clips = Array.isArray(job.returnvalue?.clips) ? job.returnvalue.clips : [];
+
+      summaries.push({
+        jobId: job.id,
+        url: job.data?.url || null,
+        state,
+        createdAt: job.timestamp ? new Date(job.timestamp).toISOString() : null,
+        percent: job.progress?.percent ?? null,
+        step: job.progress?.step ?? null,
+        message: job.progress?.message ?? null,
+        videoTitle: job.returnvalue?.videoTitle || job.progress?.videoTitle || null,
+        clipCount: job.data?.clipCount ?? null,
+        // Hasil hanya ada kalau job selesai; UI memakai ini untuk memulihkan tab.
+        result: job.returnvalue?.success ? job.returnvalue : null,
+        failedReason: job.failedReason || null,
+      });
+    }
+
+    res.json({ success: true, count: summaries.length, jobs: summaries });
+  } catch (err) {
+    console.error('GET /jobs error:', err);
+    res.status(500).json({ error: 'Gagal membaca daftar job', detail: err.message });
+  }
+});
+
+/**
  * POST /api/queue/clear
  * Batalkan SEMUA job yang masih menunggu/berjalan.
  *
