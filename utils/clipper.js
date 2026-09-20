@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import 'dotenv/config';
 import { buildAudioCrossfadeFilter } from './boundarySnapper.js';
 import { downloadClipSection } from './downloader.js';
-import { generateAssSubtitles, escapeAssPath } from './subtitleGenerator.js';
+import { generateAssSubtitles, escapeAssPath, SUBTITLE_SAFE_MARGIN_V } from './subtitleGenerator.js';
 import { buildBrandingFilters, appendBrandingToGraph, appendBrandingToVideoFilters, normalizeBrandingConfig, brandingIsActive, renderHeadlineCard, buildHeadlineCardFilters } from './brandingOverlay.js';
 import { getHardwareAccelerationConfig } from './gpuDetector.js';
 
@@ -465,7 +465,13 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
             clip.end - clip.start,  // relative duration
             {
               ...subtitleConfig,
-              marginV: subtitleConfig.marginV !== undefined ? Number(subtitleConfig.marginV) : 160,
+              // Jangan hardcode di sini. Nilai fallback HARUS sama dengan
+              // preset (SUBTITLE_SAFE_MARGIN_V) — angka 160 yang dulu dipakai
+              // menaruh caption di zona UI YouTube Shorts sehingga tertutup
+              // judul/channel/kolom komentar saat di-upload.
+              marginV: subtitleConfig.marginV !== undefined
+                ? Number(subtitleConfig.marginV)
+                : SUBTITLE_SAFE_MARGIN_V,
             }
           );
 
