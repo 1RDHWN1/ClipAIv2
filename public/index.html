@@ -1053,46 +1053,8 @@
       pointer-events: none;
     }
 
-    .opus-headline-bar {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      right: 10px;
-      z-index: 5;
-      background: #ffffff;
-      color: #000000;
-      font-family: var(--font-head);
-      font-size: 11.5px;
-      font-weight: 800;
-      text-align: center;
-      line-height: 1.3;
-      padding: 6px 10px;
-      border-radius: 6px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
-      letter-spacing: -0.2px;
-      pointer-events: none;
-    }
-
-    .opus-sub-preview {
-      position: absolute;
-      z-index: 4;
-      bottom: 40px;
-      left: 10px;
-      right: 10px;
-      text-align: center;
-      font-family: Impact, 'Syne', sans-serif;
-      font-size: 13.5px;
-      font-weight: 900;
-      color: #ffe600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 6px rgba(0,0,0,0.8);
-      pointer-events: none;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
+    /* Headline & subtitle kini ter-burn-in di dalam MP4 oleh FFmpeg, jadi
+       tidak ada lagi overlay HTML di atas thumbnail. */
 
     .opus-thumb-bottom {
       position: absolute;
@@ -1910,9 +1872,7 @@
             <div style="position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: #cbd5e1; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px;">
               ⚡ HD 1080p
             </div>
-            <!-- Visual Headline Box at top of video -->
-            <div id="opusModalHeadlineBar" class="opus-headline-bar" style="position: absolute; top: 32px; left: 12px; right: 12px; z-index: 10;"></div>
-            <!-- Video Element -->
+            <!-- Video Element (headline sudah ter-burn-in di dalam MP4) -->
             <video id="opusModalVideo" controls autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; background: #000;"></video>
           </div>
         </div>
@@ -2485,53 +2445,11 @@
       wrap.style.display = (wrap.style.display === 'none' || !wrap.style.display) ? 'block' : 'none';
     }
 
-    function sanitizeHeadline(rawHeadline, fallbackTitle = '', hookText = '') {
-      let text = typeof rawHeadline === 'string' && rawHeadline.trim() ? rawHeadline.trim() : '';
-      if (!text) text = fallbackTitle || hookText || 'Viral Topic';
-      text = text.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
-
-      let prev;
-      do {
-        prev = text;
-        text = text.replace(/^(you know,?|well,?|so,?|like,?|uh,?|um,?|look,?|actually,?|i mean,?|i think\s*(that)?|i believe\s*(that)?|there is no doubt\s*(that)?|it seems to me\s*(that)?)\s+/i, '');
-      } while (text !== prev);
-
-      text = text.replace(/\b([a-zA-Z]+)\s+\1\b/gi, '$1');
-      text = text.replace(/\b([a-zA-Z]+)\s+\1\b/gi, '$1');
-      text = text.replace(/\boon\s+/gi, '');
-      if (/^you can't just be/i.test(text)) text = text.replace(/^you can't just be/i, 'Stop Being');
-
-      text = text.replace(/(^|\s+)(that|and|so|because|to|of|in|with|for|as|is|are|was|were)$/i, '');
-
-      if (!text || text.trim().length < 5) {
-        text = fallbackTitle || hookText || 'Viral Topic';
-      }
-
-      const minorWords = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'from', 'by', 'of', 'in']);
-      text = text
-        .split(/\s+/)
-        .map((word, idx) => {
-          const lower = word.toLowerCase();
-          if (idx > 0 && minorWords.has(lower)) return lower;
-          return word.charAt(0).toUpperCase() + word.slice(1);
-        })
-        .join(' ');
-
-      text = text.replace(/[.…]+$/, '').trim();
-      const words = text.split(/\s+/);
-      if (words.length > 8 && fallbackTitle && fallbackTitle.split(/\s+/).length <= 8) {
-        text = fallbackTitle.replace(/[.…]+$/, '').trim();
-      } else if (words.length > 8) {
-        text = words.slice(0, 7).join(' ');
-      }
-      if (text.length > 60) text = text.slice(0, 58).trim() + '…';
-      return text;
-    }
-
     function renderOpusCardHtml(c, job, idx) {
       const src = c.downloadUrl || `/outputs/${encodeURIComponent(c.filename)}`;
       const clipTitle = c.title || `Clip ${c.index ?? idx + 1}`;
-      const headline = sanitizeHeadline(c.headline || c.metadata?.headline, clipTitle, c.hookText);
+      // Catatan: headline TIDAK digambar sebagai overlay HTML di sini — sudah
+      // ter-burn-in permanen di dalam MP4 oleh FFmpeg saat render.
       const score = c.score || c.viralityScore || c.metadata?.viralityScore || Math.max(85, 99 - idx * 2);
       const breakdown = c.scoreBreakdown || c.metadata?.scoreBreakdown || {
         hook: 'A',
@@ -2547,7 +2465,6 @@
           <div class="opus-thumb-wrap">
             <video src="${src}#t=0.5" preload="metadata" class="opus-thumb-video" muted></video>
             <div class="opus-thumb-overlay"></div>
-            <div class="opus-headline-bar">${escapeHtml(headline)}</div>
             <div class="opus-play-hover">
               <div class="opus-play-btn-circle">▶</div>
             </div>
@@ -3209,7 +3126,6 @@
       const clip = clips[currentModalClipIndex];
       const src = clip.downloadUrl || `/outputs/${encodeURIComponent(clip.filename)}`;
       const clipTitle = clip.title || `Clip ${clip.index ?? currentModalClipIndex + 1}`;
-      const headline = sanitizeHeadline(clip.headline || clip.metadata?.headline, clipTitle, clip.hookText);
       const score = clip.score || clip.viralityScore || clip.metadata?.viralityScore || Math.max(85, 99 - currentModalClipIndex * 2);
       const breakdown = clip.scoreBreakdown || clip.metadata?.scoreBreakdown || { hook: 'A', flow: 'A', value: 'A', trend: 'A-' };
       const duration = clip.duration ? Math.round(clip.duration) : 60;
@@ -3222,8 +3138,6 @@
       if (rankEl) rankEl.textContent = `#${currentModalClipIndex + 1}`;
       const titleEl = document.getElementById('opusModalTitle');
       if (titleEl) titleEl.textContent = clipTitle;
-      const headBarEl = document.getElementById('opusModalHeadlineBar');
-      if (headBarEl) headBarEl.textContent = headline;
 
       // Set video player
       const video = document.getElementById('opusModalVideo');
