@@ -2466,12 +2466,34 @@
       let text = typeof rawHeadline === 'string' && rawHeadline.trim() ? rawHeadline.trim() : '';
       if (!text) text = fallbackTitle || hookText || 'Viral Topic';
       text = text.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
-      text = text.replace(/^(you know,?|well,?|so,?|like,?|uh,?|um,?|look,?|actually,?)\s+/i, '');
+
+      let prev;
+      do {
+        prev = text;
+        text = text.replace(/^(you know,?|well,?|so,?|like,?|uh,?|um,?|look,?|actually,?|i mean,?|i think\s*(that)?|i believe\s*(that)?|there is no doubt\s*(that)?|it seems to me\s*(that)?)\s+/i, '');
+      } while (text !== prev);
+
       text = text.replace(/\b([a-zA-Z]+)\s+\1\b/gi, '$1');
       text = text.replace(/\b([a-zA-Z]+)\s+\1\b/gi, '$1');
       text = text.replace(/\boon\s+/gi, '');
       if (/^you can't just be/i.test(text)) text = text.replace(/^you can't just be/i, 'Stop Being');
-      if (text.length > 0) text = text.charAt(0).toUpperCase() + text.slice(1);
+
+      text = text.replace(/(^|\s+)(that|and|so|because|to|of|in|with|for|as|is|are|was|were)$/i, '');
+
+      if (!text || text.trim().length < 5) {
+        text = fallbackTitle || hookText || 'Viral Topic';
+      }
+
+      const minorWords = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'from', 'by', 'of', 'in']);
+      text = text
+        .split(/\s+/)
+        .map((word, idx) => {
+          const lower = word.toLowerCase();
+          if (idx > 0 && minorWords.has(lower)) return lower;
+          return word.charAt(0).toUpperCase() + word.slice(1);
+        })
+        .join(' ');
+
       text = text.replace(/[.…]+$/, '').trim();
       const words = text.split(/\s+/);
       if (words.length > 8 && fallbackTitle && fallbackTitle.split(/\s+/).length <= 8) {
