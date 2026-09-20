@@ -306,11 +306,34 @@ test('Branding: filter generation', async (t) => {
 test('Branding: filter graph integration', async (t) => {
   const cfg = normalizeBrandingConfig({ sourceChannel: 'Chan', watermarkText: '@me' });
 
-  await t.test('appends a branded chain and returns the new output label', () => {
+  await t.test('extends the producing chain in place and returns the new label', () => {
+    // The branded filters must live in the SAME chain as the label they consume.
+    // Emitting them as a separate `;[vraw]…` statement made ffmpeg parse the
+    // standalone label as a filter named after it ("No such filter: ''").
     const out = appendBrandingToGraph('[0:v]scale=1080:1920[vraw]', '[vraw]', cfg, { fontFile: FONT });
     assert.strictEqual(out.outputLabel, '[branded]');
-    assert.ok(out.filterComplex.includes(';vraw,'));
-    assert.ok(out.filterComplex.includes('[branded]'));
+    assert.ok(out.filterComplex.endsWith('[branded]'));
+    // No free-standing statement that begins with the consumed label.
+    for (const stmt of out.filterComplex.split(';')) {
+      assert.ok(
+        !/^\[[a-z0-9_]+\],/.test(stmt),
+        `statement must not start with a bare link label: ${stmt.slice(0, 50)}`
+      );
+    }
+    // The chain still has exactly one producing statement.
+    assert.strictEqual(out.filterComplex.split(';').length, 1);
+  });
+
+  await t.test('chains branding onto an ass filter in the same statement', () => {
+    const out = appendBrandingToGraph(
+      "[0:v]crop=1:1[c];[c]ass='/tmp/x.ass'[v]",
+      '[v]',
+      cfg,
+      { fontFile: FONT }
+    );
+    assert.ok(out.filterComplex.includes("ass='/tmp/x.ass',drawtext="));
+    assert.ok(out.filterComplex.endsWith('[branded]'));
+    assert.ok(!out.filterComplex.includes(';[v],'));
   });
 
   await t.test('leaves the graph untouched when branding is inactive', () => {
