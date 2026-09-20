@@ -896,6 +896,22 @@
       </button>
     </div>
 
+    <!-- Riwayat & status job — TETAP ADA walau halaman di-refresh -->
+    <section id="jobsPanel" style="display:none; margin-bottom:26px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:9px;">
+          <span style="font-size:16px;">📋</span>
+          <div style="font-family:var(--font-head); font-size:13px; font-weight:700; color:var(--text);">
+            Status &amp; Hasil Proses
+          </div>
+        </div>
+        <button onclick="refreshJobs(true)" style="background:transparent; border:1px solid var(--border); color:var(--text2); border-radius:7px; font-family:var(--font-body); font-size:11px; padding:5px 10px; cursor:pointer;">
+          ↻ Segarkan
+        </button>
+      </div>
+      <div id="jobsList" style="display:grid; gap:11px;"></div>
+    </section>
+
     <section class="hero">
       <div class="hero-eyebrow">YouTube → Short Clips</div>
       <h1 class="hero-title">
@@ -1592,7 +1608,201 @@
       // a job submitted from another tab is reflected here too.
       refreshQueueStatus();
       setInterval(refreshQueueStatus, 8000);
+      // Restore history + any render in progress. Without this a refresh wiped
+      // the page back to an empty form and the results became unreachable.
+      initRestore();
     });
+
+    // ── Riwayat & pemulihan state ────────────────────────────
+    let jobsPollTimer = null;
+
+    /**
+     * Muat daftar job dari server dan render sebagai kartu status.
+     * Ini yang membuat progress TIDAK hilang saat halaman di-refresh.
+     */
+    async function refreshJobs(showSpinner) {
+      const panel = document.getElementById('jobsPanel');
+      const list = document.getElementById('jobsList');
+      if (!panel || !list) return;
+
+      try {
+        const res = await fetch('/api/jobs?limit=15');
+        if (!res.ok) return;
+        const data = await res.json();
+        const jobs = data.jobs || [];
+
+        if (jobs.length === 0) {
+          panel.style.display = 'none';
+          return;
+        }
+
+        panel.style.display = 'block';
+        list.innerHTML = jobs.map(renderJobCard).join('');
+
+        // Sinkronkan tampilan progress utama dengan job yang sedang berjalan.
+        const running = jobs.find((j) => j.state === 'active' || j.state === 'waiting');
+        syncProgressUI(running);
+      } catch (_) {
+        // Server sedang mati/restart — biarkan tampilan terakhir di layar.
+      }
+    }
+
+    function jobStateMeta(state) {
+      switch (state) {
+        case 'active':    return { icon: '⚙️', label: 'Sedang Diproses', color: '#4F8EFF', bg: 'rgba(79,142,255,0.10)', border: 'rgba(79,142,255,0.32)' };
+        case 'waiting':   return { icon: '⏳', label: 'Menunggu',         color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
+        case 'delayed':   return { icon: '⏳', label: 'Menunggu',         color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
+        case 'completed': return { icon: '✅', label: 'Selesai',          color: '#10B981', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.32)' };
+        case 'failed':    return { icon: '❌', label: 'Gagal',            color: '#EF4444', bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.32)' };
+        default:          return { icon: '•',  label: state,              color: '#94A3B8', bg: 'rgba(148,163,184,0.10)', border: 'rgba(148,163,184,0.3)' };
+      }
+    }
+
+    function renderJobCard(job) {
+      const meta = jobStateMeta(job.state);
+      const title = job.videoTitle || job.url || 'Job';
+      const when = job.createdAt ? new Date(job.createdAt).toLocaleString('id-ID') : '';
+      const clips = job.result?.clips || [];
+      const pct = job.state === 'completed' ? 100 : (job.percent || 0);
+
+      // Baris progress untuk job yang sedang jalan.
+      const progressRow = (job.state === 'active')
+        ? `<div style="margin-top:9px;">
+             <div style="height:4px; background:var(--border); border-radius:3px; overflow:hidden;">
+               <div style="width:${pct}%; height:100%; background:${meta.color}; transition:width .4s;"></div>
+             </div>
+             <div style="font-size:10px; color:var(--text2); margin-top:5px;">
+               ${escapeHtml(job.message || 'Memproses...')} ${pct ? `· ${pct}%` : ''}
+             </div>
+           </div>`
+        : '';
+
+      // Hasil: daftar klip dengan tombol tonton/unduh — inilah yang dulu hilang.
+      const clipsHtml = clips.length
+        ? `<div style="margin-top:11px; display:grid; gap:8px;">
+             ${clips.map((c) => {
+               const src = c.downloadUrl || `/outputs/${encodeURIComponent(c.filename)}`;
+               return `<div style="display:flex; align-items:center; justify-content:space-between; gap:10px;
+                            background:var(--bg2); border:1px solid var(--border); border-radius:9px; padding:9px 11px;">
+                 <div style="min-width:0;">
+                   <div style="font-size:11px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                     ${escapeHtml(c.title || `Clip ${c.index}`)}
+                   </div>
+                   <div style="font-size:10px; color:var(--text3); margin-top:2px;">
+                     ${c.duration ? `${c.duration}s` : ''} ${c.fileSizeMB ? `· ${c.fileSizeMB}MB` : ''}
+                   </div>
+                 </div>
+                 <div style="display:flex; gap:6px; flex-shrink:0;">
+                   <a href="${src}" target="_blank" rel="noopener"
+                      style="background:var(--accent); color:#fff; border-radius:6px; font-size:10px;
+                             padding:5px 9px; text-decoration:none; font-weight:600;">▶ Tonton</a>
+                   <a href="${src}" download="${c.filename || ''}"
+                      style="background:transparent; border:1px solid var(--border); color:var(--text2);
+                             border-radius:6px; font-size:10px; padding:5px 9px; text-decoration:none;">⬇</a>
+                 </div>
+               </div>`;
+             }).join('')}
+           </div>`
+        : '';
+
+      const failHtml = (job.state === 'failed' && job.failedReason)
+        ? `<div style="margin-top:8px; font-size:10.5px; color:#EF4444;">${escapeHtml(job.failedReason)}</div>`
+        : '';
+
+      // Job yang selesai bisa dibuka lagi ke tab hasil lengkap (metadata dll).
+      const openBtn = (job.state === 'completed' && job.result)
+        ? `<button onclick="showJobResult('${job.jobId}')"
+             style="background:rgba(16,185,129,0.13); border:1px solid rgba(16,185,129,0.35); color:#10B981;
+                    border-radius:7px; font-family:var(--font-body); font-size:10px; font-weight:600;
+                    padding:5px 10px; cursor:pointer; white-space:nowrap;">Lihat Hasil Lengkap</button>`
+        : '';
+
+      return `<div style="background:var(--surface); border:1px solid ${meta.border}; border-radius:12px; padding:13px 15px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+          <div style="display:flex; align-items:center; gap:9px; min-width:0;">
+            <span style="font-size:15px;">${meta.icon}</span>
+            <div style="min-width:0;">
+              <div style="font-size:12px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:420px;">
+                ${escapeHtml(title)}
+              </div>
+              <div style="font-size:10px; color:var(--text3); margin-top:3px;">
+                <span style="color:${meta.color}; font-weight:600;">${meta.label}</span>
+                ${clips.length ? ` · ${clips.length} clip` : ''}
+                ${when ? ` · ${when}` : ''}
+              </div>
+            </div>
+          </div>
+          ${openBtn}
+        </div>
+        ${progressRow}
+        ${clipsHtml}
+        ${failHtml}
+      </div>`;
+    }
+
+    /**
+     * Sinkronkan section progress utama dengan job yang sedang berjalan,
+     * sehingga refresh tidak membuat progress "hilang".
+     */
+    function syncProgressUI(job) {
+      const section = document.getElementById('progressSection');
+      const resultsSection = document.getElementById('resultsSection');
+      if (!section) return;
+
+      if (!job || job.state !== 'active') {
+        // Tidak ada yang jalan: biarkan section hasil kalau sedang ditampilkan.
+        if (resultsSection && resultsSection.style.display === 'block') return;
+        if (!job) section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = 'block';
+      if (resultsSection) resultsSection.style.display = 'none';
+      currentJobId = job.jobId;
+
+      const pct = job.percent || 0;
+      const bar = document.querySelector('.progress-bar-fill') || document.getElementById('progressBarFill');
+      if (bar) bar.style.width = `${pct}%`;
+      const pctEl = document.getElementById('progressPercent') || document.getElementById('progressPct');
+      if (pctEl) pctEl.textContent = `${pct}%`;
+      const msgEl = document.getElementById('progressMessage') || document.getElementById('progressMsg');
+      if (msgEl && job.message) msgEl.textContent = job.message;
+    }
+
+    /** Buka hasil lengkap sebuah job yang sudah selesai (metadata, dll). */
+    async function showJobResult(jobId) {
+      try {
+        const res = await fetch(`/api/job/${jobId}`);
+        if (!res.ok) throw new Error('Job tidak ditemukan');
+        const data = await res.json();
+        if (!data.result || !data.result.success) {
+          throw new Error('Hasil job belum tersedia');
+        }
+        showResults({ ...data.result, aspectRatio: data.result.aspectRatio || selectedAR });
+        document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (err) {
+        showError(`Gagal membuka hasil: ${err.message}`);
+      }
+    }
+
+    /**
+     * Saat halaman dimuat: muat riwayat, dan kalau ada job yang masih jalan
+     * tampilkan progress-nya lagi (dulu ini hilang total setelah refresh).
+     */
+    async function initRestore() {
+      await refreshJobs();
+
+      // Polling ringan selama ada job aktif.
+      if (jobsPollTimer) clearInterval(jobsPollTimer);
+      jobsPollTimer = setInterval(async () => {
+        await refreshJobs();
+        const stillRunning = document.getElementById('jobsList')?.innerHTML.includes('Sedang Diproses');
+        if (!stillRunning) {
+          clearInterval(jobsPollTimer);
+          jobsPollTimer = null;
+        }
+      }, 5000);
+    }
 
     // ── Antrian: job tertinggal & Stop Semua ─────────────────
     /**
@@ -1847,6 +2057,8 @@
 
         currentJobId = data.jobId;
         startPolling(currentJobId);
+        // Tampilkan job baru di panel status & mulai pantau.
+        if (typeof initRestore === 'function') initRestore();
       } catch (err) {
         showError(err.message);
       }
@@ -2023,6 +2235,9 @@
     window.toggleMetadataSettings = toggleMetadataSettings;
     window.stopEverything = stopEverything;
     window.refreshQueueStatus = refreshQueueStatus;
+    window.refreshJobs = refreshJobs;
+    window.showJobResult = showJobResult;
+    window.initRestore = initRestore;
     window.toggleBrandingSettings = toggleBrandingSettings;
     window.collectBrandingConfig = collectBrandingConfig;
     window.copyToClipboard = copyToClipboard;
