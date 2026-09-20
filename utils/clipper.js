@@ -264,8 +264,16 @@ export function buildGamingStreamerFilterGraph({
   const targetCamW = camW || defaultCamW;
   const targetCamH = camH || defaultCamH;
 
-  const defaultCamX = srcWidth - targetCamW;
-  const defaultCamY = srcHeight - targetCamH;
+  // Default to a CENTER crop, never a blind corner.
+  //
+  // Anchoring to the bottom-right corner assumed every source is a gameplay
+  // video with a webcam overlay in that corner. For anything else (a reaction
+  // video, an unboxing, a talking-head) the subject is in the middle and the
+  // corner crop lands on empty background — exactly the "cropped some random
+  // corner" failure. Without a detected webcam box, the safest framing is the
+  // centre; the caller is expected to pass real coordinates when it has them.
+  const defaultCamX = Math.floor((srcWidth - targetCamW) / 2);
+  const defaultCamY = Math.floor((srcHeight - targetCamH) / 2);
 
   const targetCamX = typeof camX === 'number'
     ? Math.max(0, Math.min(srcWidth - targetCamW, Math.floor(camX)))
@@ -298,6 +306,93 @@ export function buildGamingStreamerFilterGraph({
     camHeight: 800,
     gameHeight: 1120,
   };
+}
+
+/**
+ * Skor webcam minimum PER FRAME agar layout "Gaming Streamer" dianggap sah.
+ *
+ * Skor mentah = jumlah_sampel x spread x multiplier, jadi nilainya naik seiring
+ * durasi klip. Ambang absolut akan menolak gaming stream asli yang kebetulan
+ * pendek, jadi ukurannya dinormalkan per frame.
+ *
+ * Pemisahan terukur:
+ *   deteksi palsu (video reaksi) -> 1.04/frame
+ *   webcam pojok asli            -> 2.42/frame
+ * 1.8 ada di antaranya dengan margin di kedua sisi.
+ */
+export const GAMING_WEBCAM_MIN_PER_FRAME = 1.8;
+
+/**
+ * Hitung skor webcam per frame dari sebuah webcamBox.
+ *
+ * @param {Object|null} webcamBox
+ * @returns {number}
+ */
+export function webcamPerFrameScore(webcamBox) {
+  if (!webcamBox) return 0;
+  if (Number.isFinite(webcamBox.per_frame_score)) return webcamBox.per_frame_score;
+  const detections = Math.max(1, webcamBox.detections || 1);
+  return (webcamBox.score || 0) / detections;
+}
+
+/**
+ * Tentukan layout yang benar-benar dipakai untuk sebuah klip.
+ *
+ * Fungsi murni — sengaja dipisah dari `clipVideo` supaya bisa diuji tanpa
+ * menjalankan ffmpeg.
+ *
+ * Aturan:
+ *  1. Layout "gaming_streamer" hanya sah kalau ada webcamBox yang valid dan
+ *     skornya melewati ambang per-frame. Tanpa itu, filter graph akan buta
+ *     meng-crop pojok kanan bawah (default lama) sementara subjek ada di tengah
+ *     — persis kasus video reaksi yang ter-crop ke area kosong. Jadi turunkan
+ *     ke `auto_split` (crop ke subjek).
+ *  2. `auto_split` naik ke `gaming_streamer` HANYA kalau webcam-nya sah.
+ *
+ * @param {string} requestedLayout layout yang diminta (UI / job options)
+ * @param {Object|null} webcamBox hasil deteksi face_tracking
+ * @returns {{ layoutMode: string, webcamScore: number, webcamIsUsable: boolean, reason: string|null }}
+ */
+export function resolveLayoutMode(requestedLayout, webcamBox) {
+  const layout = requestedLayout || 'standard';
+  const webcamScore = webcamPerFrameScore(webcamBox);
+  const webcamIsUsable = Boolean(
+    webcamBox
+    && Number.isFinite(webcamBox.x) && Number.isFinite(webcamBox.y)
+    && webcamBox.width > 0 && webcamBox.height > 0
+    && webcamScore >= GAMING_WEBCAM_MIN_PER_FRAME,
+  );
+
+  if (layout === 'gaming_streamer' && !webcamIsUsable) {
+    return {
+      layoutMode: 'auto_split',
+      webcamScore,
+      webcamIsUsable,
+      reason: webcamBox
+        ? `sinyal webcam terlalu lemah (${webcamScore.toFixed(2)}/frame < ${GAMING_WEBCAM_MIN_PER_FRAME})`
+        : 'tidak ada webcam yang terdeteksi',
+    };
+  }
+
+  if (layout === 'auto_split' && webcamIsUsable) {
+    return {
+      layoutMode: 'gaming_streamer',
+      webcamScore,
+      webcamIsUsable,
+      reason: `webcam persisten terdeteksi (${webcamBox.quadrant}, ${webcamScore.toFixed(2)}/frame)`,
+    };
+  }
+
+  if (layout === 'gaming_streamer' && webcamIsUsable) {
+    return {
+      layoutMode: 'gaming_streamer',
+      webcamScore,
+      webcamIsUsable,
+      reason: `webcam persisten terdeteksi (${webcamBox.quadrant}, ${webcamScore.toFixed(2)}/frame)`,
+    };
+  }
+
+  return { layoutMode: layout, webcamScore, webcamIsUsable, reason: null };
 }
 
 /**
@@ -495,28 +590,21 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
       const wideIntervals = Array.isArray(trackingResult?.wideIntervals) ? trackingResult.wideIntervals : [];
       const webcamBox = trackingResult?.webcamBox || null;
 
-      let effectiveLayoutMode = options.layoutMode || 'standard';
-      if (effectiveLayoutMode === 'auto_split') {
-        // Threshold diukur PER FRAME, bukan absolut.
-        //
-        // Skor mentah = jumlah_sampel x spread x multiplier, jadi nilainya naik
-        // seiring durasi klip. Ambang absolut akan menolak gaming stream asli
-        // yang kebetulan pendek. Skor per-frame konsisten di semua durasi.
-        //
-        // Pemisahan terukur:
-        //   deteksi palsu (video reaksi) -> 1.04/frame
-        //   webcam pojok asli            -> 2.42/frame
-        // Ambang 1.8 ada di antaranya dengan margin di kedua sisi.
-        const GAMING_WEBCAM_MIN_PER_FRAME = 1.8;
-        const webcamScore = webcamBox
-          ? (webcamBox.per_frame_score ?? (webcamBox.score || 0) / Math.max(1, webcamBox.detections || 1))
-          : 0;
-        if (webcamBox && webcamScore >= GAMING_WEBCAM_MIN_PER_FRAME) {
-          console.log(`   🎮 Smart Adaptive detected persistent gaming webcam overlay (${webcamBox.quadrant}, score ${webcamScore.toFixed(2)}/frame) -> transitioning to gaming_streamer layout`);
-          effectiveLayoutMode = 'gaming_streamer';
-        } else if (webcamBox) {
-          console.log(`   ℹ️ Webcam-like box ignored (${webcamScore.toFixed(2)}/frame < ${GAMING_WEBCAM_MIN_PER_FRAME}) — cropping to the subject instead of the content.`);
-        }
+      const resolved = resolveLayoutMode(options.layoutMode || 'standard', webcamBox);
+      const effectiveLayoutMode = resolved.layoutMode;
+      const webcamScore = resolved.webcamScore;
+
+      if (resolved.reason && effectiveLayoutMode === 'gaming_streamer' && options.layoutMode === 'gaming_streamer') {
+        // Dipilih manual dan memang ada webcamnya — jalankan seperti biasa.
+        console.log(`   🎮 Layout "Gaming Streamer": ${resolved.reason}`);
+      } else if (resolved.reason && effectiveLayoutMode === 'gaming_streamer') {
+        // auto_split naik sendiri karena webcam-nya sah.
+        console.log(`   🎮 Smart Adaptive detected persistent gaming webcam overlay (${resolved.reason}) -> transitioning to gaming_streamer layout`);
+      } else if (resolved.reason) {
+        // gaming_streamer dipaksa tapi tidak ada webcam yang sah -> turun.
+        console.log(`   ⚠️ Layout "Gaming Streamer" diminta tapi ${resolved.reason} — dialihkan ke Smart Adaptive (crop ke subjek).`);
+      } else if (webcamBox) {
+        console.log(`   ℹ️ Webcam-like box ignored (${webcamScore.toFixed(2)}/frame < ${GAMING_WEBCAM_MIN_PER_FRAME}) — cropping to the subject instead of the content.`);
       }
 
       // Urutan field PENTING: spread config mentah dulu, baru field turunan.
