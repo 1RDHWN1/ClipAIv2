@@ -6,6 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node scripts/start-all.js",
+    "stop": "node scripts/stop-all.js",
     "server": "node server.js",
     "worker": "node workers/videoWorker.js",
     "dev": "node --watch server.js",
