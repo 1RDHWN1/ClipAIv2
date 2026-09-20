@@ -82,29 +82,18 @@ function startProcess(name, script) {
     const reason = signal ? `signal ${signal}` : `code ${code}`;
     console.error(`\n[${name}] stopped with ${reason}`);
 
-    // A child died unexpectedly.
-    //
-    // The two children are NOT equally critical. The API server is the user's
-    // window into everything — killing it because the WORKER hiccuped throws
-    // away the whole UI (including a render in progress) for no reason. So:
-    //   * worker dies  -> keep the server up and say so loudly;
-    //   * server dies  -> nothing can be triggered any more, tear it all down.
-    if (name === 'worker') {
-      console.error(
-        `[worker] Worker berhenti. API server TETAP jalan supaya hasil yang sudah\n` +
-        `         jadi masih bisa diakses di http://localhost:${process.env.PORT || 3000}\n` +
-        `         Jalankan ulang worker dengan: npm run worker\n`
-      );
+    // If a child stopped while we are NOT intentionally shutting down,
+    // auto-restart it after a short delay. This prevents the server or worker
+    // from staying dead if accidentally signalled or transiently failing.
+    if (!shuttingDown) {
+      console.warn(`[supervisor] ⚠️ ${name} berhenti (${reason}). Me-restart ${name} dalam 1.5s...`);
+      setTimeout(() => {
+        if (!shuttingDown) {
+          console.log(`[supervisor] 🔄 Me-restart ${name}...`);
+          startProcess(name, script);
+        }
+      }, 1500);
       return;
-    }
-
-    if (code === 0) {
-      // Clean exit — shut down the sibling too and exit 0.
-      console.error(`[${name}] exited cleanly. Shutting down the stack.`);
-      shutdown(0);
-    } else {
-      console.error(`[${name}] exited with a non-zero code. Shutting down the stack.`);
-      shutdown(1);
     }
   });
 
