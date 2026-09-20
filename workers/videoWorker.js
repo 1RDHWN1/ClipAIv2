@@ -257,11 +257,15 @@ const worker = new Worker(
 
       let enrichedClips = aiClips;
       try {
-        const clipInputs = aiClips.map((c, i) => {
-          const idx = c.clipIndex ?? (i + 1);
+        // Tandai index dulu: klip dari analyzer hanya punya start/end, TANPA
+        // clipIndex/index. applyMetadataToClips mencocokkan lewat clipIndex,
+        // jadi tanpa ini metadata hasil AI tidak pernah menempel (jadi null).
+        enrichedClips = aiClips.map((c, i) => ({ ...c, clipIndex: c.clipIndex ?? (i + 1) }));
+
+        const clipInputs = enrichedClips.map((c) => {
           const clipText = buildClipTranscriptSlice(enrichedSentences, c.start, c.end);
           return {
-            index: idx,
+            index: c.clipIndex,
             title: c.title,
             hookText: c.hookText,
             viralityRationale: c.viralityRationale || c.reason,
@@ -278,7 +282,7 @@ const worker = new Worker(
           targetPlatform,
         });
 
-        enrichedClips = applyMetadataToClips(aiClips, metadataByIndex);
+        enrichedClips = applyMetadataToClips(enrichedClips, metadataByIndex);
 
         if (metadataByIndex.size === 0 && metadataMode !== 'off') {
           addWarning('Metadata generator tidak menghasilkan data — memakai judul fallback.');
