@@ -132,6 +132,12 @@ const worker = new Worker(
         console.log(`ℹ️ Seluruh jalur instan tidak tersedia. Mengunduh stream audio untuk transkripsi AI...`);
         await job.updateProgress({ step: 2, message: 'Mengunduh audio untuk transkripsi AI...', percent: 40 });
         const audioInfo = await downloadAudioAndInfo(url, jobId, { skipAudioDownload: false });
+        // Audit H6: downloadAudioAndInfo ALWAYS writes the mp3 and returns its
+        // path. Previously audioPath was only assigned in the `else` branch, so
+        // whenever YouTube subtitles were found during the download the mp3 was
+        // never handed to cleanupFiles and leaked on disk. Register it for
+        // cleanup the moment it exists, before any branch can skip past it.
+        audioPath = audioInfo.audioPath;
 
         if (audioInfo.subtitles && Array.isArray(audioInfo.subtitles.words) && audioInfo.subtitles.words.length >= 10) {
           transcriptSource = 'audio_download_subtitles';
@@ -141,7 +147,6 @@ const worker = new Worker(
             mockTranscript: audioInfo.subtitles,
           });
         } else {
-          audioPath = audioInfo.audioPath;
           if (!audioPath || !fs.existsSync(audioPath)) {
             throw new Error(`File audio tidak ditemukan setelah pengunduhan: ${audioPath}`);
           }
@@ -251,10 +256,6 @@ const worker = new Worker(
         percent: 95,
       });
 
-      // STEP 5: Cleanup file sumber
-      cleanupFiles(videoPath, audioPath);
-      console.log('🧹 Temporary files cleaned up');
-
       const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
       const finalClips = processedClips.map((c) => ({
         index: c.clipIndex,
@@ -283,11 +284,22 @@ const worker = new Worker(
         clips: finalClips,
       };
     } catch (err) {
-      // Cleanup jika error
-      if (videoPath) cleanupFiles(videoPath);
-      if (audioPath) cleanupFiles(audioPath);
       console.error(`❌ Job ${jobId} GAGAL:`, err.message);
       throw err;
+    } finally {
+      // Audit H6: cleanup runs on EVERY exit path (success, throw, or an early
+      // return) instead of only the happy path and the catch block.
+      //
+      // Only local files are removed: `videoPath` is the YouTube URL (the clipper
+      // downloads per-section itself), so passing it to unlink was a no-op that
+      // made the cleanup look like it covered more than it did.
+      const localArtifacts = [videoPath, audioPath].filter(
+        (p) => typeof p === 'string' && !p.startsWith('http://') && !p.startsWith('https://')
+      );
+      if (localArtifacts.length > 0) {
+        cleanupFiles(...localArtifacts);
+        console.log('🧹 Temporary files cleaned up');
+      }
     }
   },
   {

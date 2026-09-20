@@ -202,6 +202,15 @@ export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
   let downloaded = false;
   let lastErr = null;
 
+  // Audit H6: if every strategy fails (or a later step throws) the partially
+  // written mp3 must not be left behind. The caller cannot clean up a path it
+  // never received, so the downloader removes its own failed output.
+  const discardPartialAudio = () => {
+    try {
+      if (fs.existsSync(audioOutput)) fs.unlinkSync(audioOutput);
+    } catch (_) {}
+  };
+
   for (let i = 0; i < downloadStrategies.length; i++) {
     const args = downloadStrategies[i];
     try {
@@ -220,6 +229,7 @@ export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
   }
 
   if (!downloaded) {
+    discardPartialAudio();
     throw new Error(`Gagal download audio setelah ${downloadStrategies.length} percobaan: ${lastErr ? lastErr.message : 'Unknown error'}`);
   }
 
