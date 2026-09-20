@@ -295,9 +295,14 @@ export function buildVideoEncodingOptions(overrides = {}) {
  * @param {{ speakerTurns?: Array }} options
  * @returns {Promise<Array<{clipPath, title, ...}>>}
  */
-export async function processClips(videoPath, clips, jobId, aspectRatio = '9:16', options = {}) {
+export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatioParam = '9:16', optionsParam = {}) {
   const outputDir = path.resolve(OUTPUT_DIR);
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+  const isOptionsObj = typeof jobIdOrOptions === 'object' && jobIdOrOptions !== null && !Array.isArray(jobIdOrOptions);
+  const jobId = isOptionsObj ? (jobIdOrOptions.jobId || 'job') : (typeof jobIdOrOptions === 'string' ? jobIdOrOptions : 'job');
+  const aspectRatio = isOptionsObj ? (jobIdOrOptions.aspectRatio || '9:16') : aspectRatioParam;
+  const options = isOptionsObj ? { ...jobIdOrOptions, ...optionsParam } : optionsParam;
 
   // Dapatkan info video asli.
   //
