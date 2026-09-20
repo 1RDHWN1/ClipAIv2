@@ -12,7 +12,111 @@ import { normalizeLanguageCode, detectLanguageFromText } from './transcriber.js'
 //   https://youtube.com/watch?v=x$(touch /tmp/pwned)
 // used to interpolate straight into `/bin/sh -c` and execute. With execFile the
 // same payload arrives as a literal argv entry that yt-dlp simply rejects.
-const execFileAsync = promisify(execFile);
+//
+// A failed/timed-out telemetry call must not blow up the process: killing the
+// binary then writing to its closed pipe raises an unhandled EPIPE. The empty
+// handler below is a deliberate no-op.
+
+function ignoreStreamError(stream) {
+  if (stream && typeof stream.on === 'function') {
+    stream.on('error', () => {});
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Orphan prevention for spawned media tools
+// ---------------------------------------------------------------------------
+// Every yt-dlp/ffmpeg child is tracked so a shutdown can take the whole tree
+// down. Without this, stopping the worker left the in-flight download running:
+// the long-lived ffmpeg that fetches a video section kept holding the network
+// connection (and the .part file) after the app was gone.
+const activeToolChildren = new Set();
+
+// ---------------------------------------------------------------------------
+// Shutdown flag
+// ---------------------------------------------------------------------------
+// Set by the worker before it tears the process down. A download that fails
+// WHILE we are shutting down must not fall through to its own retry strategies:
+// each retry spawns a fresh yt-dlp (+ its ffmpeg), so the "retry" race won and
+// left an orphan downloading a 250MB section after the app had exited.
+let shuttingDown = false;
+
+/** Mark this process as shutting down so retry loops stop respawning tools. */
+export function beginShutdown() {
+  shuttingDown = true;
+}
+
+/** Whether a shutdown is in progress (exported for tests/diagnostics). */
+export function isShuttingDown() {
+  return shuttingDown;
+}
+
+/**
+ * Kill every media tool this process still has running, and the tools THEY
+ * spawned.
+ *
+ * Tracking only the direct child is not enough: yt-dlp launches its own ffmpeg
+ * to fetch and mux a video section. SIGKILLing yt-dlp alone orphans that ffmpeg,
+ * which keeps downloading hundreds of MB — and holding the `.part` file — after
+ * the app is gone. Each tool therefore gets its own process group
+ * (`detached: true`), and we kill the whole group.
+ *
+ * @returns {number} how many process groups were signalled
+ */
+export function killActiveToolChildren() {
+  let killed = 0;
+  for (const child of activeToolChildren) {
+    const pid = child?.pid;
+    if (!pid) continue;
+    try {
+      // Negative pid targets the entire group (yt-dlp + its ffmpeg).
+      process.kill(-pid, 'SIGKILL');
+      killed += 1;
+    } catch (_) {
+      // Group already gone, or we are not its leader — fall back to the child.
+      try { child.kill('SIGKILL'); killed += 1; } catch (_) {}
+    }
+  }
+  activeToolChildren.clear();
+  return killed;
+}
+
+/**
+ * Run a media tool with orphan protection: the child joins the active set for
+ * its whole lifetime (cleared in the callback, so no exit path leaks it) and
+ * runs in its own process group so a shutdown can take its descendants too.
+ *
+ * @param {string} bin
+ * @param {string[]} args
+ * @param {Object} [options]
+ * @returns {Promise<{stdout:string, stderr:string}>}
+ */
+function runTool(bin, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      bin,
+      args,
+      // `detached: true` puts the tool in its own process group (setsid) while
+      // stdio stays piped, so we still capture output and can still group-kill.
+      { ...options, encoding: 'utf-8', detached: true },
+      (err, stdout, stderr) => {
+        activeToolChildren.delete(child);
+        if (err) {
+          err.stdout = stdout;
+          err.stderr = stderr;
+          return reject(err);
+        }
+        resolve({ stdout: stdout || '', stderr: stderr || '' });
+      }
+    );
+
+    activeToolChildren.add(child);
+    // Absorb EPIPE when we SIGKILL a tool mid-write.
+    ignoreStreamError(child.stdin);
+    ignoreStreamError(child.stdout);
+    ignoreStreamError(child.stderr);
+  });
+}
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
 const YTDLP_BIN = process.env.YTDLP_PATH || 'yt-dlp';
@@ -126,7 +230,7 @@ export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
   let channelName = null;
 
   try {
-    const { stdout } = await execFileAsync(YTDLP_BIN, infoArgs, { timeout: 45000 });
+    const { stdout } = await runTool(YTDLP_BIN, infoArgs, { timeout: 45000 });
     const parts = stdout.trim().split('|||');
     title = parts[0] || 'Unknown Video';
     duration = parseInt(parts[1], 10) || 0;
@@ -218,18 +322,25 @@ export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
   };
 
   for (let i = 0; i < downloadStrategies.length; i++) {
+    if (shuttingDown) {
+      throw new Error('Shutdown in progress — audio download aborted.');
+    }
+
     const args = downloadStrategies[i];
     try {
       if (i > 0) {
         console.log(`🔄 Retrying audio download with fallback strategy #${i + 1}...`);
       }
-      await execFileAsync(YTDLP_BIN, args, { timeout: 180000 });
+      await runTool(YTDLP_BIN, args, { timeout: 180000 });
       if (fs.existsSync(audioOutput) && fs.statSync(audioOutput).size > 1000) {
         downloaded = true;
         break;
       }
     } catch (err) {
       lastErr = err;
+      if (shuttingDown) {
+        throw new Error('Shutdown in progress — audio download aborted.');
+      }
       console.warn(`⚠️ Audio download strategy #${i + 1} notice: ${err.message.substring(0, 100)}...`);
     }
   }
@@ -349,7 +460,7 @@ export async function fetchYouTubeSubtitles(rawUrl, jobId, options = {}) {
 
   try {
     console.log(`⚡ Mencoba ambil transkrip instan dari YouTube...`);
-    await execFileAsync(YTDLP_BIN, origArgs, { timeout: 25000 });
+    await runTool(YTDLP_BIN, origArgs, { timeout: 25000 });
   } catch (_) {}
 
   let files = listSubFiles();
@@ -363,7 +474,7 @@ export async function fetchYouTubeSubtitles(rawUrl, jobId, options = {}) {
       '-o', outTemplate, '--', url,
     ];
     try {
-      await execFileAsync(YTDLP_BIN, manualArgs, { timeout: 25000 });
+      await runTool(YTDLP_BIN, manualArgs, { timeout: 25000 });
     } catch (_) {}
     files = listSubFiles();
   }
@@ -378,7 +489,7 @@ export async function fetchYouTubeSubtitles(rawUrl, jobId, options = {}) {
       '-o', outTemplate, '--', url,
     ];
     try {
-      await execFileAsync(YTDLP_BIN, fallbackAutoArgs, { timeout: 25000 });
+      await runTool(YTDLP_BIN, fallbackAutoArgs, { timeout: 25000 });
     } catch (_) {}
     files = listSubFiles();
   }
@@ -491,18 +602,27 @@ export async function downloadClipSection(rawUrl, start, end, outputPath) {
   let lastErr = null;
 
   for (let i = 0; i < sectionStrategies.length; i++) {
+    // Once a shutdown has begun, a failed attempt means "we killed it on
+    // purpose" — retrying would spawn a new downloader that outlives the app.
+    if (shuttingDown) {
+      throw new Error('Shutdown in progress — section download aborted.');
+    }
+
     const args = sectionStrategies[i];
     try {
       if (i > 0) {
         console.log(`🔄 Retrying section download with fallback strategy #${i + 1}...`);
       }
-      await execFileAsync(YTDLP_BIN, args, { timeout: 180000 });
+      await runTool(YTDLP_BIN, args, { timeout: 180000 });
       if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 1000) {
         success = true;
         break;
       }
     } catch (err) {
       lastErr = err;
+      if (shuttingDown) {
+        throw new Error('Shutdown in progress — section download aborted.');
+      }
       console.warn(`⚠️ Section download strategy #${i + 1} notice: ${err.message.substring(0, 100)}...`);
     }
   }

@@ -2,7 +2,7 @@
 import fs from 'fs';
 import { Worker } from 'bullmq';
 import { redisConnection } from '../queues/videoQueue.js';
-import { downloadVideo, downloadAudioAndInfo, cleanupFiles } from '../utils/downloader.js';
+import { downloadVideo, downloadAudioAndInfo, cleanupFiles, killActiveToolChildren, beginShutdown } from '../utils/downloader.js';
 import { startOutputReaper } from '../utils/outputReaper.js';
 import { transcribeAudio, detectLanguageFromText, normalizeLanguageCode } from '../utils/transcriber.js';
 import { parseGeminiTranscript } from '../utils/geminiTranscriptParser.js';
@@ -401,6 +401,17 @@ async function gracefulShutdown(signal) {
   console.log(`\n[worker] ${signal} received — closing worker...`);
   try {
     outputReaper.stop();
+    // Flag the shutdown FIRST so any download that we are about to kill does
+    // not fall through to its own retry loop and spawn a replacement tool.
+    beginShutdown();
+    // Reap the in-flight media tools BEFORE draining BullMQ. `worker.close()`
+    // waits for the running job to finish, so a long yt-dlp/ffmpeg download
+    // would otherwise keep the worker (and the network) alive past the
+    // supervisor's grace window and leave an orphan process behind.
+    const reaped = killActiveToolChildren();
+    if (reaped > 0) {
+      console.log(`[worker] Killed ${reaped} in-flight download process(es).`);
+    }
     await worker.close();
     console.log('[worker] Worker closed gracefully.');
   } catch (err) {
