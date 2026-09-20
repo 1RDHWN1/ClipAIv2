@@ -20,8 +20,9 @@ test('Gaming Streamer Webcam Detection & Positioning', async (t) => {
       graph.filterComplex.includes('crop=448:324:832:396'),
       `Filter complex must crop webcam at (832, 396), got: ${graph.filterComplex}`
     );
-    assert.ok(graph.filterComplex.includes('scale=1080:800'), 'Cam must be scaled to 1080x800');
-    assert.ok(graph.filterComplex.includes('scale=1080:1120'), 'Game must be fitted to 1080x1120');
+    assert.ok(graph.filterComplex.includes('scale=1080:480'), 'Cam must be scaled to 1080x480');
+    assert.ok(graph.filterComplex.includes('scale=1080:1440'), 'Game panel must be 1080x1440 (blur fill)');
+    assert.ok(graph.filterComplex.includes('gblur'), 'Game letterbox must be blurred, not black');
     assert.ok(graph.filterComplex.includes('vstack=inputs=2'), 'Must stack vertically');
   });
 
