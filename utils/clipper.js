@@ -7,7 +7,7 @@ import 'dotenv/config';
 import { buildAudioCrossfadeFilter } from './boundarySnapper.js';
 import { downloadClipSection } from './downloader.js';
 import { generateAssSubtitles, escapeAssPath } from './subtitleGenerator.js';
-import { buildBrandingFilters, appendBrandingToGraph, appendBrandingToVideoFilters, normalizeBrandingConfig } from './brandingOverlay.js';
+import { buildBrandingFilters, appendBrandingToGraph, appendBrandingToVideoFilters, normalizeBrandingConfig, brandingIsActive } from './brandingOverlay.js';
 import { getHardwareAccelerationConfig } from './gpuDetector.js';
 
 const OUTPUT_DIR = process.env.OUTPUT_DIR || './outputs';
@@ -453,6 +453,16 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
         }
       }
 
+      const effectiveBranding = {
+        showHeadline: options.branding ? (options.branding.showHeadline !== false) : true,
+        headlineText: clip.headline || options.branding?.headlineText || clip.title || '',
+        headlineDuration: options.branding?.headlineDuration || 5,
+        headlineColor: options.branding?.headlineColor || '#000000',
+        headlineBgColor: options.branding?.headlineBgColor || '#FFFFFF',
+        ...(options.branding || {}),
+      };
+      const brandingToPass = brandingIsActive(effectiveBranding) ? effectiveBranding : null;
+
       await clipVideo(sourceForProcessing, outputPath, clipForProcessing, currentWidth, currentHeight, aspectRatio, {
         speakerTurns,
         speakerOrder,
@@ -461,15 +471,7 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
         webcamBox,
         subtitleAssPath: tempAssFile,
         layoutMode: effectiveLayoutMode,
-        // Diteruskan eksplisit: opsi ini di-whitelist manual, jadi field yang
-        // lupa didaftarkan di sini akan hilang tanpa error apa pun — persis
-        // yang dulu terjadi pada branding (render sukses tapi tanpa overlay).
-        branding: options.branding
-          ? {
-              ...options.branding,
-              headlineText: clip.headline || options.branding.headlineText || clip.title || '',
-            }
-          : null,
+        branding: brandingToPass,
         encodingOverrides: options.encodingOverrides,
         hwaccel: options.hwaccel,
       });
