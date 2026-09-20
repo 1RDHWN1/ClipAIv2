@@ -1,4 +1,5 @@
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
+import net from 'node:net';
 import path from 'node:path';
 import * as singletonLock from '../utils/singletonLock.js';
 
@@ -159,6 +160,52 @@ function armHardExit() {
   }, HARD_EXIT_MS);
   timer.unref?.();
 }
+
+async function ensureRedis(port = 6379, host = '127.0.0.1') {
+  const probe = () =>
+    new Promise((resolve) => {
+      const sock = net.createConnection({ port, host });
+      sock.setTimeout(800);
+      sock.once('connect', () => {
+        sock.destroy();
+        resolve(true);
+      });
+      sock.once('error', () => {
+        sock.destroy();
+        resolve(false);
+      });
+      sock.once('timeout', () => {
+        sock.destroy();
+        resolve(false);
+      });
+    });
+
+  if (await probe()) return true;
+
+  console.log('[redis] ⚡ Redis belum aktif di port 6379, mencoba auto-start...');
+  try {
+    execSync('systemctl start redis-server 2>/dev/null || redis-server --daemonize yes 2>/dev/null || true', {
+      stdio: 'ignore',
+      timeout: 3000,
+    });
+  } catch (_) {}
+
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 250));
+    if (await probe()) {
+      console.log('[redis] ✅ Redis server berhasil dinyalakan otomatis.');
+      return true;
+    }
+  }
+
+  console.warn(
+    '[redis] ⚠️ Gagal mengaktifkan Redis otomatis. Pastikan service Redis berjalan ("sudo systemctl start redis-server").'
+  );
+  return false;
+}
+
+await ensureRedis();
 
 console.log('Starting API server and video worker...');
 startProcess('server', 'server.js');
