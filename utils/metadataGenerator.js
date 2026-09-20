@@ -133,19 +133,90 @@ export function buildMetadataPrompt(clipInputs, options = {}) {
         ],
   };
 
-  const languageBlock = isEn
+  // ---------------------------------------------------------------------------
+  // Anti-FLAT rules. This is the difference between output that reads like a
+  // press release and output that reads like a creator wrote it.
+  //
+  // Every rule below exists because the OLD prompt produced measurably flat
+  // output: "Mari simak poin penting ini: <title>", "#viral #shorts #reels",
+  // "Bagaimana menurut kalian?". That is a TEMPLATE, not copy. It gives the
+  // viewer no reason to stop, and it makes the creator look automated.
+  // ---------------------------------------------------------------------------
+  const antiFlatRules = isEn
     ? [
-        `LANGUAGE REQUIREMENTS:`,
-        `- The clip dialogue is in English.`,
-        `- EVERYTHING you write (title, description, hashtags, caption, pinnedComment, trendKeywords) MUST be in natural, native English.`,
-        `- Do NOT translate or transliterate; write like a native English short-form creator.`,
+        `WRITING RULES — these separate a scroll-stopper from a flat, templated post:`,
+        ``,
+        `1. NEVER open with a meta phrase. BANNED openers (and anything like them):`,
+        `   "In this video...", "Let's look at...", "Here's a clip about...", "Check out this...",`,
+        `   "Mari simak...", "Berikut adalah...". Start with the IDEA ITSELF, not an announcement of it.`,
+        `2. LEAD WITH THE STRONGEST LINE, not a summary. Take the boldest sentence the speaker`,
+        `   actually says and open with it (lightly polished for grammar). The first 40 characters`,
+        `   are all a viewer sees before the title truncates — spend them on tension, not context.`,
+        `3. USE CONCRETE HOOK MECHANICS (pick whichever the clip genuinely supports):`,
+        `   • Curiosity gap — name the thing but withhold the payoff ("Nobody talks about why...")`,
+        `   • Bold/contrarian claim — state the surprising position directly ("You're not tired. You're bored.")`,
+        `   • Specific number — real figures only, never invented ("one in every six")`,
+        `   • Stakes / warning — what the viewer loses by ignoring this ("This is costing you respect.")`,
+        `   • Direct address — speak to the viewer as "you", not "people"`,
+        `4. WRITE LIKE A HUMAN CREATOR, NOT A BRAND. Contractions (don't, you're, it's), short`,
+        `   punchy sentences, one clear idea per sentence. No corporate hedging.`,
+        `5. THE CAPTION IS NOT A LABEL. It must be a standalone hook that works with ZERO context`,
+        `   from the video — someone scrolling past should feel the pull from the caption alone.`,
+        `   Never write "<generic intro>: <the title>" — that is the flat pattern to avoid.`,
+        `6. THE PINNED COMMENT MUST BE SPECIFIC TO THIS CLIP. Reference the actual tension,`,
+        `   claim or question in the content. Banned: generic bait like "What do you think?"`,
+        `   or "Comment below!" with no connection to what was just said.`,
+        `7. HASHTAGS MUST EARN THEIR PLACE. Mix 3-5 broad (#shorts #podcast) with 6-10 SPECIFIC`,
+        `   topical tags pulled from the actual subject (#leadership #obama #selfrespect).`,
+        `   Never ship only the generic set — that is a tell that no one tuned them.`,
+        `8. DESCRIPTIONS MUST ADD INFORMATION, not restate the title. Give the specific insight,`,
+        `   then one genuine reason to keep watching, then a soft CTA tied to the topic.`,
       ]
     : [
-        `PETUNJUK BAHASA:`,
-        `- Dialog klip dalam bahasa Indonesia.`,
-        `- SEMUA yang kamu tulis (title, description, hashtags, caption, pinnedComment, trendKeywords) HARUS dalam bahasa Indonesia yang natural.`,
-        `- JANGAN menerjemahkan ke bahasa lain; tulis seperti kreator short-form Indonesia asli.`,
-        `- Boleh pakai istilah/Istilah gaul yang lazim dipakai kreator Indonesia, tapi jangan berlebihan sampai terkesan alay.`,
+        `ATURAN PENULISAN — ini pembeda antara konten yang menghentikan scroll dan konten flat:`,
+        ``,
+        `1. JANGAN pernah buka dengan frasa meta. TERLARANG (dan yang mirip):`,
+        `   "Mari simak...", "Berikut adalah...", "Dalam video ini...", "Yuk bahas...".`,
+        `   Mulai langsung dari IDENYA, bukan pengumuman tentang idenya.`,
+        `2. AWALI DENGAN KALIMAT TERKUAT, bukan ringkasan. Ambil kalimat paling berani yang`,
+        `   benar-benar diucapkan pembicara (dirapikan tata bahasanya) dan buka dengan itu.`,
+        `   40 karakter pertama itu satu-satunya yang terlihat sebelum judul terpotong — pakai`,
+        `   untuk membangun ketegangan, bukan konteks.`,
+        `3. PAKAI MEKANIKA HOOK KONKRET (pilih yang memang didukung isi klip):`,
+        `   • Curiosity gap — sebut halnya tapi tahan jawabannya ("Nggak ada yang bahas kenapa...")`,
+        `   • Klaim berani/kontrarian — nyatakan posisi mengejutkannya langsung ("Kamu bukan capek. Kamu bosan.")`,
+        `   • Angka spesifik — hanya angka nyata, jangan mengarang ("satu dari enam orang")`,
+        `   • Stakes/peringatan — apa yang hilang kalau diabaikan ("Ini yang bikin kamu nggak dihormati.")`,
+        `   • Sapaan langsung — bicara ke "kamu", bukan "orang-orang"`,
+        `4. TULIS SEPERTI KREATOR MANUSIA, BUKAN BRAND. Pakai kata sehari-hari, kalimat pendek`,
+        `   dan punchy, satu ide per kalimat. Jangan bertele-tele ala korporat.`,
+        `5. CAPTION BUKAN LABEL. Harus jadi hook mandiri yang tetap menarik TANPA konteks video —`,
+        `   orang yang scroll harus merasa tertarik hanya dari caption-nya.`,
+        `   Jangan pernah menulis "<pembuka generik>: <judul>" — itu justru pola flat yang dilarang.`,
+        `6. PINNED COMMENT HARUS SPESIFIK ke klip ini. Rujuk ketegangan, klaim, atau pertanyaan`,
+        `   nyata di isinya. Terlarang: bait generik seperti "Bagaimana menurut kalian?" tanpa`,
+        `   kaitan dengan apa yang baru saja dibahas.`,
+        `7. HASHTAG HARUS BERGUNA. Campur 3-5 tag luas (#shorts #podcast) dengan 6-10 tag`,
+        `   SPESIFIK sesuai topik nyata (#kepemimpinan #obama #kepercayaan diri).`,
+        `   Jangan cuma tag generik — itu tanda nggak ada yang menyesuaikan.`,
+        `8. DESKRIPSI HARUS MENAMBAH INFORMASI, bukan mengulang judul. Beri insight spesifiknya,`,
+        `   lalu satu alasan nyata untuk terus menonton, lalu CTA halus yang nyambung dengan topik.`,
+      ];
+
+  const languageBlock = isEn
+    ? [
+        `LANGUAGE REQUIREMENTS (CRITICAL):`,
+        `- The clip dialogue is in ENGLISH.`,
+        `- EVERYTHING you write (title, description, hashtags, caption, pinnedComment, trendKeywords, headline) MUST be in natural, native English.`,
+        `- Do NOT translate or transliterate. Do NOT mix in Indonesian or any other language.`,
+        `- Write like a native English short-form creator — the phrasing, slang and rhythm must sound native, not translated.`,
+      ]
+    : [
+        `PETUNJUK BAHASA (PENTING):`,
+        `- Dialog klip dalam bahasa INDONESIA.`,
+        `- SEMUA yang kamu tulis (title, description, hashtags, caption, pinnedComment, trendKeywords, headline) HARUS dalam bahasa Indonesia yang natural.`,
+        `- JANGAN menerjemahkan ke bahasa lain. JANGAN campur bahasa Inggris kecuali istilah yang memang lazim dipakai apa adanya.`,
+        `- Tulis seperti kreator short-form Indonesia asli — ritme dan pilihan katanya harus terasa natural, bukan hasil terjemahan.`,
       ];
 
   const platformHint = targetPlatform && targetPlatform !== 'all'
@@ -165,11 +236,27 @@ export function buildMetadataPrompt(clipInputs, options = {}) {
     ``,
     ...modeDirectives[mode],
     ...languageBlock,
+    ``,
+    ...antiFlatRules,
+    ``,
     `- headline: a punchy 3-7 word high-impact visual hook headline for the top on-screen text banner (e.g. "Dehumanisasi: Ancaman Nyata di Balik Prasangka", "Stop Overexplaining: Rahasia Dihormati").`,
     `- viralityScore: integer 80-99 evaluating the 4 pillars (hook impact, pacing, retention potential, payoff).`,
     `- scoreBreakdown: object with 4 pillar grades, e.g. { "hook": "A", "flow": "A", "value": "A", "trend": "A-" }.`,
     `- trendKeywords: 3-6 topical keywords/topic-clusters this clip sits in (used for trend relevance), written in the same language as the rest.`,
     `- pinnedComment: a short engagement-bait comment the creator can pin to drive replies (ask a genuine question the clip makes people want to answer).`,
+    ``,
+    `FLAT vs SCROLL-STOPPING — study these pairs. The left column is what to NEVER produce:`,
+    `  FLAT title:    "Obama Discusses the Importance of Convictions"`,
+    `  HOOK title:    "Your Convictions Are Being Tested Right Now"`,
+    `  FLAT caption:  "Mari simak poin penting ini: Obama: Your Convictions Are Being Tested Right Now"`,
+    `  HOOK caption:  "Obama just said the quiet part out loud: most people never get tested, so their beliefs stay untested."`,
+    `  FLAT comment:  "Bagaimana menurut kalian tentang pembahasan ini?"`,
+    `  HOOK comment:  "Obama bilang kita semua punya kapasitas ini — tapi kapan terakhir kali kamu benar-benar diuji?"`,
+    `  FLAT hashtags: "#viral #shorts #reels #podcast"`,
+    `  HOOK hashtags: "#obama #convictions #leadership #selfrespect #podcastclips #motivation #shortsvideo"`,
+    ``,
+    `The FLAT versions are summaries. The HOOK versions create a reason to stop scrolling.`,
+    `Every field you output must read like the right column.`,
     ``,
     ...platformHint,
     ``,
