@@ -1,6 +1,7 @@
 // routes/api.js
 import express from 'express';
 import { videoQueue } from '../queues/videoQueue.js';
+import { clearQueue, getQueueCounts } from '../queues/videoQueue.js';
 import { v4 as uuidv4 } from 'uuid';
 import { sanitizeVideoId } from '../utils/downloader.js';
 import { createRateLimiter } from '../utils/rateLimiter.js';
@@ -369,6 +370,47 @@ router.get('/models', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Gagal mengambil daftar model AI', detail: err.message });
+  }
+});
+
+/**
+ * POST /api/queue/clear
+ * Batalkan SEMUA job yang masih menunggu/berjalan.
+ *
+ * Dipakai tombol "Stop Semua" — supaya job yang tertinggal dari sesi sebelumnya
+ * tidak diam-diam dilanjutkan saat aplikasi dijalankan lagi.
+ */
+router.post('/queue/clear', requireApiKey, async (req, res) => {
+  try {
+    const before = await getQueueCounts();
+    const result = await clearQueue();
+    const after = await getQueueCounts();
+
+    console.log(`🧹 Queue dibersihkan — sebelum: ${JSON.stringify(before)}, sesudah: ${JSON.stringify(after)}`);
+
+    res.json({
+      success: true,
+      message: 'Semua job di antrian dibatalkan.',
+      before,
+      after,
+      cleared: (before.waiting + before.delayed + before.active),
+    });
+  } catch (err) {
+    console.error('POST /queue/clear error:', err);
+    res.status(500).json({ error: 'Gagal membersihkan antrian', detail: err.message });
+  }
+});
+
+/**
+ * GET /api/queue
+ * Ringkasan isi antrian — dipakai UI untuk menampilkan status job tertinggal.
+ */
+router.get('/queue', async (req, res) => {
+  try {
+    const counts = await getQueueCounts();
+    res.json({ success: true, counts, pending: counts.waiting + counts.active + counts.delayed });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal membaca antrian', detail: err.message });
   }
 });
 

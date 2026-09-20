@@ -871,8 +871,30 @@
       <div style="display: flex; align-items: center; gap: 8px;">
         <span id="hwBadge" class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10B981; border-color: rgba(16, 185, 129, 0.3);">⚡ GPU Active</span>
         <span class="badge">AI Powered</span>
+        <button id="stopAllBtn" onclick="stopEverything()" title="Batalkan semua job yang menunggu & bersihkan antrian"
+          style="display:none; background: rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35); color:#EF4444; border-radius:8px; font-family:var(--font-body); font-size:11px; font-weight:600; padding:5px 11px; cursor:pointer;">
+          ⏹ Stop Semua <span id="stopAllCount"></span>
+        </button>
       </div>
     </header>
+
+    <!-- Job tertinggal dari sesi sebelumnya -->
+    <div id="leftoverBanner" style="display:none; margin-bottom:20px; padding:13px 16px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); border-radius:12px; justify-content:space-between; align-items:center; gap:12px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:17px;">⏳</span>
+        <div>
+          <div style="font-family:var(--font-head); font-size:12px; font-weight:700; color:#F59E0B;">
+            Ada <span id="leftoverCount">0</span> job tertinggal di antrian
+          </div>
+          <div style="font-size:11px; color:var(--text2); margin-top:2px;">
+            Job ini otomatis dikerjakan worker. Batalkan kalau tidak mau dilanjutkan.
+          </div>
+        </div>
+      </div>
+      <button onclick="stopEverything()" style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4); color:#F59E0B; border-radius:7px; font-family:var(--font-body); font-size:11px; font-weight:600; padding:6px 12px; cursor:pointer; white-space:nowrap;">
+        Batalkan Semua
+      </button>
+    </div>
 
     <section class="hero">
       <div class="hero-eyebrow">YouTube → Short Clips</div>
@@ -1566,7 +1588,71 @@
       }
       fetchAiModels();
       fetchHardwareInfo();
+      // Surface anything the previous session left queued, and keep checking so
+      // a job submitted from another tab is reflected here too.
+      refreshQueueStatus();
+      setInterval(refreshQueueStatus, 8000);
     });
+
+    // ── Antrian: job tertinggal & Stop Semua ─────────────────
+    /**
+     * Tampilkan berapa job yang masih menunggu. Job yang tertinggal dari sesi
+     * sebelumnya otomatis dikerjakan worker — user harus tahu dan bisa
+     * membatalkannya.
+     */
+    async function refreshQueueStatus() {
+      try {
+        const res = await fetch('/api/queue');
+        if (!res.ok) return;
+        const data = await res.json();
+        const pending = data.pending || 0;
+
+        const banner = document.getElementById('leftoverBanner');
+        const countEl = document.getElementById('leftoverCount');
+        const btn = document.getElementById('stopAllBtn');
+        const btnCount = document.getElementById('stopAllCount');
+
+        if (banner) banner.style.display = pending > 0 ? 'flex' : 'none';
+        if (countEl) countEl.textContent = pending;
+        if (btn) btn.style.display = pending > 0 ? 'inline-block' : 'none';
+        if (btnCount) btnCount.textContent = pending > 0 ? `(${pending})` : '';
+      } catch (_) {
+        // Server mati / restart — jangan berisik di konsol.
+      }
+    }
+
+    /** Batalkan semua job yang menunggu + yang sedang jalan. */
+    async function stopEverything() {
+      const btn = document.getElementById('stopAllBtn');
+      const original = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Membatalkan...'; }
+
+      try {
+        const res = await fetch('/api/queue/clear', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Gagal membatalkan');
+
+        const cleared = data.cleared || 0;
+        if (btn) btn.innerHTML = `✓ ${cleared} dibatalkan`;
+
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+        const progress = document.getElementById('progressSection');
+        if (progress) progress.style.display = 'none';
+        currentJobId = null;
+
+        await refreshQueueStatus();
+        setTimeout(() => { if (btn) btn.innerHTML = original; }, 2200);
+      } catch (err) {
+        if (btn) btn.innerHTML = '✗ Gagal';
+        setTimeout(() => { if (btn) btn.innerHTML = original; }, 2000);
+        showError(`Gagal membatalkan: ${err.message}`);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
 
     // ── Hardware Acceleration Detection ───────────────────────
     async function fetchHardwareInfo() {
@@ -1935,6 +2021,8 @@
     window.showResults = showResults;
     window.togglePlayPreview = togglePlayPreview;
     window.toggleMetadataSettings = toggleMetadataSettings;
+    window.stopEverything = stopEverything;
+    window.refreshQueueStatus = refreshQueueStatus;
     window.toggleBrandingSettings = toggleBrandingSettings;
     window.collectBrandingConfig = collectBrandingConfig;
     window.copyToClipboard = copyToClipboard;
