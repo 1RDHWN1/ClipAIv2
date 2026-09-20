@@ -17,6 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { SUBTITLE_SAFE_MARGIN_V } from './subtitleGenerator.js';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
@@ -50,16 +51,19 @@ export const VALID_ANCHORS = [
   'above-subtitles',
 ];
 
-// Subtitle band height below which the 'above-subtitles' anchor sits. Mirrors
-// the default subtitle marginV so the two elements do not collide.
-const SUBTITLE_BAND_PX = 160;
-// Gap between the subtitle band and the anchored text.
+// Subtitle band height, measured UP from the caption's bottom margin.
 //
-// The burned-in captions render at font size ~72-90px, so the band is tall and
+// Derived from the caption preset (fontSize ~68-84px, up to 2 lines) plus
+// outline padding. The band sits ABOVE SUBTITLE_SAFE_MARGIN_V, so anything
+// anchored 'above-subtitles' clears both the captions and the platform UI.
+const SUBTITLE_BAND_PX = 200;
+// Gap between the top of the caption band and the anchored text.
+//
+// The burned-in captions render at font size ~68-90px, so the band is tall and
 // extends UPWARD from marginV. A small gap leaves the watermark sitting on the
-// last caption line; 150px clears the tallest preset line without floating off
+// last caption line; 90px clears the tallest preset line without floating off
 // into the middle of the picture.
-const ABOVE_SUBTITLE_GAP_PX = 150;
+const ABOVE_SUBTITLE_GAP_PX = 90;
 
 // Fonts are probed once and cached — fs.existsSync on every clip adds up.
 let cachedFont = undefined;
@@ -348,11 +352,14 @@ function xExprFor(pos, margin = 40, centered = false) {
  */
 function yExprFor(pos, margin = 40) {
   if (pos === 'above-subtitles') {
-    // Sit clear ABOVE the caption band. The captions are centred on the frame
-    // (Alignment 2 only anchors them to the bottom margin), so the watermark is
-    // also centred and pushed high enough that a tall caption line cannot reach
-    // it. Offsetting only by the band edge leaves the two on the same line.
-    return `h-th-${SUBTITLE_BAND_PX + ABOVE_SUBTITLE_GAP_PX}`;
+    // Sit clear ABOVE the caption band.
+    //
+    // The captions are anchored SUBTITLE_SAFE_MARGIN_V px up from the bottom
+    // (so the platform's own UI cannot cover them) and the text extends
+    // UPWARD from there. The watermark therefore has to clear
+    //   margin + caption band + a small gap
+    // or it lands on top of the last caption line.
+    return `h-th-${SUBTITLE_SAFE_MARGIN_V + SUBTITLE_BAND_PX + ABOVE_SUBTITLE_GAP_PX}`;
   }
   return (pos === 'bottom-left' || pos === 'bottom-right')
     ? `h-th-${margin}`
