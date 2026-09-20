@@ -1630,6 +1630,23 @@
                   </select>
                 </div>
               </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>Sudut Kotak Headline</label>
+                  <select id="headlineCornerStyle" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
+                    <option value="rounded" selected>◠ Melengkung Halus (disarankan)</option>
+                    <option value="soft">◡ Sangat Bulat</option>
+                    <option value="sharp">▭ Siku Kaku</option>
+                  </select>
+                </div>
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>&nbsp;</label>
+                  <div style="font-size:10.5px; color:var(--text3); line-height:1.45; padding-top:2px;">
+                    Kotak melengkung dibuat sebagai gambar PNG lalu di-overlay, jadi tampilannya lebih lembut &amp; natural.
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2102,6 +2119,10 @@
         headlineColor = '#FFFFFF';
       }
 
+      const cornerStyle = document.getElementById('headlineCornerStyle')?.value || 'rounded';
+      const headlineRounded = cornerStyle !== 'sharp';
+      const headlineRadius = cornerStyle === 'soft' ? 34 : 20;
+
       return {
         showSource: true,
         showWatermark: true,
@@ -2109,6 +2130,8 @@
         headlineDuration,
         headlineBgColor,
         headlineColor,
+        headlineRounded,
+        headlineRadius,
         // Kosong = biarkan worker mengisi dari metadata channel YouTube.
         sourceChannel: val('sourceChannel') || null,
         sourceLabel: val('sourceLabel') || 'Sumber',
