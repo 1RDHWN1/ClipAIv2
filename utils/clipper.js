@@ -467,7 +467,7 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
         branding: options.branding
           ? {
               ...options.branding,
-              headlineText: options.branding.headlineText || clip.headline || clip.title || '',
+              headlineText: clip.headline || options.branding.headlineText || clip.title || '',
             }
           : null,
         encodingOverrides: options.encodingOverrides,
