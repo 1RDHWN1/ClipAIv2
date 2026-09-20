@@ -464,7 +464,12 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
         // Diteruskan eksplisit: opsi ini di-whitelist manual, jadi field yang
         // lupa didaftarkan di sini akan hilang tanpa error apa pun — persis
         // yang dulu terjadi pada branding (render sukses tapi tanpa overlay).
-        branding: options.branding || null,
+        branding: options.branding
+          ? {
+              ...options.branding,
+              headlineText: options.branding.headlineText || clip.headline || clip.title || '',
+            }
+          : null,
         encodingOverrides: options.encodingOverrides,
         hwaccel: options.hwaccel,
       });
