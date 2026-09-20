@@ -271,9 +271,16 @@ def main():
         return
 
     # 3. Build intelligent shot-aware plan
+    #
+    # ORDER MATTERS: detect_streamer_webcam must run on the RAW detections.
+    # build_shot_aware_plan() mutates frame_records in place to drop "tiny
+    # background faces" that are far from the primary face — which is exactly
+    # what a picture-in-picture webcam is (small, in a far corner). Running the
+    # webcam detector after it meant the webcam had already been deleted, so a
+    # real gaming stream fell back to cropping its content.
+    webcam_box = detect_streamer_webcam(frame_records, width, height)
     plan = build_shot_aware_plan(frame_records, width, height, speaker_turns)
     wide_intervals = extract_wide_intervals(frame_records, min_duration=1.6, frame_width=width)
-    webcam_box = detect_streamer_webcam(frame_records, width, height)
 
     scene_detector_name = "pyscenedetect" if use_pyscenedetect else "legacy"
     total_cuts = sum(1 for fr in frame_records if fr["is_cut"])
@@ -354,13 +361,19 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
     if not clusters:
         return None
 
-    # 2. Score clusters: a webcam overlay hugs a BORDER and persists.
+    # 2. Score clusters: a webcam overlay hugs a BORDER and is SMALL.
     #
-    # Size is deliberately NOT part of the score. Measured on real footage, a
-    # genuine corner webcam face spanned 14% of the frame width while a false
-    # positive spanned 15.5% — the two are indistinguishable by size. Position
-    # is what separates them: a webcam sits against an edge, a video's main
-    # subject sits near the centre.
+    # Two properties separate a picture-in-picture webcam from the video's main
+    # subject, and BOTH are needed:
+    #   • position — a webcam sits against an edge, the subject near the centre
+    #   • size     — a PiP webcam is small, the subject/animation is large
+    #
+    # Measured on the real iShowSpeed stream (1920x1080) where the layout is a
+    # fullscreen animation with a small webcam PiP:
+    #   webcam  -> centre (215,620), ~230px wide (12%), hugs the left edge
+    #   anim    -> centre (991,226), ~656px wide (34%), large and central
+    # Counting detections alone let the animation win (it is present in every
+    # frame), which cropped the clip onto the cartoon instead of the streamer.
     def score_cluster(c):
         pts = c["points"]
         count = len(pts)
@@ -376,9 +389,16 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
 
         # 1.0 against a border, 0.0 at the centre.
         edge_score = max(0.0, 1.0 - nearest_edge / 0.5)
+
+        # 1.0 for a tiny face, 0.0 at 40% of the frame width.
+        med_w = float(np.median([pt[2] for pt in pts]))
+        smallness = max(0.0, 1.0 - (med_w / frame_width) / 0.40)
+
+        # Persistence still matters, but it must not let a large central
+        # animation outrank a small corner webcam.
         persistence = count / max(1.0, float(len(frame_records)))
 
-        return float(count * persistence * edge_score)
+        return float(persistence * edge_score * smallness)
 
     scored_clusters = [(c, score_cluster(c)) for c in clusters]
     scored_clusters.sort(key=lambda item: item[1], reverse=True)
@@ -414,12 +434,11 @@ def detect_streamer_webcam(frame_records, frame_width, frame_height):
     if nearest_edge > 0.28:
         return None
 
-    # Threshold, expressed PER FRAME so it does not drift with clip length.
-    # With the border-weighted score this is (persistence x edge_score), so a
-    # centred subject scores ~0 and is rejected, while a persistent edge overlay
-    # scores ~0.5-0.8.
-    per_frame_score = best_score / total_frames
-    if per_frame_score < 0.35:
+    # The score is already normalised per frame (persistence x edge_score x
+    # smallness, each in 0..1), so do NOT divide by the frame count again —
+    # that double-normalisation drove a valid 0.37 score down to 0.0008.
+    per_frame_score = best_score
+    if per_frame_score < 0.32:
         return None
 
     # Target 1080:800 (1.35 : 1) aspect ratio for distortion-free top panel
