@@ -2781,7 +2781,7 @@
         if (!res.ok) throw new Error('Failed to fetch models');
         const data = await res.json();
         const models = Array.isArray(data.models) ? data.models : [];
-        const defaultModel = data.defaultModel || 'xkiro/qwen/qwen3-max:free';
+        const defaultModel = data.defaultModel || 'cbai/deepseek-v4.1-flash';
 
         select.innerHTML = '';
 
@@ -2822,9 +2822,9 @@
       } catch (err) {
         console.warn('Could not load AI models from server, using fallback:', err);
         select.innerHTML = `
-          <option value="xkiro/qwen/qwen3-max:free" selected>⭐ xkiro/qwen/qwen3-max:free (Default)</option>
+          <option value="cbai/deepseek-v4.1-flash" selected>⭐ cbai/deepseek-v4.1-flash (Default)</option>
           <option value="xkiro/google/gemini-3.8-flash">⚡ xkiro/google/gemini-3.8-flash</option>
-          <option value="pahri-fast">🚀 pahri-fast</option>
+          <option value="kimchi/deepseek-v4-flash-0731">🚀 kimchi/deepseek-v4-flash-0731</option>
           <option value="kr/claude-sonnet-4.5">🧠 kr/claude-sonnet-4.5</option>
           <option value="__custom__">✏️ Custom Model ID...</option>
         `;
@@ -3104,6 +3104,23 @@
     let currentModalJob = null;
     let currentModalClipIndex = 0;
 
+    /**
+     * Tentukan apakah konten klip berbahasa Inggris.
+     *
+     * Dipakai untuk memilih bahasa fallback metadata: hardcode Indonesia bikin
+     * klip berbahasa Inggris dapat caption Indonesia yang flat.
+     */
+    function isEnglishContent(job, clip) {
+      const lang = (job?.language || clip?.language || '').toString().toLowerCase();
+      if (lang.startsWith('en')) return true;
+      if (lang && !lang.startsWith('en')) return false;
+      // Bahasa tidak diketahui: tebak dari teks yang ada (heuristik kata umum).
+      const probe = `${clip?.hookText || ''} ${clip?.title || ''} ${job?.videoTitle || ''}`.toLowerCase();
+      const enHits = (probe.match(/\b(the|you|your|and|that|this|with|what|is|are|we|it)\b/g) || []).length;
+      const idHits = (probe.match(/\b(yang|dan|kamu|ini|itu|tidak|untuk|dengan|kita|apa)\b/g) || []).length;
+      return enHits >= idHits;
+    }
+
     function openOpusModal(jobId, clipIndex = 0) {
       let job = (cachedJobs || []).find((j) => j.jobId === jobId);
       if (!job && window.currentResultJob && window.currentResultJob.jobId === jobId) {
@@ -3183,9 +3200,26 @@
       const metaBox = document.getElementById('opusModalMetadataContent');
       if (metaBox) {
         const m = clip.metadata || {};
-        const captionText = m.caption || `Mari simak poin penting ini: ${clipTitle}`;
-        const hashtagsText = (m.hashtags && m.hashtags.length) ? (Array.isArray(m.hashtags) ? m.hashtags.join(' ') : m.hashtags) : '#viral #shorts #reels #podcast';
-        const pinnedText = m.pinnedComment || 'Bagaimana menurut kalian tentang pembahasan ini? Tulis pendapat kalian di kolom komentar!';
+        // Bahasa fallback HARUS mengikuti bahasa konten, bukan hardcode Indonesia.
+        // Kalau tidak, klip berbahasa Inggris dapat caption Indonesia yang flat.
+        const contentIsEnglish = isEnglishContent(job, clip);
+
+        // Fallback hanya dipakai kalau generator benar-benar tidak menghasilkan
+        // apa pun. Dibuat sebagai HOOK mandiri, bukan template "<intro>: <judul>"
+        // yang justru jadi pola flat yang dilarang.
+        const captionText = m.caption || (contentIsEnglish
+          ? `${clipTitle} — here's the part most people miss.`
+          : `${clipTitle} — ini bagian yang sering dilewatkan orang.`);
+
+        const hashtagsText = (m.hashtags && m.hashtags.length)
+          ? (Array.isArray(m.hashtags) ? m.hashtags.join(' ') : m.hashtags)
+          : (contentIsEnglish
+              ? '#shorts #podcast #clips'
+              : '#shorts #podcast #klip');
+
+        const pinnedText = m.pinnedComment || (contentIsEnglish
+          ? `What's your take on this? Drop it in the comments.`
+          : `Menurut kamu gimana soal ini? Tulis di komentar.`);
 
         metaBox.innerHTML = `
           <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:10px;">

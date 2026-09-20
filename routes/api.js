@@ -358,15 +358,14 @@ router.get('/models', async (req, res) => {
       }
     }
 
-    // Daftar preset rekomendasi model terpopuler & efisien
+    // Daftar preset rekomendasi model terpopuler & efisien.
+    // `defaultModel` diambil dari env (DEFAULT_MODEL), jadi default di sini
+    // otomatis mengikuti konfigurasi — jangan hardcode model lama di daftar.
     const presetModels = [
       defaultModel,
-      'xkiro/qwen/qwen3-max:free',
+      'cbai/deepseek-v4.1-flash',
       'xkiro/google/gemini-3.8-flash',
       'xkiro/google/gemini-3.1-pro',
-      'pahri-fast',
-      'pahri-pro',
-      'pahri-deep',
       'kr/claude-sonnet-4.5',
       'kimchi/deepseek-v4-flash-0731',
     ].filter(Boolean);
@@ -454,6 +453,8 @@ router.get('/jobs', async (req, res) => {
         step: job.progress?.step ?? null,
         message: job.progress?.message ?? null,
         videoTitle: job.returnvalue?.videoTitle || job.progress?.videoTitle || null,
+        // Bahasa konten — UI memakainya untuk memilih bahasa fallback metadata.
+        language: job.returnvalue?.language || null,
         clipCount: job.data?.clipCount ?? null,
         clips,
         result: job.returnvalue?.success ? job.returnvalue : (clips.length > 0 ? { success: true, clips } : null),
