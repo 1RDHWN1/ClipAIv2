@@ -12,6 +12,7 @@ import {
   VALID_ANCHORS,
   VALID_WATERMARK_POSITIONS,
 } from '../../utils/brandingOverlay.js';
+import { SUBTITLE_SAFE_MARGIN_V } from '../../utils/subtitleGenerator.js';
 
 const FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
 
@@ -224,8 +225,10 @@ test('Branding: filter generation', async (t) => {
     });
     const f = buildBrandingFilters(cfgAbove, { fontFile: FONT })[0];
     assert.ok(f.includes('x=(w-tw)/2'), `expected centred x, got: ${f}`);
-    // 160px subtitle band + 150px gap = 310px off the bottom edge.
-    assert.ok(f.includes("y=h-th-310"), `expected caption-clearing y, got: ${f}`);
+    // The watermark must clear BOTH the caption band AND the platform UI.
+    // Layout: safe margin + caption band (200) + gap (90).
+    const expected = SUBTITLE_SAFE_MARGIN_V + 200 + 90;
+    assert.ok(f.includes(`y=h-th-${expected}`), `expected caption-clearing y=h-th-${expected}, got: ${f}`);
   });
 
   await t.test('the watermark floats WITHOUT a background box by default', () => {

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 import {
+  SUBTITLE_SAFE_MARGIN_V,
   VIRAL_PRESETS,
   SUBTITLE_PRESETS,
   getPreset,
@@ -46,7 +47,8 @@ test('Challenger M2 - Suite 1: Preset Conformance & Fallback Architecture', asyn
     assert.strictEqual(p.outlineWidth, 5);
     assert.strictEqual(p.shadow, 0);
     assert.strictEqual(p.alignment, 2);
-    assert.strictEqual(p.marginV, 300);
+    // Safe-zone margin: clears the YouTube Shorts / TikTok / Reels UI.
+    assert.strictEqual(p.marginV, SUBTITLE_SAFE_MARGIN_V);
     assert.strictEqual(p.uppercase, true);
   });
 
@@ -61,7 +63,8 @@ test('Challenger M2 - Suite 1: Preset Conformance & Fallback Architecture', asyn
     assert.strictEqual(p.outlineWidth, 6);
     assert.strictEqual(p.shadow, 2);
     assert.strictEqual(p.alignment, 2);
-    assert.strictEqual(p.marginV, 300);
+    // Safe-zone margin: clears the YouTube Shorts / TikTok / Reels UI.
+    assert.strictEqual(p.marginV, SUBTITLE_SAFE_MARGIN_V);
     assert.strictEqual(p.uppercase, true);
   });
 
@@ -76,7 +79,8 @@ test('Challenger M2 - Suite 1: Preset Conformance & Fallback Architecture', asyn
     assert.strictEqual(p.outlineWidth, 4);
     assert.strictEqual(p.shadow, 1);
     assert.strictEqual(p.alignment, 2);
-    assert.strictEqual(p.marginV, 300);
+    // Safe-zone margin: clears the YouTube Shorts / TikTok / Reels UI.
+    assert.strictEqual(p.marginV, SUBTITLE_SAFE_MARGIN_V);
     assert.strictEqual(p.uppercase, true);
   });
 
@@ -91,7 +95,7 @@ test('Challenger M2 - Suite 1: Preset Conformance & Fallback Architecture', asyn
     assert.strictEqual(p.outlineWidth, 2);
     assert.strictEqual(p.shadow, 2);
     assert.strictEqual(p.alignment, 2);
-    assert.strictEqual(p.marginV, 240);
+    assert.strictEqual(p.marginV, SUBTITLE_SAFE_MARGIN_V);
     assert.strictEqual(p.uppercase, false);
   });
 
