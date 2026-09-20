@@ -8,6 +8,7 @@ import {
 import {
   normalizeClipMetadata,
   applyMetadataToClips,
+  sanitizeHeadline,
 } from '../../utils/metadataGenerator.js';
 
 test('Auto Headline: branding configuration & drawtext overlay', async (t) => {
@@ -120,5 +121,22 @@ test('Auto Headline & Virality Metadata: normalization and clip merge', async (t
     // Second clip falls back gracefully
     assert.strictEqual(res[1].headline, 'Hook 2');
     assert.strictEqual(res[1].score, 95);
+  });
+
+  await t.test('sanitizeHeadline strips speech stutters, repetitions, and conversational fillers', () => {
+    // Exact stutter reported by user
+    const obama1 = "you you can't just be a scold all the time.";
+    assert.strictEqual(sanitizeHeadline(obama1), 'Stop Being a Scold All the Time');
+
+    // Exact hallucinated stutter reported by user
+    const obama2 = "You know, if if oon if convictions don't cost anything, then they're really just kind of fashion.";
+    assert.strictEqual(
+      sanitizeHeadline(obama2, 'Beliefs Without Cost Are Just Fashion'),
+      'Beliefs Without Cost Are Just Fashion'
+    );
+
+    // Headline with quotes and fillers
+    const quote = '"Like, you know, Stop Overexplaining: Be a Well"';
+    assert.strictEqual(sanitizeHeadline(quote), 'Stop Overexplaining: Be a Well');
   });
 });
