@@ -155,9 +155,25 @@ export function normalizeBrandingConfig(input) {
   // quietly beside the captions, not to draw a second black box over the video.
   const showWatermarkBg = cfg.watermarkBackground === true;
 
+  const showHeadline = cfg.showHeadline === true;
+  const headlineText = str(cfg.headlineText, 80);
+  const rawHeadlineFontSize = Number(cfg.headlineFontSize);
+  const headlineFontSize = Number.isFinite(rawHeadlineFontSize)
+    ? Math.min(64, Math.max(18, Math.round(rawHeadlineFontSize)))
+    : 34;
+  const headlineDuration = Math.min(30, Math.max(1, Number(cfg.headlineDuration) || 5));
+  const headlineColor = hexColor(cfg.headlineColor, '#000000');
+  const headlineBgColor = hexColor(cfg.headlineBgColor, '#FFFFFF');
+
   return {
     showSource: cfg.showSource !== false,
     showWatermark: cfg.showWatermark !== false,
+    showHeadline,
+    headlineText,
+    headlineFontSize,
+    headlineDuration,
+    headlineColor,
+    headlineBgColor,
     sourceLabel: str(cfg.sourceLabel, 80),
     sourceChannel: str(cfg.sourceChannel, 80),
     sourceColor: hexColor(cfg.sourceColor, '#FFFFFF'),
@@ -184,7 +200,11 @@ export function normalizeBrandingConfig(input) {
 export function brandingIsActive(cfg) {
   if (!cfg) return false;
   const sourceText = cfg.sourceChannel || cfg.sourceLabel;
-  return Boolean((cfg.showSource && sourceText) || (cfg.showWatermark && cfg.watermarkText));
+  return Boolean(
+    (cfg.showSource && sourceText) ||
+    (cfg.showWatermark && cfg.watermarkText) ||
+    (cfg.showHeadline && cfg.headlineText)
+  );
 }
 
 /**
@@ -318,6 +338,20 @@ export function buildBrandingFilters(cfg, options = {}) {
     }
 
     filters.push(parts.join(':'));
+  }
+
+  if (c.showHeadline && c.headlineText) {
+    // Opus Clip style Auto Headline: prominent on-screen hook at the top for first N seconds
+    filters.push(
+      `drawtext=${fontPart}` +
+      `:text='${escapeDrawtext(c.headlineText)}'` +
+      `:fontcolor=${c.headlineColor}@1.0` +
+      `:fontsize=${c.headlineFontSize}` +
+      `:box=1:boxcolor=${c.headlineBgColor}@0.95:boxborderw=18` +
+      `:x=(w-text_w)/2` +
+      `:y=160` +
+      `:enable='lte(t,${c.headlineDuration})'`
+    );
   }
 
   return filters;
