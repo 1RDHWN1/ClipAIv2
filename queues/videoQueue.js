@@ -37,8 +37,8 @@ export const videoQueue = new Queue('video-processing', {
   defaultJobOptions: {
     attempts: 2,
     backoff: { type: 'exponential', delay: 5000 },
-    removeOnComplete: { age: 3600 }, // hapus job setelah 1 jam
-    removeOnFail: { age: 86400 },    // hapus job gagal setelah 1 hari
+    removeOnComplete: { count: 200, age: 7 * 86400 }, // simpan hingga 200 job terakhir / 7 hari
+    removeOnFail: { count: 100, age: 7 * 86400 },    // simpan hingga 100 job gagal / 7 hari
 
     // ---------------------------------------------------------------
     // No automatic re-run after a restart.
