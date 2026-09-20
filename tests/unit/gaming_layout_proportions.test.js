@@ -22,10 +22,9 @@ import {
 test('Gaming layout: webcam smaller, content larger, no black bars', async (t) => {
   const graph = buildGamingStreamerFilterGraph({ srcWidth: 1920, srcHeight: 1080 });
 
-  await t.test('the webcam panel is a quarter of the frame, not 42%', () => {
-    assert.strictEqual(GAMING_CAM_PANEL_H, 480, 'webcam panel must be 480px (25%)');
+  await t.test('the webcam panel is a small fraction of the frame', () => {
     assert.ok(
-      GAMING_CAM_PANEL_H / 1920 <= 0.30,
+      GAMING_CAM_PANEL_H / 1920 <= 0.25,
       `webcam panel is ${(GAMING_CAM_PANEL_H / 1920 * 100).toFixed(0)}% of the frame — too tall`
     );
   });
@@ -39,17 +38,25 @@ test('Gaming layout: webcam smaller, content larger, no black bars', async (t) =
 
   await t.test('the content panel is the majority of the frame', () => {
     assert.ok(
-      GAMING_GAME_PANEL_H / 1920 >= 0.70,
+      GAMING_GAME_PANEL_H / 1920 >= 0.75,
       `content panel is only ${(GAMING_GAME_PANEL_H / 1920 * 100).toFixed(0)}% of the frame`
     );
   });
 
-  await t.test('the sharp content is scaled up, not just fitted', () => {
-    // A plain 16:9 fit at 1080 wide would be 607px tall; we want it bigger.
+  await t.test('the content is bigger than a plain fit but not over-zoomed', () => {
+    // A plain 16:9 fit at 1080 wide is 607px tall. We want it bigger, but a
+    // 16:9 source in a 9:16 frame can only grow by cropping the sides, so cap
+    // the zoom so no more than ~40% of the width is lost.
     const fitHeight = Math.round(1080 * 9 / 16);
     assert.ok(
       GAMING_SHARP_H > fitHeight,
       `sharp content (${GAMING_SHARP_H}px) must exceed the plain fit (${fitHeight}px)`
+    );
+    const sourceWidth = GAMING_SHARP_H * 16 / 9;
+    const croppedRatio = (sourceWidth - 1080) / sourceWidth;
+    assert.ok(
+      croppedRatio <= 0.40,
+      `zooming to ${GAMING_SHARP_H}px crops ${(croppedRatio * 100).toFixed(0)}% of the width — too much`
     );
     assert.ok(
       graph.filterComplex.includes(`scale=1080:${GAMING_SHARP_H}`),

@@ -291,17 +291,24 @@ export function buildAdaptiveSplitFilterGraph({
  * Sekarang panel konten 1440px diisi background blur + konten tajam di tengah,
  * jadi ruang itu terpakai, bukan hitam.
  */
-export const GAMING_CAM_PANEL_H = 480;
-export const GAMING_GAME_PANEL_H = 1440;
+export const GAMING_CAM_PANEL_H = parseInt(process.env.GAMING_CAM_PANEL_H || '360', 10);
+export const GAMING_GAME_PANEL_H = 1920 - GAMING_CAM_PANEL_H;
 /**
- * Tinggi konten tajam di dalam panel game.
+ * Tinggi konten tajam di dalam panel game — bisa diatur lewat env var.
  *
- * Konten 16:9 yang di-fit ke lebar 1080 cuma 607px tinggi, jadi panel 1440px
- * menyisakan 833px (58%) yang cuma bisa jadi blur. Dengan men-scale konten ke
- * 1080x900 lalu crop tengah, kontennya jadi ~48% lebih besar; yang terpotong
- * hanya sisi kiri/kanan (UI chat & PiP kecil, yang memang bukan fokus).
+ * MASALAH MATEMATIS: konten sumber itu 16:9, frame target 9:16 (lebih tinggi
+ * dari lebar). Jadi konten TIDAK BISA mengisi frame penuh tanpa crop:
+ *   - di-fit lebar penuh (1080) -> tinggi cuma 607px (32% frame), sisanya blur
+ *   - makin besar -> makin banyak sisi kiri-kanan yang harus dipotong
+ * Nggak ada jalan tengah yang menghindari trade-off ini; tinggal pilih mau
+ * konten lebih besar (crop lebih banyak) atau lebih utuh (blur lebih banyak).
+ *
+ * Default 1000px (52% frame, crop ~39% lebar) — konten jelas & besar, crop
+ * masih wajar. Ubah lewat env var tanpa edit kode:
+ *   GAMING_SHARP_H=800  -> lebih utuh, blur lebih banyak
+ *   GAMING_SHARP_H=1200 -> lebih besar, crop lebih banyak
  */
-export const GAMING_SHARP_H = 900;
+export const GAMING_SHARP_H = parseInt(process.env.GAMING_SHARP_H || '1000', 10);
 const CAM_PANEL_H = GAMING_CAM_PANEL_H;
 const GAME_PANEL_H = GAMING_GAME_PANEL_H;
 const SHARP_H = GAMING_SHARP_H;

@@ -4,7 +4,7 @@ import assert from 'node:assert';
 import path from 'node:path';
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
-import { buildGamingStreamerFilterGraph, buildStackedSplitFilterGraph, buildAdaptiveSplitFilterGraph, resolveLayoutMode } from '../../utils/clipper.js';
+import { buildGamingStreamerFilterGraph, buildStackedSplitFilterGraph, buildAdaptiveSplitFilterGraph, resolveLayoutMode, GAMING_CAM_PANEL_H, GAMING_GAME_PANEL_H } from '../../utils/clipper.js';
 
 test('Adaptive Multi-Layout Engine (Milestone 4)', async (t) => {
   await t.test('Case 1: buildGamingStreamerFilterGraph generates valid dimensions and filter syntax', () => {
@@ -15,10 +15,10 @@ test('Adaptive Multi-Layout Engine (Milestone 4)', async (t) => {
 
     assert.strictEqual(graph.renderWidth, 1080);
     assert.strictEqual(graph.renderHeight, 1920);
-    assert.strictEqual(graph.camHeight, 480);
-    assert.strictEqual(graph.gameHeight, 1440);
-    assert.ok(graph.filterComplex.includes('scale=1080:480'), 'Should scale facecam to 480px');
-    assert.ok(graph.filterComplex.includes('scale=1080:1440'), 'Should fill gameplay panel at 1440px');
+    assert.strictEqual(graph.camHeight, GAMING_CAM_PANEL_H);
+    assert.strictEqual(graph.gameHeight, GAMING_GAME_PANEL_H);
+    assert.ok(graph.filterComplex.includes(`scale=1080:${GAMING_CAM_PANEL_H}`), 'Should scale facecam to 480px');
+    assert.ok(graph.filterComplex.includes(`scale=1080:${GAMING_GAME_PANEL_H}`), 'Should fill gameplay panel at 1440px');
     assert.ok(graph.filterComplex.includes('gblur'), 'Gameplay letterbox must be filled with a blurred copy, not black bars');
     assert.ok(graph.filterComplex.includes('vstack=inputs=2'), 'Should stack cam and game vertically');
   });

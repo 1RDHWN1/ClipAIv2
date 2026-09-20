@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { buildGamingStreamerFilterGraph } from '../../utils/clipper.js';
+import { buildGamingStreamerFilterGraph, GAMING_CAM_PANEL_H, GAMING_GAME_PANEL_H } from '../../utils/clipper.js';
 
 test('Gaming Streamer Webcam Detection & Positioning', async (t) => {
   await t.test('Case 1: explicit webcam coordinates are correctly injected into crop filter', () => {
@@ -20,8 +20,8 @@ test('Gaming Streamer Webcam Detection & Positioning', async (t) => {
       graph.filterComplex.includes('crop=448:324:832:396'),
       `Filter complex must crop webcam at (832, 396), got: ${graph.filterComplex}`
     );
-    assert.ok(graph.filterComplex.includes('scale=1080:480'), 'Cam must be scaled to 1080x480');
-    assert.ok(graph.filterComplex.includes('scale=1080:1440'), 'Game panel must be 1080x1440 (blur fill)');
+    assert.ok(graph.filterComplex.includes(`scale=1080:${GAMING_CAM_PANEL_H}`), 'Cam must be scaled to 1080x480');
+    assert.ok(graph.filterComplex.includes(`scale=1080:${GAMING_GAME_PANEL_H}`), 'Game panel must be 1080x1440 (blur fill)');
     assert.ok(graph.filterComplex.includes('gblur'), 'Game letterbox must be blurred, not black');
     assert.ok(graph.filterComplex.includes('vstack=inputs=2'), 'Must stack vertically');
   });
