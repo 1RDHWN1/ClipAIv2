@@ -38,6 +38,21 @@ export function deriveMaxCharsPerChunk(fontSize) {
 }
 
 /**
+ * Vertical safe margin (px) for the burned-in captions on a 1080x1920 frame.
+ *
+ * WHY 560: YouTube Shorts, TikTok and Reels all draw their own UI over the
+ * bottom of the video — video title, channel handle, and the comment box. That
+ * furniture occupies roughly the bottom 580px of a 1080x1920 frame. The old
+ * default of 300px put the captions straight underneath it, so on the real
+ * app the subtitles were unreadable.
+ *
+ * 560px lifts the caption band clear of the platform chrome while keeping it
+ * low enough to still read as a caption and not float into the subject's face.
+ * 560/1920 = 29% of the frame height.
+ */
+export const SUBTITLE_SAFE_MARGIN_V = 560;
+
+/**
  * Pre-configured viral subtitle presets inspired by top short-form creators
  */
 export const VIRAL_PRESETS = {
@@ -52,7 +67,7 @@ export const VIRAL_PRESETS = {
     outlineWidth: 5,
     shadow: 0,
     alignment: 2, // Bottom-center
-    marginV: 300,
+    marginV: SUBTITLE_SAFE_MARGIN_V,
     uppercase: true,
   },
   mrbeast: {
@@ -66,7 +81,7 @@ export const VIRAL_PRESETS = {
     outlineWidth: 6,
     shadow: 2,
     alignment: 2, // Bottom-center
-    marginV: 300,
+    marginV: SUBTITLE_SAFE_MARGIN_V,
     uppercase: true,
   },
   cyber: {
@@ -84,7 +99,7 @@ export const VIRAL_PRESETS = {
     outlineWidth: 4,
     shadow: 1,
     alignment: 2, // Bottom-center
-    marginV: 300,
+    marginV: SUBTITLE_SAFE_MARGIN_V,
     uppercase: true,
   },
   minimal: {
@@ -98,7 +113,7 @@ export const VIRAL_PRESETS = {
     outlineWidth: 2,
     shadow: 2,
     alignment: 2, // Bottom-center
-    marginV: 240,
+    marginV: SUBTITLE_SAFE_MARGIN_V,
     uppercase: false,
   },
 };
@@ -358,7 +373,7 @@ export function generateAssSubtitles(clipWords, clipStart = 0, clipEnd = Infinit
   let alignment = base.alignment || 2;
   let marginV = (config.marginV !== undefined && !isNaN(Number(config.marginV)))
     ? Number(config.marginV)
-    : base.marginV || 300;
+    : base.marginV || SUBTITLE_SAFE_MARGIN_V;
 
   const verticalPos = (config.verticalAlignment || config.position || '').toLowerCase();
   if (verticalPos === 'center' || verticalPos === 'middle') {
@@ -369,7 +384,7 @@ export function generateAssSubtitles(clipWords, clipStart = 0, clipEnd = Infinit
     marginV = config.marginV !== undefined ? Number(config.marginV) : 220;
   } else if (verticalPos === 'bottom') {
     alignment = 2;
-    marginV = config.marginV !== undefined ? Number(config.marginV) : (base.marginV || 300);
+    marginV = config.marginV !== undefined ? Number(config.marginV) : (base.marginV || SUBTITLE_SAFE_MARGIN_V);
   } else if (config.alignment !== undefined && !isNaN(Number(config.alignment))) {
     alignment = Number(config.alignment);
   }
