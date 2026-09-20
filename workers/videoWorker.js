@@ -20,7 +20,7 @@ console.log('🚀 Video Worker starting...');
 const worker = new Worker(
   'video-processing',
   async (job) => {
-    const { url, aspectRatio, clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard', jobId = job.id } = job.data;
+    const { url, aspectRatio, clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard', jobId = job.id, aiModel } = job.data;
 
     // Track warnings for transparency about fallbacks and processing path
     const warnings = [];
@@ -38,6 +38,9 @@ const worker = new Worker(
       console.log(`   Auto Subtitles: ENABLED (Preset: ${subtitleConfig.preset || 'hormozi'})`);
     } else {
       console.log(`   Auto Subtitles: DISABLED`);
+    }
+    if (aiModel) {
+      console.log(`   AI Model Override: ${aiModel}`);
     }
     console.log(`${'='.repeat(50)}`);
 
@@ -223,6 +226,7 @@ const worker = new Worker(
         sentences: enrichedSentences,
         silences: silenceIntervals,
         language,
+        aiModel,
       });
 
       if (aiClips.length === 0) {
