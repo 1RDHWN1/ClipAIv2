@@ -123,6 +123,55 @@ test('Auto Headline & Virality Metadata: normalization and clip merge', async (t
     assert.strictEqual(res[1].score, 95);
   });
 
+  await t.test('a raw branding config must not clobber the per-clip headline', () => {
+    // REAL BUG: the UI sends `headlineText: null` (the user never typed one —
+    // the AI generates it per clip). clipper.js spread the raw config AFTER
+    // the derived headlineText, so the null won, the headline vanished, and
+    // the render still "succeeded" — no error, just a missing box.
+    //
+    // This reproduces the exact merge from utils/clipper.js.
+    const clip = { headline: "Obama's Urgent Warning on Democracy", title: 'Fallback Title' };
+    const rawBranding = {
+      showSource: true,
+      showWatermark: true,
+      showHeadline: true,
+      headlineText: null, // <-- the clobbering value
+      headlineDuration: 5,
+      headlineColor: '#000000',
+      headlineBgColor: '#FFFFFF',
+      sourceLabel: 'SC',
+      watermarkText: '@prime.clipsmedia',
+    };
+
+    const effectiveBranding = {
+      // Spread FIRST, derived fields after — the order is the fix.
+      ...rawBranding,
+      showHeadline: rawBranding.showHeadline !== false,
+      headlineText: clip.headline || rawBranding?.headlineText || clip.title || '',
+      headlineDuration: rawBranding?.headlineDuration || 5,
+      headlineColor: rawBranding?.headlineColor || '#000000',
+      headlineBgColor: rawBranding?.headlineBgColor || '#FFFFFF',
+    };
+
+    assert.strictEqual(
+      effectiveBranding.headlineText,
+      "Obama's Urgent Warning on Democracy",
+      'the per-clip headline must survive the branding merge'
+    );
+
+    const cfg = normalizeBrandingConfig(effectiveBranding);
+    assert.strictEqual(cfg.headlineText, "Obama's Urgent Warning on Democracy");
+    assert.strictEqual(brandingIsActive(cfg), true);
+
+    const filters = buildBrandingFilters(cfg, {
+      fontFile: '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+    });
+    assert.ok(
+      filters.some((f) => f.includes('y=120')),
+      'the headline drawtext filter must actually be generated'
+    );
+  });
+
   await t.test('sanitizeHeadline strips speech stutters, repetitions, and conversational fillers', () => {
     // Exact stutter reported by user
     const obama1 = "you you can't just be a scold all the time.";
