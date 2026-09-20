@@ -4,7 +4,7 @@ import assert from 'node:assert';
 import path from 'node:path';
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
-import { buildGamingStreamerFilterGraph, buildStackedSplitFilterGraph } from '../../utils/clipper.js';
+import { buildGamingStreamerFilterGraph, buildStackedSplitFilterGraph, buildAdaptiveSplitFilterGraph } from '../../utils/clipper.js';
 
 test('Adaptive Multi-Layout Engine (Milestone 4)', async (t) => {
   await t.test('Case 1: buildGamingStreamerFilterGraph generates valid dimensions and filter syntax', () => {
@@ -105,5 +105,35 @@ test('Adaptive Multi-Layout Engine (Milestone 4)', async (t) => {
     }
 
     assert.strictEqual(result.code, 0, `FFmpeg execution must succeed, err: ${result.err}`);
+  });
+
+  await t.test('Case 5: buildAdaptiveSplitFilterGraph with empty wideIntervals produces pure solo crop without vstack', () => {
+    const graph = buildAdaptiveSplitFilterGraph({
+      srcWidth: 1920,
+      srcHeight: 1080,
+      wideIntervals: [],
+      subtitleAssPath: 'test_subs.ass',
+    });
+
+    assert.ok(graph.filterComplex.includes('crop='), 'Must contain crop');
+    assert.ok(graph.filterComplex.includes('scale=1080:1920'), 'Must scale to 1080:1920');
+    assert.ok(graph.filterComplex.includes('setsar=1'), 'Must include setsar=1');
+    assert.strictEqual(graph.filterComplex.includes('vstack'), false, 'Must NOT stack panels when no wide shots');
+    assert.strictEqual(graph.filterComplex.includes('[top]'), false, 'Must NOT create [top] panel');
+    assert.strictEqual(graph.filterComplex.includes('[bottom]'), false, 'Must NOT create [bottom] panel');
+    assert.ok(graph.filterComplex.includes("ass='test_subs.ass'"), 'Must overlay subtitles on solo crop');
+  });
+
+  await t.test('Case 6: buildAdaptiveSplitFilterGraph with wideIntervals enables split overlay only on intervals', () => {
+    const graph = buildAdaptiveSplitFilterGraph({
+      srcWidth: 1920,
+      srcHeight: 1080,
+      wideIntervals: [{ start: 5.0, end: 12.5, x1: 400, x2: 1500 }],
+      subtitleAssPath: 'test_subs.ass',
+    });
+
+    assert.ok(graph.filterComplex.includes('vstack=inputs=2'), 'Must stack during wide interval');
+    assert.ok(graph.filterComplex.includes("overlay=0:0:enable='between(t\\,5.00\\,12.50)'"), 'Must overlay only during wide interval');
+    assert.ok(graph.filterComplex.includes("ass='test_subs.ass'"), 'Must include subtitles');
   });
 });
