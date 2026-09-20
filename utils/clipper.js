@@ -291,27 +291,10 @@ export function buildAdaptiveSplitFilterGraph({
  * Sekarang panel konten 1440px diisi background blur + konten tajam di tengah,
  * jadi ruang itu terpakai, bukan hitam.
  */
-export const GAMING_CAM_PANEL_H = parseInt(process.env.GAMING_CAM_PANEL_H || '360', 10);
+export const GAMING_CAM_PANEL_H = parseInt(process.env.GAMING_CAM_PANEL_H || '400', 10);
 export const GAMING_GAME_PANEL_H = 1920 - GAMING_CAM_PANEL_H;
-/**
- * Tinggi konten tajam di dalam panel game — bisa diatur lewat env var.
- *
- * MASALAH MATEMATIS: konten sumber itu 16:9, frame target 9:16 (lebih tinggi
- * dari lebar). Jadi konten TIDAK BISA mengisi frame penuh tanpa crop:
- *   - di-fit lebar penuh (1080) -> tinggi cuma 607px (32% frame), sisanya blur
- *   - makin besar -> makin banyak sisi kiri-kanan yang harus dipotong
- * Nggak ada jalan tengah yang menghindari trade-off ini; tinggal pilih mau
- * konten lebih besar (crop lebih banyak) atau lebih utuh (blur lebih banyak).
- *
- * Default 1000px (52% frame, crop ~39% lebar) — konten jelas & besar, crop
- * masih wajar. Ubah lewat env var tanpa edit kode:
- *   GAMING_SHARP_H=800  -> lebih utuh, blur lebih banyak
- *   GAMING_SHARP_H=1200 -> lebih besar, crop lebih banyak
- */
-export const GAMING_SHARP_H = parseInt(process.env.GAMING_SHARP_H || '1000', 10);
 const CAM_PANEL_H = GAMING_CAM_PANEL_H;
 const GAME_PANEL_H = GAMING_GAME_PANEL_H;
-const SHARP_H = GAMING_SHARP_H;
 
 /**
  * Builds stacked gaming streamer filter graph:
@@ -354,15 +337,10 @@ export function buildGamingStreamerFilterGraph({
 
   const filterParts = [
     `[0:v]crop=${targetCamW}:${targetCamH}:${targetCamX}:${targetCamY},scale=1080:${CAM_PANEL_H}:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:${CAM_PANEL_H},setsar=1[cam]`,
-    // Main content fills the panel with a blurred, zoomed copy of itself as the
-    // background, and the sharp 16:9 frame centred on top. Plain `pad=black`
-    // left ~500px (26%) of the frame as dead black bars; the blurred fill uses
-    // that space instead of wasting it.
-    `[0:v]scale=1080:${GAME_PANEL_H}:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:${GAME_PANEL_H},gblur=sigma=24,setsar=1[gamebg]`,
-    // Konten tajam: isi penuh lebar 1080, tinggi mengikuti, lalu crop tengah ke
-    // SHARP_H. Lebih besar dari sekadar fit (607px) tanpa distorsi.
-    `[0:v]scale=1080:${SHARP_H}:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:${SHARP_H},setsar=1[gamefg]`,
-    `[gamebg][gamefg]overlay=(W-w)/2:(H-h)/2,setsar=1[game]`,
+    // Konten utama mengisi panel penuh dengan cover-fit: scale sampai menutup
+    // 1080xGAME_PANEL_H lalu crop tengah. Crop-nya minimal (hanya sisi
+    // kiri/kanan yang berlebih), TANPA blur dan tanpa letterbox.
+    `[0:v]scale=1080:${GAME_PANEL_H}:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:${GAME_PANEL_H},setsar=1[game]`,
     `[cam][game]vstack=inputs=2[vraw]`,
   ];
 

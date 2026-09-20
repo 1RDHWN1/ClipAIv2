@@ -19,7 +19,7 @@ test('Adaptive Multi-Layout Engine (Milestone 4)', async (t) => {
     assert.strictEqual(graph.gameHeight, GAMING_GAME_PANEL_H);
     assert.ok(graph.filterComplex.includes(`scale=1080:${GAMING_CAM_PANEL_H}`), 'Should scale facecam to 480px');
     assert.ok(graph.filterComplex.includes(`scale=1080:${GAMING_GAME_PANEL_H}`), 'Should fill gameplay panel at 1440px');
-    assert.ok(graph.filterComplex.includes('gblur'), 'Gameplay letterbox must be filled with a blurred copy, not black bars');
+    assert.ok(!graph.filterComplex.includes('gblur'), 'Content panel must be filled by cover-fit, not blur');
     assert.ok(graph.filterComplex.includes('vstack=inputs=2'), 'Should stack cam and game vertically');
   });
 

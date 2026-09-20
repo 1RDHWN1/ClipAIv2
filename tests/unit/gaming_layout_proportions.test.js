@@ -6,7 +6,6 @@ import {
   buildGamingStreamerFilterGraph,
   GAMING_CAM_PANEL_H,
   GAMING_GAME_PANEL_H,
-  GAMING_SHARP_H,
 } from '../../utils/clipper.js';
 
 // ---------------------------------------------------------------------------
@@ -43,36 +42,25 @@ test('Gaming layout: webcam smaller, content larger, no black bars', async (t) =
     );
   });
 
-  await t.test('the content is bigger than a plain fit but not over-zoomed', () => {
-    // A plain 16:9 fit at 1080 wide is 607px tall. We want it bigger, but a
-    // 16:9 source in a 9:16 frame can only grow by cropping the sides, so cap
-    // the zoom so no more than ~40% of the width is lost.
-    const fitHeight = Math.round(1080 * 9 / 16);
+  await t.test('the content fills its panel completely — no blur, no bars', () => {
+    // The user's ask: the main content should look like the original, just with
+    // a webcam strip added on top. So the content covers its whole panel with a
+    // centred cover-crop — no blurred filler and no black letterbox.
     assert.ok(
-      GAMING_SHARP_H > fitHeight,
-      `sharp content (${GAMING_SHARP_H}px) must exceed the plain fit (${fitHeight}px)`
+      !graph.filterComplex.includes('gblur'),
+      'must NOT blur the content panel'
     );
-    const sourceWidth = GAMING_SHARP_H * 16 / 9;
-    const croppedRatio = (sourceWidth - 1080) / sourceWidth;
-    assert.ok(
-      croppedRatio <= 0.40,
-      `zooming to ${GAMING_SHARP_H}px crops ${(croppedRatio * 100).toFixed(0)}% of the width — too much`
-    );
-    assert.ok(
-      graph.filterComplex.includes(`scale=1080:${GAMING_SHARP_H}`),
-      'the sharp content must be scaled to GAMING_SHARP_H'
-    );
-  });
-
-  await t.test('the letterbox is filled with a blurred copy, never black', () => {
-    assert.ok(graph.filterComplex.includes('gblur'), 'must use a gaussian blur fill');
     assert.ok(
       !/pad=\d+:\d+:[^,]*:black/.test(graph.filterComplex),
-      'must not pad with black bars'
+      'must NOT pad with black bars'
     );
     assert.ok(
-      /\[gamebg\]\[gamefg\]overlay=/.test(graph.filterComplex),
-      'the sharp content must be overlaid on the blurred fill'
+      graph.filterComplex.includes(`scale=1080:${GAMING_GAME_PANEL_H}:force_original_aspect_ratio=increase`),
+      'the content must cover-fit its panel'
+    );
+    assert.ok(
+      graph.filterComplex.includes(`crop=1080:${GAMING_GAME_PANEL_H}`),
+      'the cover-fit must be centred-cropped to the panel size'
     );
   });
 
