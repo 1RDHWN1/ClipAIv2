@@ -7,8 +7,52 @@ import 'dotenv/config';
 import { buildAudioCrossfadeFilter } from './boundarySnapper.js';
 import { downloadClipSection } from './downloader.js';
 import { generateAssSubtitles, escapeAssPath } from './subtitleGenerator.js';
-import { buildBrandingFilters, appendBrandingToGraph, appendBrandingToVideoFilters, normalizeBrandingConfig, brandingIsActive } from './brandingOverlay.js';
+import { buildBrandingFilters, appendBrandingToGraph, appendBrandingToVideoFilters, normalizeBrandingConfig, brandingIsActive, renderHeadlineCard, buildHeadlineCardFilters } from './brandingOverlay.js';
 import { getHardwareAccelerationConfig } from './gpuDetector.js';
+
+/**
+ * Overlay the rounded headline card PNG onto a filter_complex graph.
+ *
+ * The card is a CPU filter (like drawtext), so it must be inserted BEFORE any
+ * `hwupload`. The `movie=` source is added as its own statement; the overlay
+ * then combines it with the current tail label.
+ *
+ * @param {string} filterComplex
+ * @param {string} inputLabel       current chain tail, e.g. '[branded]'
+ * @param {{path:string}} card
+ * @returns {string} the extended graph (output label is always [hlout])
+ */
+function appendHeadlineCardToGraph(filterComplex, inputLabel, card, duration = 5) {
+  const label = inputLabel.startsWith('[') ? inputLabel : `[${inputLabel}]`;
+  const escaped = String(card.path)
+    .replace(/\\/g, '/')
+    .replace(/:/g, '\\:')
+    .replace(/'/g, "\\'");
+  // movie= must come first; then overlay the card onto the current tail.
+  return (
+    `movie='${escaped}'[hlcard];` +
+    `${filterComplex};` +
+    `[hlcard]format=rgba[hlcardrgba];` +
+    `${label}[hlcardrgba]overlay=(W-w)/2:120:enable='lte(t,${duration})'[hlout]`
+  );
+}
+
+/**
+ * Overlay the rounded headline card onto a plain -vf chain.
+ * `movie=` introduces a second input, so the chain needs an `[in]` anchor.
+ *
+ * @param {string} vfFilter  existing chain (may be empty)
+ * @param {{path:string}} card
+ * @returns {string}
+ */
+function appendHeadlineCardToVideoFilters(vfFilter, card, duration = 5) {
+  const escaped = String(card.path)
+    .replace(/\\/g, '/')
+    .replace(/:/g, '\\:')
+    .replace(/'/g, "\\'");
+  const base = vfFilter ? vfFilter : 'null';
+  return `movie='${escaped}'[hlcard];[in]${base}[hlbase];[hlbase][hlcard]overlay=(W-w)/2:120:enable='lte(t,${duration})'`;
+}
 
 const OUTPUT_DIR = process.env.OUTPUT_DIR || './outputs';
 const SPEAKER_TRACKING_ENABLED = process.env.SPEAKER_TRACKING_ENABLED !== 'false';
@@ -601,6 +645,27 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       ? normalizeBrandingConfig(options.branding)
       : null;
 
+    // Auto Headline: render as a rounded PNG card and overlay it, instead of
+    // drawtext's hard-edged box. Falls back to the drawtext box automatically
+    // when Pillow / the generator script is unavailable.
+    let headlineCard = null;      // { path, width, height }
+    let headlineGraphSuffix = ''; // appended after branding, before hwupload
+    if (brandingCfg?.showHeadline && brandingCfg.headlineText && brandingCfg.headlineRounded !== false) {
+      const cardPath = path.join(
+        OUTPUT_DIR,
+        `.hl_card_${path.basename(outputPath, '.mp4')}.png`,
+      );
+      const card = renderHeadlineCard(brandingCfg, {
+        outPath: cardPath,
+        videoWidth: 1080,
+      });
+      if (card.ok) {
+        headlineCard = { path: cardPath, ...card };
+      } else {
+        console.warn('⚠️ [clipper] Kartu headline rounded tidak tersedia — memakai kotak drawtext standar.');
+      }
+    }
+
     if (layoutMode === 'gaming_streamer' && aspectRatio === '9:16') {
       const graph = buildGamingStreamerFilterGraph({
         srcWidth,
@@ -614,7 +679,14 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       let filterComplex = graph.filterComplex;
       let outputMap = graph.outputMap;
       if (brandingCfg) {
-        ({ filterComplex, outputLabel: outputMap } = appendBrandingToGraph(filterComplex, outputMap, brandingCfg));
+        ({ filterComplex, outputLabel: outputMap } = appendBrandingToGraph(
+          filterComplex, outputMap, brandingCfg,
+          { skipHeadlineDrawtext: Boolean(headlineCard) },
+        ));
+      }
+      if (headlineCard) {
+        filterComplex = appendHeadlineCardToGraph(filterComplex, outputMap, headlineCard, brandingCfg.headlineDuration);
+        outputMap = '[hlout]';
       }
       if (useGpu) {
         filterComplex += `;${outputMap}format=nv12,hwupload[hwout]`;
@@ -644,7 +716,14 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       let filterComplex = graph.filterComplex;
       let outputMap = graph.outputMap;
       if (brandingCfg) {
-        ({ filterComplex, outputLabel: outputMap } = appendBrandingToGraph(filterComplex, outputMap, brandingCfg));
+        ({ filterComplex, outputLabel: outputMap } = appendBrandingToGraph(
+          filterComplex, outputMap, brandingCfg,
+          { skipHeadlineDrawtext: Boolean(headlineCard) },
+        ));
+      }
+      if (headlineCard) {
+        filterComplex = appendHeadlineCardToGraph(filterComplex, outputMap, headlineCard, brandingCfg.headlineDuration);
+        outputMap = '[hlout]';
       }
       if (useGpu) {
         filterComplex += `;${outputMap}format=nv12,hwupload[hwout]`;
@@ -666,7 +745,14 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         outMap = '[vout]';
       }
       if (brandingCfg) {
-        ({ filterComplex, outputLabel: outMap } = appendBrandingToGraph(filterComplex, outMap, brandingCfg));
+        ({ filterComplex, outputLabel: outMap } = appendBrandingToGraph(
+          filterComplex, outMap, brandingCfg,
+          { skipHeadlineDrawtext: Boolean(headlineCard) },
+        ));
+      }
+      if (headlineCard) {
+        filterComplex = appendHeadlineCardToGraph(filterComplex, outMap, headlineCard, brandingCfg.headlineDuration);
+        outMap = '[hlout]';
       }
       if (useGpu) {
         filterComplex += `;${outMap}format=nv12,hwupload[hwout]`;
@@ -687,12 +773,16 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         subtitleAssPath: options.subtitleAssPath,
       });
       if (brandingCfg) {
-        vfFilter = appendBrandingToVideoFilters(vfFilter, brandingCfg);
+        vfFilter = appendBrandingToVideoFilters(vfFilter, brandingCfg, {
+          skipHeadlineDrawtext: Boolean(headlineCard),
+        });
+      }
+      if (headlineCard) {
+        vfFilter = appendHeadlineCardToVideoFilters(vfFilter, headlineCard, brandingCfg.headlineDuration);
       }
       // IMPORTANT: the hardware upload must come AFTER every CPU filter
-      // (drawtext included). hwupload hands the encoder a `vaapi` surface, and
-      // drawtext cannot run on it — "Filter not found" / impossible format
-      // conversion. So branding is drawn on CPU frames, then uploaded.
+      // (drawtext/overlay included). hwupload hands the encoder a `vaapi`
+      // surface, and CPU filters cannot run on it — "Filter not found".
       if (useGpu) {
         vfFilter = vfFilter ? `${vfFilter},format=nv12,hwupload` : 'format=nv12,hwupload';
       }
@@ -706,6 +796,14 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       cmd = cmd.audioFilters(afFilter);
     }
 
+    // The headline card PNG is a throwaway intermediate — remove it once the
+    // render finishes so `outputs/` does not fill with `.hl_card_*.png` files.
+    const cleanupCard = () => {
+      if (headlineCard?.path) {
+        try { fs.unlinkSync(headlineCard.path); } catch (_) {}
+      }
+    };
+
     cmd
       .output(outputPath)
       .on('start', (cmdLine) => {
@@ -718,6 +816,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       })
       .on('end', () => {
         process.stdout.write('\n');
+        cleanupCard();
         resolve();
       })
       .on('error', async (err) => {
@@ -729,11 +828,14 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
               hwaccel: 'cpu',
               _retryCpu: true,
             });
+            cleanupCard();
             return resolve();
           } catch (cpuErr) {
+            cleanupCard();
             return reject(cpuErr);
           }
         }
+        cleanupCard();
         reject(new Error(`FFmpeg error: ${err.message}`));
       })
       .run();
