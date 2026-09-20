@@ -22,7 +22,7 @@ console.log('🚀 Video Worker starting...');
 const worker = new Worker(
   'video-processing',
   async (job) => {
-    const { url, aspectRatio, clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard', jobId = job.id, aiModel, metadataMode = 'viral', targetPlatform = 'all' } = job.data;
+    const { url, aspectRatio, clipCount = 3, transcriptText, subtitleConfig, layoutMode = 'standard', jobId = job.id, aiModel, metadataMode = 'viral', targetPlatform = 'all', branding } = job.data;
 
     // Track warnings for transparency about fallbacks and processing path
     const warnings = [];
@@ -249,11 +249,22 @@ const worker = new Worker(
 
       // STEP 4: Proses klip (dengan audio crossfade, smooth easing & auto subtitles)
       await job.updateProgress({ step: 4, message: 'Memotong dan memproses video...', percent: 75 });
+
+      // Branding: nama channel sumber diambil dari metadata YouTube, tapi TIDAK
+      // menimpa nilai yang sudah diisi user secara eksplisit di form.
+      const resolvedBranding = branding
+        ? {
+            ...branding,
+            sourceChannel: branding.sourceChannel || downloaded.channelName || null,
+          }
+        : null;
+
       const processedClips = await processClips(videoPath, aiClips, jobId, aspectRatio, {
         speakerTurns,
         words: transcriptData.words,
         subtitleConfig,
         layoutMode,
+        branding: resolvedBranding,
       });
 
       await job.updateProgress({

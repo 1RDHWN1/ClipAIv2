@@ -117,12 +117,13 @@ export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
   console.log(`ℹ️ Fetching video info: ${url}`);
   const infoArgs = [
     ...YTDLP_BASE_ARGS,
-    '--print', '%(title)s|||%(duration)s|||%(language)s',
+    '--print', '%(title)s|||%(duration)s|||%(language)s|||%(channel)s|||%(uploader)s',
     '--', url,
   ];
   let title = 'Unknown Video';
   let duration = 0;
   let videoLang = null;
+  let channelName = null;
 
   try {
     const { stdout } = await execFileAsync(YTDLP_BIN, infoArgs, { timeout: 45000 });
@@ -130,6 +131,9 @@ export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
     title = parts[0] || 'Unknown Video';
     duration = parseInt(parts[1], 10) || 0;
     const rawLang = parts[2] || '';
+    // `channel` is the display name; `uploader` is the fallback when a video has
+    // no channel metadata (rare, but it happens on some re-uploads).
+    channelName = (parts[3] || parts[4] || '').trim() || null;
     const normLang = normalizeLanguageCode(rawLang);
     if (normLang && normLang !== 'unknown' && normLang !== 'auto') {
       videoLang = normLang;
@@ -154,6 +158,7 @@ export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
       title,
       duration,
       subtitles,
+      channelName,
       language: subtitles.language || videoLang || 'id',
     };
   }
@@ -166,6 +171,7 @@ export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
       title,
       duration,
       subtitles: null,
+      channelName,
       language: videoLang || 'id',
     };
   }
@@ -238,6 +244,7 @@ export async function downloadAudioAndInfo(rawUrl, jobId, options = {}) {
     title,
     duration,
     subtitles,
+    channelName,
     language: (subtitles && subtitles.language) || videoLang || 'id',
   };
 }
@@ -525,6 +532,7 @@ export async function downloadVideo(url, jobId, options = {}) {
     title: info.title,
     duration: info.duration,
     subtitles: info.subtitles,
+    channelName: info.channelName || null,
     language: info.language,
   };
 }

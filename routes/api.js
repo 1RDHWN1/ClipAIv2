@@ -7,6 +7,7 @@ import { createRateLimiter } from '../utils/rateLimiter.js';
 import { deleteJobOutputs, reapOutputs } from '../utils/outputReaper.js';
 import { detectHardwareAcceleration } from '../utils/gpuDetector.js';
 import { normalizeMetadataMode, VALID_METADATA_MODES } from '../utils/metadataGenerator.js';
+import { normalizeBrandingConfig, brandingIsActive } from '../utils/brandingOverlay.js';
 
 const router = express.Router();
 
@@ -146,6 +147,10 @@ router.post('/process', requireApiKey, processRateLimiter, async (req, res) => {
       ? targetPlatform
       : 'all';
 
+    // Normalisasi branding (atribusi sumber + watermark channel). Nama channel
+    // sumber diisi otomatis dari metadata YouTube kalau user tidak menimpanya.
+    const cleanBranding = normalizeBrandingConfig(body.branding);
+
     const job = await videoQueue.add(
       'process-video',
       {
@@ -159,11 +164,12 @@ router.post('/process', requireApiKey, processRateLimiter, async (req, res) => {
         aiModel: cleanAiModel,
         metadataMode: cleanMetadataMode,
         targetPlatform: cleanTargetPlatform,
+        branding: cleanBranding,
       },
       { jobId }
     );
 
-    console.log(`📌 Job added: ${jobId} | URL: ${url} | FastPath: ${Boolean(cleanTranscript)} | Subs: ${Boolean(cleanSubtitleConfig?.enabled)} | Model: ${cleanAiModel || 'default'} | Metadata: ${cleanMetadataMode}/${cleanTargetPlatform}`);
+    console.log(`📌 Job added: ${jobId} | URL: ${url} | FastPath: ${Boolean(cleanTranscript)} | Subs: ${Boolean(cleanSubtitleConfig?.enabled)} | Model: ${cleanAiModel || 'default'} | Metadata: ${cleanMetadataMode}/${cleanTargetPlatform} | Branding: ${brandingIsActive(cleanBranding) ? 'on' : 'off'}`);
 
     res.json({
       success: true,
