@@ -105,7 +105,7 @@ Every feature from ORIGINAL_REQUEST.md (specifically 2026-09-18T20:23:27Z) is ma
     ```javascript
     {
       enabled: boolean, // default true when config provided
-      preset: 'hormozi' | 'mrbeast' | 'cyberpunk' | 'minimal' | 'custom',
+      preset: 'hormozi' | 'mrbeast' | 'cyber' | 'minimal' | 'custom', // 'cyberpunk' alias supported
       fontFamily: string, // e.g. 'Impact', 'Arial', 'Montserrat'
       fontSize: number, // default 80 (scaled for 1080x1920)
       primaryColor: string, // hex e.g. '#FFFFFF'
