@@ -122,7 +122,7 @@ export function buildAdaptiveSplitFilterGraph({
   const validXExpr = soloCropXExpr || `${Math.floor((srcWidth - targetWidth) / 2)}`;
 
   const filterParts = [
-    `[0:v]crop=${targetWidth}:${cropHeight}:${validXExpr}:${soloY},scale=1080:1920,setsar=1[solo]`,
+    `[0:v]crop=${targetWidth}:${cropHeight}:${validXExpr}:${soloY},scale=1080:1920:flags=lanczos,setsar=1[solo]`,
   ];
 
   if (Array.isArray(wideIntervals) && wideIntervals.length > 0) {
@@ -170,8 +170,8 @@ export function buildAdaptiveSplitFilterGraph({
     const evenX2 = Math.floor(cropX2 / 2) * 2;
     const evenY = Math.floor(cropY / 2) * 2;
 
-    filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX1}:${evenY},scale=${PANEL_OUT_W}:${PANEL_OUT_H},setsar=1[top]`);
-    filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX2}:${evenY},scale=${PANEL_OUT_W}:${PANEL_OUT_H},setsar=1[bottom]`);
+    filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX1}:${evenY},scale=${PANEL_OUT_W}:${PANEL_OUT_H}:flags=lanczos,setsar=1[top]`);
+    filterParts.push(`[0:v]crop=${panelCropW}:${panelCropH}:${evenX2}:${evenY},scale=${PANEL_OUT_W}:${PANEL_OUT_H}:flags=lanczos,setsar=1[bottom]`);
     filterParts.push(`[top][bottom]vstack=inputs=2[split]`);
 
     const enableExpr = safeIntervals
@@ -180,7 +180,7 @@ export function buildAdaptiveSplitFilterGraph({
 
     filterParts.push(`[solo][split]overlay=0:0:enable='${enableExpr}'[vraw]`);
   } else {
-    filterParts[0] = `[0:v]crop=${targetWidth}:${cropHeight}:${validXExpr}:${soloY},scale=1080:1920,setsar=1[vraw]`;
+    filterParts[0] = `[0:v]crop=${targetWidth}:${cropHeight}:${validXExpr}:${soloY},scale=1080:1920:flags=lanczos,setsar=1[vraw]`;
   }
 
   let outputMap = '[vraw]';
@@ -230,8 +230,8 @@ export function buildGamingStreamerFilterGraph({
     : defaultCamY;
 
   const filterParts = [
-    `[0:v]crop=${targetCamW}:${targetCamH}:${targetCamX}:${targetCamY},scale=1080:800:force_original_aspect_ratio=increase,crop=1080:800,setsar=1[cam]`,
-    `[0:v]scale=1080:1120:force_original_aspect_ratio=decrease,pad=1080:1120:(ow-iw)/2:(oh-ih)/2:black,setsar=1[game]`,
+    `[0:v]crop=${targetCamW}:${targetCamH}:${targetCamX}:${targetCamY},scale=1080:800:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:800,setsar=1[cam]`,
+    `[0:v]scale=1080:1120:force_original_aspect_ratio=decrease:flags=lanczos,pad=1080:1120:(ow-iw)/2:(oh-ih)/2:black,setsar=1[game]`,
     `[cam][game]vstack=inputs=2[vraw]`,
   ];
 
@@ -685,7 +685,7 @@ function buildVideoFilter({ srcWidth, srcHeight, aspectRatio, clip, speakerTurns
       faceTrackingPlan,
     });
     filters.push(`crop=${targetWidth}:${cropHeight}:${xExpr}:${y}`);
-    filters.push(`scale=1080:1920:force_original_aspect_ratio=decrease`);
+    filters.push(`scale=1080:1920:force_original_aspect_ratio=decrease:flags=lanczos`);
     filters.push(`pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black`);
   } else if (aspectRatio === '1:1') {
     const size = Math.min(srcWidth, srcHeight);
@@ -701,9 +701,9 @@ function buildVideoFilter({ srcWidth, srcHeight, aspectRatio, clip, speakerTurns
       faceTrackingPlan,
     });
     filters.push(`crop=${size}:${size}:${xExpr}:${y}`);
-    filters.push(`scale=1080:1080`);
+    filters.push(`scale=1080:1080:flags=lanczos`);
   } else {
-    filters.push(`scale=1280:720:force_original_aspect_ratio=decrease`);
+    filters.push(`scale=1280:720:force_original_aspect_ratio=decrease:flags=lanczos`);
     filters.push(`pad=1280:720:(ow-iw)/2:(oh-ih)/2:black`);
   }
 
