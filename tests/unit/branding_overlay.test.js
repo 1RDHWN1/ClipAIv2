@@ -9,6 +9,7 @@ import {
   brandingIsActive,
   resolveFontFile,
   resetFontCache,
+  VALID_ANCHORS,
   VALID_WATERMARK_POSITIONS,
 } from '../../utils/brandingOverlay.js';
 
@@ -61,28 +62,46 @@ test('Branding: config normalisation', async (t) => {
     const cfg = normalizeBrandingConfig({});
     assert.strictEqual(cfg.showSource, true);
     assert.strictEqual(cfg.showWatermark, true);
-    assert.strictEqual(cfg.watermarkPosition, 'bottom-right');
+    // Default anchor sits above the captions, not in a corner.
+    assert.strictEqual(cfg.watermarkPosition, 'above-subtitles');
     assert.strictEqual(cfg.sourcePosition, 'top-left');
     assert.ok(cfg.watermarkOpacity > 0 && cfg.watermarkOpacity <= 1);
+    // A background box is opt-in; the watermark floats by default.
+    assert.strictEqual(cfg.watermarkBackground, false);
+  });
+
+  await t.test('watermark defaults to a subdued opacity so it does not fight the video', () => {
+    const cfg = normalizeBrandingConfig({});
+    assert.ok(
+      cfg.watermarkOpacity <= 0.5,
+      `default watermark opacity should be subtle, got ${cfg.watermarkOpacity}`
+    );
   });
 
   await t.test('rejects an invalid position instead of emitting a broken x/y', () => {
     const cfg = normalizeBrandingConfig({ watermarkPosition: 'middle-of-nowhere' });
-    assert.ok(VALID_WATERMARK_POSITIONS.includes(cfg.watermarkPosition));
-    assert.strictEqual(cfg.watermarkPosition, 'bottom-right');
+    assert.ok(VALID_ANCHORS.includes(cfg.watermarkPosition));
+    assert.strictEqual(cfg.watermarkPosition, 'above-subtitles');
   });
 
-  await t.test('accepts every declared position', () => {
-    for (const pos of VALID_WATERMARK_POSITIONS) {
+  await t.test('accepts every declared anchor, including above-subtitles', () => {
+    for (const pos of VALID_ANCHORS) {
       assert.strictEqual(normalizeBrandingConfig({ watermarkPosition: pos }).watermarkPosition, pos);
     }
   });
 
   await t.test('clamps opacity and font size into a renderable range', () => {
     assert.strictEqual(normalizeBrandingConfig({ watermarkOpacity: 99 }).watermarkOpacity, 1);
-    assert.strictEqual(normalizeBrandingConfig({ watermarkOpacity: -5 }).watermarkOpacity, 0.1);
+    assert.strictEqual(normalizeBrandingConfig({ watermarkOpacity: -5 }).watermarkOpacity, 0.05);
     assert.strictEqual(normalizeBrandingConfig({ watermarkFontSize: 9999 }).watermarkFontSize, 96);
     assert.strictEqual(normalizeBrandingConfig({ watermarkFontSize: 1 }).watermarkFontSize, 14);
+  });
+
+  await t.test('watermarkBackground is opt-in only for an explicit true', () => {
+    assert.strictEqual(normalizeBrandingConfig({}).watermarkBackground, false);
+    assert.strictEqual(normalizeBrandingConfig({ watermarkBackground: false }).watermarkBackground, false);
+    assert.strictEqual(normalizeBrandingConfig({ watermarkBackground: 'yes' }).watermarkBackground, false);
+    assert.strictEqual(normalizeBrandingConfig({ watermarkBackground: true }).watermarkBackground, true);
   });
 
   await t.test('rejects malformed colours and keeps the fallback', () => {
@@ -179,21 +198,63 @@ test('Branding: filter generation', async (t) => {
     assert.ok(!filters[1].includes('enable='));
   });
 
-  await t.test('anchors each element to its own corner', () => {
-    const filters = buildBrandingFilters(cfg, { fontFile: FONT });
-    // Source top-left, watermark bottom-right.
+  await t.test('anchors each element where asked', () => {
+    const corners = normalizeBrandingConfig({
+      sourceChannel: 'Src',
+      watermarkText: '@wm',
+      sourcePosition: 'top-left',
+      watermarkPosition: 'bottom-right',
+    });
+    const filters = buildBrandingFilters(corners, { fontFile: FONT });
     assert.ok(filters[0].includes(':x=40'), 'source should be left-anchored');
     assert.ok(filters[0].includes(':y=40'), 'source should be top-anchored');
     assert.ok(filters[1].includes(':x=w-tw-30'), 'watermark should be right-anchored');
     assert.ok(filters[1].includes(':y=h-th-30'), 'watermark should be bottom-anchored');
   });
 
-  await t.test('every filter carries a legibility box', () => {
-    const filters = buildBrandingFilters(cfg, { fontFile: FONT });
-    for (const f of filters) {
-      assert.ok(f.includes('box=1'), `missing box on: ${f.slice(0, 60)}`);
-      assert.ok(/boxcolor=#/.test(f));
-    }
+  await t.test('above-subtitles centres horizontally and clears the caption band', () => {
+    const cfgAbove = normalizeBrandingConfig({
+      watermarkText: '@prime.clipsmedia',
+      watermarkPosition: 'above-subtitles',
+    });
+    const f = buildBrandingFilters(cfgAbove, { fontFile: FONT })[0];
+    assert.ok(f.includes('x=(w-tw)/2'), `expected centred x, got: ${f}`);
+    // 160px subtitle band + 150px gap = 310px off the bottom edge.
+    assert.ok(f.includes("y=h-th-310"), `expected caption-clearing y, got: ${f}`);
+  });
+
+  await t.test('the watermark floats WITHOUT a background box by default', () => {
+    const cfgFloat = normalizeBrandingConfig({ watermarkText: '@me', watermarkPosition: 'above-subtitles' });
+    const f = buildBrandingFilters(cfgFloat, { fontFile: FONT })[0];
+    assert.ok(!f.includes('box=1'), 'a default watermark must not paint a box over the video');
+  });
+
+  await t.test('a shadow is applied so thin text stays legible without a box', () => {
+    const cfgShadow = normalizeBrandingConfig({ watermarkText: '@me' });
+    const f = buildBrandingFilters(cfgShadow, { fontFile: FONT })[0];
+    assert.ok(f.includes('shadowx=2'));
+    assert.ok(f.includes('shadowy=2'));
+    assert.ok(/shadowcolor=#000000@/.test(f));
+  });
+
+  await t.test('the requested opacity reaches fontcolor', () => {
+    const cfgDim = normalizeBrandingConfig({ watermarkText: '@me', watermarkOpacity: 0.3 });
+    const f = buildBrandingFilters(cfgDim, { fontFile: FONT })[0];
+    assert.ok(f.includes('fontcolor=#FFFFFF@0.3'), `opacity not applied: ${f}`);
+  });
+
+  await t.test('a background box appears only when explicitly opted in', () => {
+    const cfgBox = normalizeBrandingConfig({ watermarkText: '@me', watermarkBackground: true });
+    const f = buildBrandingFilters(cfgBox, { fontFile: FONT })[0];
+    assert.ok(f.includes('box=1'));
+    assert.ok(/boxcolor=#000000@/.test(f));
+  });
+
+  await t.test('every attributions filter carries a legibility box', () => {
+    const cfgBoxes = normalizeBrandingConfig({ sourceChannel: 'Chan', watermarkText: '@me' });
+    const filters = buildBrandingFilters(cfgBoxes, { fontFile: FONT });
+    assert.ok(filters[0].includes('box=1'), 'the attribution card must stay legible on any footage');
+    assert.ok(/boxcolor=#/.test(filters[0]));
   });
 
   await t.test('a channel name full of metacharacters cannot corrupt the graph', () => {
