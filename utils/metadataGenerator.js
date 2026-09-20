@@ -99,6 +99,21 @@ export function viralPatterns(isEn) {
       `    title:    "Obama: They Want You Scared. Stay Anyway."`,
       `    headline: "Crime Isn't Insurrection"`,
       ``,
+      `  ✗ THE HEADLINE MUST STATE THE ACTUAL TOPIC — NEVER A GREETING.`,
+      `    The clip's first spoken words are often a streamer's greeting. Copying it`,
+      `    produces a headline that is technically unique but says NOTHING about the`,
+      `    video. These are ALL WRONG:`,
+      `      "Hello Ladies and Gentlemen"   ← greeting, no topic`,
+      `      "What's Up Guys"               ← greeting, no topic`,
+      `      "Welcome Back To The Stream"   ← greeting, no topic`,
+      `      "Alright So Today"             ← filler, no topic`,
+      `    If the opening line is a greeting or filler, IGNORE it and write the`,
+      `    headline from what the clip is ACTUALLY about (the subject, the object,`,
+      `    the claim, the twist). Example:`,
+      `      clip = unboxing a mystery Apple package`,
+      `      ✗ headline: "Hello Ladies and Gentlemen"`,
+      `      ✓ headline: "Mystery Apple Box Just Landed"`,
+      ``,
     ];
   }
 
@@ -136,6 +151,20 @@ export function viralPatterns(isEn) {
     `  Contoh pasangan untuk klip yang sama:`,
     `    judul:    "Obama: Mereka Mau Kamu Takut. Tetap Bertahan."`,
     `    headline: "Kejahatan Bukan Makar"`,
+    ``,
+    `  ✗ HEADLINE WAJIB MENYEBUT TOPIKNYA — JANGAN PERNAH SAPAAN.`,
+    `    Kata-kata pertama di klip sering berupa sapaan streamer. Menyalinnya`,
+    `    menghasilkan headline yang unik tapi TIDAK bilang apa pun soal videonya.`,
+    `    Semua ini SALAH:`,
+    `      "Hello Ladies and Gentlemen"   ← sapaan, tanpa topik`,
+    `      "Halo Semuanya"                ← sapaan, tanpa topik`,
+    `      "Welcome Back"                 ← sapaan, tanpa topik`,
+    `      "Oke Jadi Hari Ini"            ← filler, tanpa topik`,
+    `    Kalau kalimat pembuka cuma sapaan/basa-basi, ABAIKAN dan tulis headline`,
+    `    dari ISI klip yang sebenarnya (subjek, objek, klaim, atau twisnya). Contoh:`,
+    `      klip = unboxing paket misterius dari Apple`,
+    `      ✗ headline: "Hello Ladies and Gentlemen"`,
+    `      ✓ headline: "Kotak Misterius Apple Tiba"`,
     ``,
   ];
 }
@@ -945,6 +974,85 @@ export function headlineRepeatsTitle(headline, title) {
 }
 
 /**
+ * Frasa pembuka yang tidak membawa topik apa pun. Kalau kalimat pertama hanya
+ * berisi ini, headline-nya jadi sampah seperti "Hello Ladies and Gentlemen" —
+ * sapaan yang tidak nyambung dengan isi video.
+ *
+ * Dipakai oleh `stripEmptyOpeners()`.
+ */
+const EMPTY_OPENER_PATTERNS = [
+  // Sapaan (Inggris)
+  /^(hello|hi|hey|yo|sup|what'?s up|wassup|howdy|greetings)\b[,\s]*/i,
+  /^(good\s+(morning|evening|afternoon|night))\b[,\s]*/i,
+  /^(ladies and gentlemen|guys and girls|boys and girls|everyone|everybody|folks|fam|team)\b[,\s]*/i,
+  // Sapaan (Indonesia)
+  /^(halo|hallo|hai|hei|woi|oy|selamat\s+(pagi|siang|sore|malam))\b[,\s]*/i,
+  /^(semuanya|semua|teman-?teman|kawan-?kawan|guys|bro|bos)\b[,\s]*/i,
+  // Basa-basi pembuka stream
+  /^welcome\s+back\b[,\s]*/i,
+  /^welcome\b[,\s]*/i,
+  /^(thank(s| you)\s+(for\s+)?(watching|joining|coming))\b[,\s]*/i,
+  /^(terima\s+kasih\s+(sudah|udah|telah)?\s*(menonton|nonton|datang|hadir))\b[,\s]*/i,
+  /^(let'?s\s+(get\s+(started|into it)|go|dive in|jump in))\b[,\s]*/i,
+  /^(as\s+(always|usual|you\s+know))\b[,\s]*/i,
+  /^(alright|all right|okay|ok|so|now|well|look|listen)\b[,\s]*/i,
+  /^(oke|ok|jadi|nah|baik|baiklah|jadi\s+gini)\b[,\s]*/i,
+  /^(i\s+(just\s+)?(want|wanna|gotta)\s+to\s+(say|tell))\b[,\s]*/i,
+  /^(before\s+we\s+(start|begin|get))\b[,\s]*/i,
+  /^(sebelum\s+(kita\s+)?(mulai|lanjut))\b[,\s]*/i,
+  /^(real\s+quick|quick\s+(one|note|thing))\b[,\s]*/i,
+  /^(guys|yo|bro|bruh|dude|man)\b[,\s]*/i,
+  // Ekor sapaan yang sering tertinggal ("Welcome back TO THE STREAM")
+  /^(to\s+the\s+(stream|channel|video|show|podcast))\b[,\s]*/i,
+  /^(ke\s+(stream|channel|video|acara))\b[,\s]*/i,
+  /^(back\s+to\s+the\s+(stream|channel|video|show))\b[,\s]*/i,
+];
+
+/**
+ * Buang sapaan & basa-basi pembuka dari sebuah kalimat, berulang sampai tidak
+ * ada lagi yang cocok. Contoh:
+ *   "Hello ladies and gentlemen. Today we unbox..."
+ *   -> "Today we unbox..."
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function stripEmptyOpeners(text) {
+  if (typeof text !== 'string') return '';
+  let s = text.trim();
+  let prev;
+  let guard = 0;
+  do {
+    prev = s;
+    for (const re of EMPTY_OPENER_PATTERNS) {
+      s = s.replace(re, '');
+    }
+    // Buang sisa tanda baca & spasi di depan, termasuk titik setelah sapaan
+    // ("...gentlemen. Today ..." -> "Today ...").
+    s = s.replace(/^[\s.,;:!?\-–—]+/, '');
+    guard += 1;
+  } while (s !== prev && guard < 20);
+  return s;
+}
+
+/**
+ * Cek apakah sebuah kandidat headline benar-benar membawa topik, bukan cuma
+ * sapaan/basa-basi yang tersisa.
+ *
+ * @param {string} candidate
+ * @returns {boolean}
+ */
+export function headlineHasTopic(candidate) {
+  if (typeof candidate !== 'string') return false;
+  const stripped = stripEmptyOpeners(candidate);
+  if (!stripped || stripped.length < 8) return false;
+  // Kalau isinya masih 100% frasa pembuka, tidak ada topik.
+  const words = stripped.split(/\s+/).filter(Boolean);
+  if (words.length < 2) return false;
+  return true;
+}
+
+/**
  * Ringkas kalimat hook yang diucapkan menjadi headline pendek (3-7 kata).
  *
  * hookText adalah kalimat ASLI yang diucapkan, jadi bisa panjang dan berisi
@@ -958,19 +1066,18 @@ export function headlineRepeatsTitle(headline, title) {
 export function headlineFromSpokenHook(hookText, title) {
   if (typeof hookText !== 'string' || !hookText.trim()) return null;
 
-  // Buang filler pembuka DULU (sebelum memotong), karena filler sering diikuti
-  // koma — kalau koma dipotong lebih dulu, yang tersisa hanya "Guys".
-  let s = hookText.trim();
-  let prev;
-  do {
-    prev = s;
-    s = s.replace(/^(guys|yo|bro|look|so|okay|well|i mean|you know)[\s,]+/i, '');
-  } while (s !== prev);
+  // Buang sapaan/basa-basi pembuka DULU (sebelum memotong), karena filler
+  // sering diikuti koma — kalau koma dipotong lebih dulu, yang tersisa hanya
+  // "Guys". Ini juga menangani sapaan seperti "Hello ladies and gentlemen"
+  // yang dulu lolos dan jadi headline tanpa topik.
+  let s = stripEmptyOpeners(hookText);
   // Buang subjek pembicara di awal ("I just saw", "he said")
   s = s.replace(/^(i|he|she|they|we|you)\s+(just\s+)?(saw|said|thinks?|thought|realized?|forgot)\s+/i, '');
 
   // Baru potong ke klausa pertama.
   s = s.split(/[.!?;]/)[0].split(/,\s*/)[0].trim();
+  // Buang lagi kalau klausa pertama ternyata masih sapaan.
+  s = stripEmptyOpeners(s);
 
   if (s.length < 8) return null;
 
@@ -983,6 +1090,8 @@ export function headlineFromSpokenHook(hookText, title) {
     const candidate = words.slice(0, limit).join(' ');
     const trimmed = trimTitleToTarget(candidate) || candidate;
     if (!trimmed || trimmed.length < 8) continue;
+    // Headline harus bawa topik — bukan cuma sapaan sisa.
+    if (!headlineHasTopic(trimmed)) continue;
     if (title && headlineRepeatsTitle(trimmed, title)) continue;
     return trimmed;
   }
@@ -1046,13 +1155,22 @@ export function applyMetadataToClips(clips, metadataByIndex) {
     // the analyzer's title, then to whatever was already there.
     const title = meta.title || clip.title;
 
-    // Headline must NOT repeat the title (the 20K-view failure mode). If the
-    // model echoed the title, fall back to the clip's spoken hook line, which
-    // is a genuinely different angle.
+    // Headline harus (a) membawa topik, dan (b) tidak mengulang judul.
+    //
+    // Kenapa dua-duanya: model kadang mengembalikan sapaan pembuka mentah
+    // ("Hello Ladies and Gentlemen") sebagai headline. Itu TIDAK mengulang
+    // judul, jadi guard repeat saja meloloskannya — padahal headline-nya sama
+    // sekali tidak nyambung dengan isi video (unboxing paket Apple).
+    const looksUsable = (h) => Boolean(
+      h && String(h).trim().length >= 8
+      && headlineHasTopic(h)
+      && !headlineRepeatsTitle(h, title),
+    );
+
     let headline = meta.headline || clip.headline || clip.hookText || clip.title;
-    if (headlineRepeatsTitle(headline, title)) {
+    if (!looksUsable(headline)) {
       // Cari sudut alternatif, berurutan dari yang paling diinginkan:
-      //  1. hookText asli (kalimat yang diucapkan) — tapi diringkas jadi headline
+      //  1. hookText asli (kalimat yang diucapkan) — diringkas jadi headline
       //  2. headline dari analyzer
       //  3. potongan deskripsi AI (sudut berbeda)
       const candidates = [
@@ -1061,10 +1179,15 @@ export function applyMetadataToClips(clips, metadataByIndex) {
         headlineFromDescription(meta.description, title),
       ];
       for (const cand of candidates) {
-        if (cand && !headlineRepeatsTitle(cand, title)) {
+        if (looksUsable(cand)) {
           headline = cand;
           break;
         }
+      }
+      // Kalau tetap tidak ada yang layak, pakai judul sebagai jaring terakhir —
+      // judul selalu bertopik, jadi lebih baik daripada sapaan kosong.
+      if (!looksUsable(headline)) {
+        headline = clip.headline && looksUsable(clip.headline) ? clip.headline : title;
       }
     }
 
