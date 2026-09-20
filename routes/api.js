@@ -1,5 +1,7 @@
 // routes/api.js
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
 import { videoQueue } from '../queues/videoQueue.js';
 import { clearQueue, getQueueCounts } from '../queues/videoQueue.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -384,18 +386,54 @@ router.get('/models', async (req, res) => {
  */
 router.get('/jobs', async (req, res) => {
   try {
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 15));
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
     const states = ['active', 'waiting', 'delayed', 'completed', 'failed'];
 
     const jobs = await videoQueue.getJobs(states, 0, limit - 1, false);
     jobs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    const outputsDir = process.env.OUTPUT_DIR || path.join(process.cwd(), 'outputs');
+    let availableDiskFiles = [];
+    try {
+      if (fs.existsSync(outputsDir)) {
+        availableDiskFiles = fs.readdirSync(outputsDir);
+      }
+    } catch (_) {}
 
     const summaries = [];
     for (const job of jobs.slice(0, limit)) {
       let state = 'unknown';
       try { state = await job.getState(); } catch (_) {}
 
-      const clips = Array.isArray(job.returnvalue?.clips) ? job.returnvalue.clips : [];
+      let clips = Array.isArray(job.returnvalue?.clips) ? [...job.returnvalue.clips] : [];
+
+      // Jika returnvalue belum memiliki klip, periksa disk apakah ada klip MP4
+      // yang sudah selesai dirender untuk job ini (misal job terputus di klip 3).
+      if (clips.length === 0 && availableDiskFiles.length > 0) {
+        const matching = availableDiskFiles.filter(
+          (f) => f.startsWith(`${job.id}_clip`) && f.endsWith('.mp4')
+        );
+        if (matching.length > 0) {
+          clips = matching.map((f, idx) => {
+            const fullPath = path.join(outputsDir, f);
+            let sizeMB = '0';
+            try {
+              const st = fs.statSync(fullPath);
+              sizeMB = (st.size / (1024 * 1024)).toFixed(2);
+            } catch (_) {}
+            const titlePart = f.replace(`${job.id}_clip`, '').replace('.mp4', '').split('_');
+            const clipIdx = parseInt(titlePart[0], 10) || (idx + 1);
+            const title = titlePart.slice(1).join(' ') || `Clip ${clipIdx}`;
+            return {
+              index: clipIdx,
+              title,
+              filename: f,
+              downloadUrl: `/outputs/${encodeURIComponent(f)}`,
+              fileSizeMB: sizeMB,
+            };
+          });
+        }
+      }
 
       summaries.push({
         jobId: job.id,
@@ -407,8 +445,8 @@ router.get('/jobs', async (req, res) => {
         message: job.progress?.message ?? null,
         videoTitle: job.returnvalue?.videoTitle || job.progress?.videoTitle || null,
         clipCount: job.data?.clipCount ?? null,
-        // Hasil hanya ada kalau job selesai; UI memakai ini untuk memulihkan tab.
-        result: job.returnvalue?.success ? job.returnvalue : null,
+        clips,
+        result: job.returnvalue?.success ? job.returnvalue : (clips.length > 0 ? { success: true, clips } : null),
         failedReason: job.failedReason || null,
       });
     }
