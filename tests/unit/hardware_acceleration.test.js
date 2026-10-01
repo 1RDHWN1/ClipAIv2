@@ -4,14 +4,18 @@ import { detectHardwareAcceleration, getHardwareAccelerationConfig } from '../..
 import { buildVideoEncodingOptions } from '../../utils/clipper.js';
 
 test('Hardware Acceleration & GPU Encoding Suite', async (t) => {
-  await t.test('Case 1: detectHardwareAcceleration detects Linux VAAPI device when present', () => {
+  await t.test('Case 1: detectHardwareAcceleration detects hardware acceleration when present', () => {
     const info = detectHardwareAcceleration();
     assert.strictEqual(typeof info.supported, 'boolean');
     assert.strictEqual(typeof info.name, 'string');
     if (info.supported) {
-      assert.strictEqual(info.type, 'vaapi');
-      assert.ok(info.device.startsWith('/dev/dri/renderD'));
-      assert.strictEqual(info.encoder, 'h264_vaapi');
+      assert.ok(['vaapi', 'amf', 'nvenc', 'qsv', 'videotoolbox'].includes(info.type));
+      if (info.type === 'vaapi') {
+        assert.ok(info.device.startsWith('/dev/dri/renderD'));
+        assert.strictEqual(info.encoder, 'h264_vaapi');
+      } else {
+        assert.ok(['h264_amf', 'h264_nvenc', 'h264_qsv', 'h264_videotoolbox'].includes(info.encoder));
+      }
     }
   });
 

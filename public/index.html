@@ -389,13 +389,16 @@
     }
 
     /* Switch toggle */
-    .switch-toggle input:checked + .slider {
-      background-color: var(--accent);
+    .switch-toggle input:checked + .slider,
+    .switch-toggle input:checked + .switch-slider {
+      background-color: var(--accent) !important;
     }
-    .switch-toggle input:checked + .slider:before {
+    .switch-toggle input:checked + .slider:before,
+    .switch-toggle input:checked + .switch-slider:before {
       transform: translateX(20px);
     }
-    .switch-toggle .slider:before {
+    .switch-toggle .slider:before,
+    .switch-toggle .switch-slider:before {
       position: absolute;
       content: "";
       height: 18px;
@@ -1439,7 +1442,7 @@
             </div>
             <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 24px;">
               <input type="checkbox" id="metadataEnabled" checked onchange="toggleMetadataSettings()" style="opacity: 0; width: 0; height: 0;">
-              <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--border); transition: .3s; border-radius: 24px;"></span>
+              <span class="slider" style="position: absolute; cursor: pointer; inset: 0; background: var(--accent); transition: .3s; border-radius: 24px;"></span>
             </label>
           </div>
 
@@ -1480,7 +1483,7 @@
             </div>
             <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 24px;">
               <input type="checkbox" id="brandingEnabled" onchange="toggleBrandingSettings()" style="opacity: 0; width: 0; height: 0;">
-              <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--border); transition: .3s; border-radius: 24px;"></span>
+              <span class="slider" style="position: absolute; cursor: pointer; inset: 0; background: var(--border); transition: .3s; border-radius: 24px;"></span>
             </label>
           </div>
 
@@ -1569,8 +1572,8 @@
                   </div>
                 </div>
                 <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 24px;">
-                  <input type="checkbox" id="autoHeadlineEnabled" checked style="opacity: 0; width: 0; height: 0;">
-                  <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--accent); transition: .3s; border-radius: 24px;"></span>
+                  <input type="checkbox" id="autoHeadlineEnabled" checked onchange="toggleHeadlineSettings()" style="opacity: 0; width: 0; height: 0;">
+                  <span class="slider" style="position: absolute; cursor: pointer; inset: 0; background: var(--accent); transition: .3s; border-radius: 24px;"></span>
                 </label>
               </div>
 
@@ -2042,6 +2045,8 @@
       const enabled = document.getElementById('metadataEnabled')?.checked;
       const wrap = document.getElementById('metadataSettings');
       if (wrap) wrap.style.display = enabled ? 'grid' : 'none';
+      const slider = document.querySelector('#metadataEnabled + .slider');
+      if (slider) slider.style.backgroundColor = enabled ? 'var(--accent)' : 'var(--border)';
     }
 
     // ── Branding Controls ────────────────────────────────────
@@ -2049,6 +2054,17 @@
       const enabled = document.getElementById('brandingEnabled')?.checked;
       const wrap = document.getElementById('brandingSettings');
       if (wrap) wrap.style.display = enabled ? 'block' : 'none';
+      const slider = document.querySelector('#brandingEnabled + .slider');
+      if (slider) slider.style.backgroundColor = enabled ? 'var(--accent)' : 'var(--border)';
+    }
+
+    function toggleHeadlineSettings() {
+      const enabled = document.getElementById('autoHeadlineEnabled')?.checked;
+      const wrap = document.getElementById('headlineOptions');
+      if (wrap) wrap.style.opacity = enabled ? '1' : '0.4';
+      wrap?.querySelectorAll('select, input').forEach(el => el.disabled = !enabled);
+      const slider = document.querySelector('#autoHeadlineEnabled + .slider');
+      if (slider) slider.style.backgroundColor = enabled ? 'var(--accent)' : 'var(--border)';
     }
 
     /**
@@ -3046,6 +3062,7 @@
     window.toggleInlineVideo = toggleInlineVideo;
     window.toggleCardMetadata = toggleCardMetadata;
     window.toggleBrandingSettings = toggleBrandingSettings;
+    window.toggleHeadlineSettings = toggleHeadlineSettings;
     window.collectBrandingConfig = collectBrandingConfig;
     window.copyToClipboard = copyToClipboard;
     window.buildMetadataClipboardText = buildMetadataClipboardText;

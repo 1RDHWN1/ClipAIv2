@@ -467,8 +467,46 @@ export function resolveLayoutMode(requestedLayout, webcamBox) {
  * @returns {string[]} output options to hand to ffmpeg
  */
 export function buildVideoEncodingOptions(overrides = {}) {
-  if (overrides.hwaccel === true || overrides.encoder === 'h264_vaapi') {
+  const encoder = overrides.encoder;
+  if (overrides.hwaccel === true || encoder) {
     const qp = overrides.qp !== undefined ? String(overrides.qp) : '18';
+    if (encoder === 'h264_amf') {
+      return [
+        '-c:v', 'h264_amf',
+        '-quality', 'quality',
+        '-rc', 'cqp',
+        '-qp_i', qp,
+        '-qp_p', qp,
+        '-movflags', '+faststart',
+      ];
+    }
+    if (encoder === 'h264_nvenc') {
+      return [
+        '-c:v', 'h264_nvenc',
+        '-preset', 'p5',
+        '-rc', 'constqp',
+        '-qp', qp,
+        '-movflags', '+faststart',
+        '-pix_fmt', 'yuv420p',
+      ];
+    }
+    if (encoder === 'h264_qsv') {
+      return [
+        '-c:v', 'h264_qsv',
+        '-global_quality', qp,
+        '-movflags', '+faststart',
+        '-pix_fmt', 'yuv420p',
+      ];
+    }
+    if (encoder === 'h264_videotoolbox') {
+      return [
+        '-c:v', 'h264_videotoolbox',
+        '-q:v', '65',
+        '-movflags', '+faststart',
+        '-pix_fmt', 'yuv420p',
+      ];
+    }
+    // Default to VAAPI for Linux and backward compatibility
     return [
       '-c:v', 'h264_vaapi',
       '-rc_mode', 'CQP',
@@ -786,6 +824,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       ? { enabled: false }
       : getHardwareAccelerationConfig(options);
     const useGpu = hwConfig.enabled;
+    const isVaapi = useGpu && hwConfig.type === 'vaapi';
 
     if (useGpu && hwConfig.driver) {
       process.env.LIBVA_DRIVER_NAME = hwConfig.driver;
@@ -796,9 +835,10 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       .duration(duration);
 
     if (useGpu) {
-      cmd = cmd
-        .inputOptions(['-vaapi_device', hwConfig.device])
-        .outputOptions(buildVideoEncodingOptions({ hwaccel: true, qp: 18 }));
+      if (isVaapi && hwConfig.device) {
+        cmd = cmd.inputOptions(['-vaapi_device', hwConfig.device]);
+      }
+      cmd = cmd.outputOptions(buildVideoEncodingOptions({ hwaccel: true, encoder: hwConfig.encoder, qp: 18 }));
     } else {
       cmd = cmd
         .videoCodec('libx264')
@@ -859,7 +899,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         filterComplex = appendHeadlineCardToGraph(filterComplex, outputMap, headlineCard, brandingCfg.headlineDuration);
         outputMap = '[hlout]';
       }
-      if (useGpu) {
+      if (isVaapi) {
         filterComplex += `;${outputMap}format=nv12,hwupload[hwout]`;
         outputMap = '[hwout]';
       }
@@ -896,7 +936,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         filterComplex = appendHeadlineCardToGraph(filterComplex, outputMap, headlineCard, brandingCfg.headlineDuration);
         outputMap = '[hlout]';
       }
-      if (useGpu) {
+      if (isVaapi) {
         filterComplex += `;${outputMap}format=nv12,hwupload[hwout]`;
         outputMap = '[hwout]';
       }
@@ -925,7 +965,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
         filterComplex = appendHeadlineCardToGraph(filterComplex, outMap, headlineCard, brandingCfg.headlineDuration);
         outMap = '[hlout]';
       }
-      if (useGpu) {
+      if (isVaapi) {
         filterComplex += `;${outMap}format=nv12,hwupload[hwout]`;
         outMap = '[hwout]';
       }
@@ -954,7 +994,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       // IMPORTANT: the hardware upload must come AFTER every CPU filter
       // (drawtext/overlay included). hwupload hands the encoder a `vaapi`
       // surface, and CPU filters cannot run on it — "Filter not found".
-      if (useGpu) {
+      if (isVaapi) {
         vfFilter = vfFilter ? `${vfFilter},format=nv12,hwupload` : 'format=nv12,hwupload';
       }
       if (vfFilter) {
@@ -992,7 +1032,7 @@ function executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, asp
       })
       .on('error', async (err) => {
         if (useGpu && !options._retryCpu) {
-          console.warn(`⚠️ [clipper] GPU VAAPI encoding failed: ${err.message}. Retrying on CPU fallback...`);
+          console.warn(`⚠️ [clipper] GPU (${hwConfig.name || 'hardware'}) encoding failed: ${err.message}. Retrying on CPU fallback...`);
           try {
             await executeFfmpegClip(inputPath, outputPath, clip, srcWidth, srcHeight, aspectRatio, {
               ...options,

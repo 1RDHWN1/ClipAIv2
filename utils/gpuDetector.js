@@ -40,63 +40,111 @@ export function detectHardwareAcceleration(forceRefresh = false) {
     }
   }
 
-  if (!activeDevice) {
-    cachedGpuInfo = defaultResult;
-    return cachedGpuInfo;
+  if (activeDevice) {
+    // Identify driver: check radeonsi (AMD) or iHD/i965 (Intel)
+    let activeDriver = null;
+    let gpuName = 'GPU Hardware Acceleration (VAAPI)';
+
+    try {
+      const driPath = '/usr/lib/x86_64-linux-gnu/dri';
+      if (fs.existsSync(`${driPath}/radeonsi_drv_video.so`)) {
+        activeDriver = 'radeonsi';
+        gpuName = 'AMD Radeon (VAAPI VCN)';
+      } else if (fs.existsSync(`${driPath}/iHD_drv_video.so`)) {
+        activeDriver = 'iHD';
+        gpuName = 'Intel QuickSync (VAAPI)';
+      }
+    } catch (_) {}
+
+    try {
+      const env = { ...process.env };
+      if (activeDriver) {
+        env.LIBVA_DRIVER_NAME = activeDriver;
+      }
+
+      const probe = spawnSync(
+        'ffmpeg',
+        [
+          '-y',
+          '-vaapi_device', activeDevice,
+          '-f', 'lavfi', '-i', 'testsrc=duration=0.1:size=128x128:rate=10',
+          '-vf', 'format=nv12,hwupload',
+          '-c:v', 'h264_vaapi',
+          '-f', 'null', '-',
+        ],
+        { env, timeout: 2000, stdio: 'pipe' }
+      );
+
+      if (probe.status === 0) {
+        cachedGpuInfo = {
+          supported: true,
+          type: 'vaapi',
+          device: activeDevice,
+          driver: activeDriver,
+          encoder: 'h264_vaapi',
+          name: gpuName,
+        };
+        return cachedGpuInfo;
+      }
+    } catch (_) {
+      // Probe failed or timed out
+    }
   }
 
-  // 2. Identify driver: check radeonsi (AMD) or iHD/i965 (Intel)
-  let activeDriver = null;
-  let gpuName = 'GPU Hardware Acceleration';
-
-  try {
-    const driPath = '/usr/lib/x86_64-linux-gnu/dri';
-    if (fs.existsSync(`${driPath}/radeonsi_drv_video.so`)) {
-      activeDriver = 'radeonsi';
-      gpuName = 'AMD Radeon (VAAPI VCN)';
-    } else if (fs.existsSync(`${driPath}/iHD_drv_video.so`)) {
-      activeDriver = 'iHD';
-      gpuName = 'Intel QuickSync (VAAPI)';
-    }
-  } catch (_) {}
-
-  // 3. Quick sanity probe with ffmpeg to ensure h264_vaapi actually encodes cleanly
-  try {
-    const env = { ...process.env };
-    if (activeDriver) {
-      env.LIBVA_DRIVER_NAME = activeDriver;
-    }
-
-    const probe = spawnSync(
-      'ffmpeg',
-      [
-        '-y',
-        '-vaapi_device', activeDevice,
-        '-f', 'lavfi', '-i', 'testsrc=duration=0.1:size=128x128:rate=10',
-        '-vf', 'format=nv12,hwupload',
-        '-c:v', 'h264_vaapi',
-        '-f', 'null', '-',
-      ],
-      { env, timeout: 2000, stdio: 'pipe' }
+  // 2. Cross-platform hardware encoder probes (Windows, Linux, macOS)
+  const candidateEncoders = [];
+  if (process.platform === 'win32') {
+    candidateEncoders.push(
+      { type: 'amf', encoder: 'h264_amf', name: 'AMD Radeon (AMF)', testArgs: ['-c:v', 'h264_amf'] },
+      { type: 'nvenc', encoder: 'h264_nvenc', name: 'NVIDIA GeForce (NVENC)', testArgs: ['-c:v', 'h264_nvenc'] },
+      { type: 'qsv', encoder: 'h264_qsv', name: 'Intel QuickSync (QSV)', testArgs: ['-c:v', 'h264_qsv'] },
     );
+  } else if (process.platform === 'darwin') {
+    candidateEncoders.push(
+      { type: 'videotoolbox', encoder: 'h264_videotoolbox', name: 'Apple Silicon (VideoToolbox)', testArgs: ['-c:v', 'h264_videotoolbox'] },
+    );
+  } else {
+    candidateEncoders.push(
+      { type: 'nvenc', encoder: 'h264_nvenc', name: 'NVIDIA GeForce (NVENC)', testArgs: ['-c:v', 'h264_nvenc'] },
+    );
+  }
 
-    if (probe.status === 0) {
-      cachedGpuInfo = {
-        supported: true,
-        type: 'vaapi',
-        device: activeDevice,
-        driver: activeDriver,
-        encoder: 'h264_vaapi',
-        name: gpuName,
-      };
-      return cachedGpuInfo;
+  for (const candidate of candidateEncoders) {
+    try {
+      const probe = spawnSync(
+        'ffmpeg',
+        [
+          '-y',
+          '-f', 'lavfi', '-i', 'testsrc=duration=0.1:size=128x128:rate=10',
+          ...candidate.testArgs,
+          '-f', 'null', '-',
+        ],
+        { timeout: 2000, stdio: 'pipe' }
+      );
+
+      if (probe.status === 0) {
+        cachedGpuInfo = {
+          supported: true,
+          type: candidate.type,
+          device: null,
+          driver: null,
+          encoder: candidate.encoder,
+          name: candidate.name,
+        };
+        return cachedGpuInfo;
+      }
+    } catch (_) {
+      // probe failed or timed out
     }
-  } catch (_) {
-    // Probe failed or timed out
   }
 
   cachedGpuInfo = defaultResult;
   return cachedGpuInfo;
+}
+
+/** Test seam: forget cached GPU info */
+export function resetGpuCache() {
+  cachedGpuInfo = undefined;
 }
 
 /**
