@@ -744,10 +744,25 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
     }
 
     const fileSize = fs.existsSync(outputPath) ? fs.statSync(outputPath).size : 0;
+    const thumbFilename = outputFilename.replace(/\.mp4$/i, '.jpg');
+    const thumbPath = outputPath.replace(/\.mp4$/i, '.jpg');
+    try {
+      spawnSync('ffmpeg', [
+        '-y',
+        '-ss', '00:00:01',
+        '-i', outputPath,
+        '-frames:v', '1',
+        '-update', '1',
+        '-q:v', '2',
+        thumbPath,
+      ], { stdio: 'ignore', timeout: 5000 });
+    } catch (_) {}
+
     const res = {
       ...clip,
       clipIndex: i + 1,
       filename: outputFilename,
+      thumbnail: thumbFilename,
       outputPath,
       fileSizeMB: (fileSize / 1024 / 1024).toFixed(2),
       duration: Math.round(clip.end - clip.start),

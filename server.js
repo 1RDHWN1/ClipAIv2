@@ -24,7 +24,12 @@ app.use(express.urlencoded({ extended: true, limit: process.env.JSON_BODY_LIMIT 
 
 // Static files: frontend dan output video
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/outputs', express.static(path.join(__dirname, 'outputs')));
+app.use('/outputs', express.static(path.join(__dirname, 'outputs'), {
+  setHeaders: (res) => {
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('Accept-Ranges', 'bytes');
+  },
+}));
 
 // ── API Routes ──────────────────────────────────────────────
 app.use('/api', apiRouter);

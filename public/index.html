@@ -2446,7 +2446,9 @@
         wrap.style.display = 'block';
         const video = wrap.querySelector('video');
         if (video) {
-          if (!video.src) video.src = videoSrc;
+          const rawName = (videoSrc || '').split('/').pop().replace(/\.mp4$/i, '');
+          const streamSrc = rawName ? `/api/stream/${encodeURIComponent(rawName)}` : videoSrc;
+          if (!video.src || !video.src.includes(rawName)) video.src = streamSrc;
           video.play().catch(() => {});
         }
       } else {
@@ -2464,6 +2466,8 @@
 
     function renderOpusCardHtml(c, job, idx) {
       const src = c.downloadUrl || `/outputs/${encodeURIComponent(c.filename)}`;
+      const baseName = encodeURIComponent((c.filename || '').replace(/\.mp4$/i, ''));
+      const thumbSrc = c.thumbnailUrl || (baseName ? `/api/thumbnail/${baseName}` : src);
       const clipTitle = c.title || `Clip ${c.index ?? idx + 1}`;
       // Catatan: headline TIDAK digambar sebagai overlay HTML di sini — sudah
       // ter-burn-in permanen di dalam MP4 oleh FFmpeg saat render.
@@ -2480,7 +2484,7 @@
       return `
         <div class="opus-card" onclick="openOpusModal('${job.jobId}', ${idx})">
           <div class="opus-thumb-wrap">
-            <video src="${src}#t=0.5" preload="metadata" class="opus-thumb-video" muted></video>
+            <img src="${thumbSrc}" class="opus-thumb-video" loading="lazy" alt="Thumbnail" onerror="this.style.opacity='0.4';" style="width: 100%; height: 100%; object-fit: cover;" />
             <div class="opus-thumb-overlay"></div>
             <div class="opus-play-hover">
               <div class="opus-play-btn-circle">▶</div>
@@ -3159,7 +3163,9 @@
       currentModalClipIndex = Math.max(0, Math.min(clipIndex, clips.length - 1));
 
       const clip = clips[currentModalClipIndex];
-      const src = clip.downloadUrl || `/outputs/${encodeURIComponent(clip.filename)}`;
+      const baseName = encodeURIComponent((clip.filename || '').replace(/\.mp4$/i, ''));
+      const streamSrc = clip.streamUrl || (baseName ? `/api/stream/${baseName}` : (clip.downloadUrl || `/outputs/${encodeURIComponent(clip.filename)}`));
+      const downloadSrc = clip.downloadUrl || `/outputs/${encodeURIComponent(clip.filename)}`;
       const clipTitle = clip.title || `Clip ${clip.index ?? currentModalClipIndex + 1}`;
       const score = clip.score || clip.viralityScore || clip.metadata?.viralityScore || Math.max(85, 99 - currentModalClipIndex * 2);
       const breakdown = clip.scoreBreakdown || clip.metadata?.scoreBreakdown || { hook: 'A', flow: 'A', value: 'A', trend: 'A-' };
@@ -3177,7 +3183,7 @@
       // Set video player
       const video = document.getElementById('opusModalVideo');
       if (video) {
-        video.src = src;
+        video.src = streamSrc;
         video.currentTime = 0;
         video.play().catch(() => {});
       }
@@ -3267,7 +3273,7 @@
       // Set download button
       const downloadBtn = document.getElementById('opusModalDownloadBtn');
       if (downloadBtn) {
-        downloadBtn.href = src;
+        downloadBtn.href = downloadSrc;
         downloadBtn.download = clip.filename || 'clip.mp4';
       }
 
@@ -3281,7 +3287,11 @@
       const backdrop = document.getElementById('opusModalBackdrop');
       if (backdrop) backdrop.style.display = 'none';
       const video = document.getElementById('opusModalVideo');
-      if (video) video.pause();
+      if (video) {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      }
       document.body.style.overflow = '';
     }
 

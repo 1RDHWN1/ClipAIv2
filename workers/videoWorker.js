@@ -359,6 +359,8 @@ const worker = new Worker(
         duration: c.duration,
         fileSizeMB: c.fileSizeMB,
         downloadUrl: `${BASE_URL}/outputs/${c.filename}`,
+        streamUrl: `/api/stream/${encodeURIComponent((c.filename || '').replace(/\.mp4$/i, ''))}`,
+        thumbnailUrl: `/api/thumbnail/${encodeURIComponent((c.filename || '').replace(/\.mp4$/i, ''))}`,
         filename: c.filename,
         metadata: c.metadata || null,
       }));

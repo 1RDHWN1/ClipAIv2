@@ -2,6 +2,7 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
+import { execFileSync } from 'child_process';
 import { videoQueue } from '../queues/videoQueue.js';
 import { clearQueue, getQueueCounts } from '../queues/videoQueue.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -414,7 +415,12 @@ router.get('/jobs', async (req, res) => {
       let state = 'unknown';
       try { state = await job.getState(); } catch (_) {}
 
-      let clips = Array.isArray(job.returnvalue?.clips) ? [...job.returnvalue.clips] : [];
+      let rawClips = Array.isArray(job.returnvalue?.clips) ? [...job.returnvalue.clips] : [];
+      let clips = rawClips.map((c) => ({
+        ...c,
+        streamUrl: c.streamUrl || (c.filename ? `/api/stream/${encodeURIComponent(c.filename.replace(/\.mp4$/i, ''))}` : null),
+        thumbnailUrl: c.thumbnailUrl || (c.filename ? `/api/thumbnail/${encodeURIComponent(c.filename.replace(/\.mp4$/i, ''))}` : null),
+      }));
 
       // Jika returnvalue belum memiliki klip, periksa disk apakah ada klip MP4
       // yang sudah selesai dirender untuk job ini (misal job terputus di klip 3).
@@ -433,11 +439,14 @@ router.get('/jobs', async (req, res) => {
             const titlePart = f.replace(`${job.id}_clip`, '').replace('.mp4', '').split('_');
             const clipIdx = parseInt(titlePart[0], 10) || (idx + 1);
             const title = titlePart.slice(1).join(' ') || `Clip ${clipIdx}`;
+            const cleanBase = f.replace(/\.mp4$/i, '');
             return {
               index: clipIdx,
               title,
               filename: f,
               downloadUrl: `/outputs/${encodeURIComponent(f)}`,
+              streamUrl: `/api/stream/${encodeURIComponent(cleanBase)}`,
+              thumbnailUrl: `/api/thumbnail/${encodeURIComponent(cleanBase)}`,
               fileSizeMB: sizeMB,
             };
           });
@@ -523,6 +532,131 @@ router.get('/hardware', (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Gagal mendeteksi hardware acceleration', detail: err.message });
+  }
+});
+
+/**
+ * GET /api/stream/:filename
+ * Streaming video untuk web preview HTML5 tanpa trigger IDM auto-download.
+ * URL tidak berakhiran .mp4 dan memakai Content-Disposition: inline + Range (HTTP 206).
+ */
+router.get('/stream/:filename', (req, res) => {
+  try {
+    const raw = req.params.filename || '';
+    const safeBase = path.basename(raw);
+    const filename = safeBase.endsWith('.mp4') ? safeBase : `${safeBase}.mp4`;
+    const outputsDir = process.env.OUTPUT_DIR || path.join(process.cwd(), 'outputs');
+    const filePath = path.join(outputsDir, filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Video tidak ditemukan.' });
+    }
+
+    const stat = fs.statSync(filePath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      if (start >= fileSize || end >= fileSize) {
+        res.setHeader('Content-Range', `bytes */${fileSize}`);
+        return res.status(416).end();
+      }
+
+      const chunksize = (end - start) + 1;
+      const file = fs.createReadStream(filePath, { start, end });
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Content-Length': chunksize,
+      });
+      file.pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+      });
+      fs.createReadStream(filePath).pipe(res);
+    }
+  } catch (err) {
+    console.error('GET /api/stream error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Gagal memutar stream video', detail: err.message });
+    }
+  }
+});
+
+/**
+ * GET /api/thumbnail/:filename
+ * Mengembalikan gambar poster JPEG untuk kartu klip.
+ * Menghindarkan browser dari me-load video MP4 di setiap kartu (yang memicu IDM spam).
+ */
+router.get('/thumbnail/:filename', (req, res) => {
+  try {
+    const raw = req.params.filename || '';
+    const safeBase = path.basename(raw).replace(/\.(mp4|jpg|jpeg|png)$/i, '');
+    const outputsDir = process.env.OUTPUT_DIR || path.join(process.cwd(), 'outputs');
+    const thumbPath = path.join(outputsDir, `${safeBase}.jpg`);
+    const videoPath = path.join(outputsDir, `${safeBase}.mp4`);
+
+    if (fs.existsSync(thumbPath)) {
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('Content-Disposition', 'inline');
+      return res.sendFile(thumbPath);
+    }
+
+    if (!fs.existsSync(videoPath)) {
+      return res.status(404).json({ error: 'Video untuk thumbnail tidak ditemukan.' });
+    }
+
+    // Ekstrak 1 frame di t=1.0s menggunakan ffmpeg
+    try {
+      execFileSync('ffmpeg', [
+        '-y',
+        '-ss', '00:00:01',
+        '-i', videoPath,
+        '-frames:v', '1',
+        '-update', '1',
+        '-q:v', '2',
+        thumbPath,
+      ], { stdio: 'ignore', timeout: 5000 });
+    } catch (_) {
+      try {
+        execFileSync('ffmpeg', [
+          '-y',
+          '-ss', '00:00:00.1',
+          '-i', videoPath,
+          '-frames:v', '1',
+          '-update', '1',
+          '-q:v', '2',
+          thumbPath,
+        ], { stdio: 'ignore', timeout: 5000 });
+      } catch (e) {
+        console.warn('Gagal membuat thumbnail frame:', e.message);
+      }
+    }
+
+    if (fs.existsSync(thumbPath)) {
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('Content-Disposition', 'inline');
+      return res.sendFile(thumbPath);
+    }
+
+    return res.status(500).json({ error: 'Gagal mengekstrak thumbnail' });
+  } catch (err) {
+    console.error('GET /api/thumbnail error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Thumbnail error', detail: err.message });
+    }
   }
 });
 
