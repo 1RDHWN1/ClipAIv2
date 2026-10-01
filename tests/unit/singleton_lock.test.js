@@ -117,6 +117,9 @@ test('Singleton lock: 12 genuinely parallel processes yield exactly ONE winner (
 import { acquireSingletonLock } from ${JSON.stringify(moduleUrl)};
 const r = acquireSingletonLock({ lockFile: ${JSON.stringify(lock)} });
 process.stdout.write(r.acquired ? 'ACQUIRED' : 'REFUSED');
+if (r.acquired) {
+  setTimeout(() => {}, 6000);
+}
 `);
 
   const { spawn } = await import('node:child_process');
@@ -124,7 +127,12 @@ process.stdout.write(r.acquired ? 'ACQUIRED' : 'REFUSED');
     new Promise((resolve) => {
       const p = spawn(process.execPath, [script], { stdio: ['ignore', 'pipe', 'ignore'] });
       let out = '';
-      p.stdout.on('data', (d) => { out += d.toString(); });
+      p.stdout.on('data', (d) => {
+        out += d.toString();
+        if (out.includes('ACQUIRED') || out.includes('REFUSED')) {
+          p.kill();
+        }
+      });
       p.on('close', () => resolve(out.trim()));
     })
   );

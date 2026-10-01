@@ -40,11 +40,19 @@ test('SIGHUP resilience — a closed terminal must not kill the stack', async (t
     }
   });
 
-  await t.test('Case 2: the API server survives a real SIGHUP', async () => {
+  await t.test('Case 2: the API server survives a real SIGHUP', async (tCase) => {
+    if (process.platform === 'win32') {
+      tCase.skip('SIGHUP kernel signaling is not supported on Windows');
+      return;
+    }
     await assertSurvivesSighup('server.js');
   });
 
-  await t.test('Case 3: the video worker survives a real SIGHUP', async () => {
+  await t.test('Case 3: the video worker survives a real SIGHUP', async (tCase) => {
+    if (process.platform === 'win32') {
+      tCase.skip('SIGHUP kernel signaling is not supported on Windows');
+      return;
+    }
     await assertSurvivesSighup('workers/videoWorker.js');
   });
 });

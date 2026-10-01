@@ -86,7 +86,8 @@ for _ in range(15):
 res = detect_streamer_webcam(records, 1280, 720)
 print(json.dumps(res))
 `;
-    const child = spawnSync('/home/cutycat15/addstorage/clipai_venv/bin/python', ['-c', pyCode], { encoding: 'utf8' });
+    const pythonExe = process.env.FACE_TRACKING_PYTHON || 'python';
+    const child = spawnSync(pythonExe, ['-c', pyCode], { encoding: 'utf8' });
     assert.strictEqual(child.status, 0, `Python exited with error: ${child.stderr}`);
     const res = JSON.parse(child.stdout.trim());
     assert.ok(res, 'Webcam must be detected');
@@ -111,7 +112,8 @@ for i in range(12):
 res = detect_streamer_webcam(records, 1280, 720)
 print(json.dumps(res))
 `;
-    const child = spawnSync('/home/cutycat15/addstorage/clipai_venv/bin/python', ['-c', pyCode], { encoding: 'utf8' });
+    const pythonExe = process.env.FACE_TRACKING_PYTHON || 'python';
+    const child = spawnSync(pythonExe, ['-c', pyCode], { encoding: 'utf8' });
     assert.strictEqual(child.status, 0, `Python exited with error: ${child.stderr}`);
     const res = JSON.parse(child.stdout.trim());
     assert.strictEqual(res, null, 'Center-only gameplay faces must not be misclassified as webcam');

@@ -34,7 +34,13 @@ async function clearRedisQueue() {
     port: REDIS_PORT,
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    connectTimeout: 1500,
+    retryStrategy(times) {
+      if (times >= 2) return null;
+      return 200;
+    },
   });
+  connection.on('error', () => {});
 
   try {
     const { Queue } = await import('bullmq');
@@ -78,10 +84,38 @@ async function clearRedisQueue() {
   }
 }
 
+import net from 'node:net';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+
 // ---------------------------------------------------------------------------
 // 2. Kill leftover media tools
 // ---------------------------------------------------------------------------
 function killLeftoverTools() {
+  if (process.platform === 'win32') {
+    let killed = 0;
+    const lockFiles = [
+      path.join(os.tmpdir(), 'clipaiv2-start-all.lock'),
+      path.join(process.cwd(), '.clipai.pid')
+    ];
+    for (const lf of lockFiles) {
+      try {
+        if (fs.existsSync(lf)) {
+          const pid = parseInt(fs.readFileSync(lf, 'utf8').trim(), 10);
+          if (Number.isInteger(pid) && pid > 0) {
+            try {
+              execFileSync('taskkill', ['/F', '/PID', String(pid), '/T'], { stdio: 'ignore' });
+              killed += 1;
+            } catch (_) {}
+          }
+          fs.unlinkSync(lf);
+        }
+      } catch (_) {}
+    }
+    return killed;
+  }
+
   // Match the binaries by their argv, restricted to THIS project so an
   // unrelated ffmpeg (a video player, another project) is never touched.
   const patterns = [
@@ -105,13 +139,17 @@ function killLeftoverTools() {
   return killed;
 }
 
-function checkPortFree() {
-  try {
-    const out = execFileSync('ss', ['-tlnp'], { encoding: 'utf-8' });
-    return !out.includes(':3000');
-  } catch (_) {
-    return true; // cannot check → do not claim it is busy
-  }
+function checkPortFree(port = 3000) {
+  return new Promise((resolve) => {
+    const s = net.createServer()
+      .once('error', (err) => {
+        resolve(err.code !== 'EADDRINUSE');
+      })
+      .once('listening', () => {
+        s.once('close', () => resolve(true)).close();
+      })
+      .listen(port);
+  });
 }
 
 // ---------------------------------------------------------------------------

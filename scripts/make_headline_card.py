@@ -31,6 +31,12 @@ FONT_CANDIDATES = [
     '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
     '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
     '/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf',
+    'C:/Windows/Fonts/arialbd.ttf',
+    'C:/Windows/Fonts/arial.ttf',
+    'C:/Windows/Fonts/segoeuib.ttf',
+    'C:/Windows/Fonts/segoeui.ttf',
+    '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+    '/Library/Fonts/Arial Bold.ttf',
 ]
 
 
@@ -71,11 +77,13 @@ def build_card(text, out_path, video_width=1080, font_size=56, radius=22,
                bg='#FFFFFF', fg='#000000', padding_x=44, padding_y=26,
                max_lines=3, font_file=None, shadow=True):
     font_path = pick_font(font_file)
-    if not font_path:
-        print('ERROR: no usable TTF font found.', file=sys.stderr)
-        return 2
-
-    font = ImageFont.truetype(font_path, font_size)
+    if font_path:
+        font = ImageFont.truetype(font_path, font_size)
+    else:
+        try:
+            font = ImageFont.load_default(size=font_size)
+        except TypeError:
+            font = ImageFont.load_default()
 
     # Measure with a throwaway canvas so we can size the real card.
     probe = Image.new('RGBA', (10, 10))
