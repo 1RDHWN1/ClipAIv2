@@ -1598,17 +1598,18 @@
 
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
                 <div class="option-group" style="margin-bottom:0;">
-                  <label>Sudut Kotak Headline</label>
+                  <label>Gaya Bentuk Headline</label>
                   <select id="headlineCornerStyle" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                    <option value="rounded" selected>◠ Melengkung Halus (disarankan)</option>
-                    <option value="soft">◡ Sangat Bulat</option>
-                    <option value="sharp">▭ Siku Kaku</option>
+                    <option value="banner" selected>↔️ Banner Penuh (Sambung Kanan-Kiri)</option>
+                    <option value="rounded">◠ Kartu Melengkung Halus</option>
+                    <option value="soft">◡ Kartu Sangat Bulat</option>
+                    <option value="sharp">▭ Kartu Siku Kaku</option>
                   </select>
                 </div>
                 <div class="option-group" style="margin-bottom:0;">
                   <label>&nbsp;</label>
                   <div style="font-size:10.5px; color:var(--text3); line-height:1.45; padding-top:2px;">
-                    Kotak melengkung dibuat sebagai gambar PNG lalu di-overlay, jadi tampilannya lebih lembut &amp; natural.
+                    Banner penuh menyambung dari ujung kiri ke kanan frame (gaya viral Opus Clip), atau opsi kartu rounded.
                   </div>
                 </div>
               </div>
@@ -1872,9 +1873,6 @@
         <!-- Column 1: Video Player 9:16 -->
         <div>
           <div style="position: relative; aspect-ratio: 9/16; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
-            <div style="position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: #cbd5e1; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px;">
-              ⚡ HD 1080p
-            </div>
             <!-- Video Element (headline sudah ter-burn-in di dalam MP4) -->
             <video id="opusModalVideo" controls autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; background: #000;"></video>
           </div>
@@ -2095,7 +2093,8 @@
         headlineColor = '#FFFFFF';
       }
 
-      const cornerStyle = document.getElementById('headlineCornerStyle')?.value || 'rounded';
+      const cornerStyle = document.getElementById('headlineCornerStyle')?.value || 'banner';
+      const headlineBanner = cornerStyle === 'banner';
       const headlineRounded = cornerStyle !== 'sharp';
       const headlineRadius = cornerStyle === 'soft' ? 34 : 20;
 
@@ -2108,6 +2107,8 @@
         headlineColor,
         headlineRounded,
         headlineRadius,
+        headlineBanner,
+        headlineCornerStyle: cornerStyle,
         // Kosong = biarkan worker mengisi dari metadata channel YouTube.
         sourceChannel: val('sourceChannel') || null,
         sourceLabel: val('sourceLabel') || 'Sumber',

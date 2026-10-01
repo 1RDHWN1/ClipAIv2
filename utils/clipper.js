@@ -712,6 +712,9 @@ export async function processClips(videoPath, clips, jobIdOrOptions, aspectRatio
       const effectiveBranding = {
         ...(options.branding || {}),
         showHeadline: options.branding ? (options.branding.showHeadline !== false) : true,
+        headlineBanner: options.branding?.headlineBanner !== undefined
+          ? Boolean(options.branding.headlineBanner)
+          : (options.branding?.headlineCornerStyle ? options.branding.headlineCornerStyle === 'banner' : true),
         headlineText: clip.headline || options.branding?.headlineText || clip.title || '',
         headlineDuration: options.branding?.headlineDuration || 5,
         headlineColor: options.branding?.headlineColor || '#000000',

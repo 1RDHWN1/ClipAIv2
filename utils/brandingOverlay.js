@@ -178,6 +178,9 @@ export function renderHeadlineCard(cfg, options = {}) {
     '--bg', c.headlineBgColor || '#FFFFFF',
     '--fg', c.headlineColor || '#000000',
   ];
+  if (c.headlineBanner) {
+    args.push('--banner');
+  }
   const fontFile = resolveFontFile();
   if (fontFile) args.push('--font-file', fontFile);
 
@@ -280,6 +283,7 @@ export function normalizeBrandingConfig(input) {
   const headlineRadius = Number.isFinite(rawRadius)
     ? Math.min(48, Math.max(0, Math.round(rawRadius)))
     : HEADLINE_CARD_RADIUS;
+  const headlineBanner = cfg.headlineBanner === true || cfg.headlineStyle === 'banner' || cfg.headlineCornerStyle === 'banner';
 
   return {
     showSource: cfg.showSource !== false,
@@ -292,6 +296,8 @@ export function normalizeBrandingConfig(input) {
     headlineBgColor,
     headlineRounded,
     headlineRadius,
+    headlineBanner,
+    headlineCornerStyle: cfg.headlineCornerStyle || (headlineBanner ? 'banner' : 'rounded'),
     sourceLabel: str(cfg.sourceLabel, 80),
     sourceChannel: str(cfg.sourceChannel, 80),
     sourceColor: hexColor(cfg.sourceColor, '#FFFFFF'),

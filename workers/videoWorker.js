@@ -314,6 +314,9 @@ const worker = new Worker(
       const resolvedBranding = {
         ...(branding || {}),
         showHeadline: branding?.showHeadline !== false,
+        headlineBanner: branding?.headlineBanner !== undefined
+          ? Boolean(branding.headlineBanner)
+          : (branding?.headlineCornerStyle ? branding.headlineCornerStyle === 'banner' : true),
         headlineDuration: branding?.headlineDuration || 5,
         headlineBgColor: branding?.headlineBgColor || '#FFFFFF',
         headlineColor: branding?.headlineColor || '#000000',

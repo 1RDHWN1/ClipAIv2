@@ -75,7 +75,7 @@ def wrap_text(draw, text, font, max_text_width):
 
 def build_card(text, out_path, video_width=1080, font_size=56, radius=22,
                bg='#FFFFFF', fg='#000000', padding_x=44, padding_y=26,
-               max_lines=3, font_file=None, shadow=True):
+               max_lines=3, font_file=None, shadow=True, banner=False):
     font_path = pick_font(font_file)
     if font_path:
         font = ImageFont.truetype(font_path, font_size)
@@ -88,6 +88,41 @@ def build_card(text, out_path, video_width=1080, font_size=56, radius=22,
     # Measure with a throwaway canvas so we can size the real card.
     probe = Image.new('RGBA', (10, 10))
     probe_draw = ImageDraw.Draw(probe)
+
+    if banner:
+        # Full-width edge-to-edge banner across the entire video width (sambung kanan-kiri)
+        card_width = video_width
+        banner_padding_x = max(padding_x, 48)
+        max_text_width = card_width - banner_padding_x * 2
+        lines = wrap_text(probe_draw, text, font, max_text_width)[:max_lines]
+
+        sample_bbox = font.getbbox('Ag')
+        line_height = sample_bbox[3] - sample_bbox[1]
+        line_gap = int(font_size * 0.28)
+        block_height = line_height * len(lines) + line_gap * (len(lines) - 1)
+        card_height = int(block_height + padding_y * 2)
+
+        shadow_h = 16 if shadow else 0
+        canvas = Image.new('RGBA', (video_width, card_height + shadow_h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(canvas)
+
+        if shadow and shadow_h > 0:
+            for i in range(shadow_h):
+                alpha = int(65 * (1 - i / shadow_h))
+                draw.line([(0, card_height + i), (video_width, card_height + i)], fill=(0, 0, 0, alpha))
+
+        draw.rectangle([(0, 0), (video_width, card_height)], fill=hex_to_rgba(bg, 255))
+
+        y = padding_y
+        for line in lines:
+            line_w = probe_draw.textlength(line, font=font)
+            x = (video_width - line_w) / 2
+            draw.text((x, y - sample_bbox[1]), line, font=font, fill=hex_to_rgba(fg, 255))
+            y += line_height + line_gap
+
+        canvas.save(out_path, 'PNG')
+        print(f'{canvas.width} {canvas.height} 0')
+        return 0
 
     max_card_width = int(video_width * 0.92)
     max_text_width = max_card_width - padding_x * 2
@@ -147,6 +182,7 @@ def main():
     ap.add_argument('--fg', default='#000000')
     ap.add_argument('--font-file', default=None)
     ap.add_argument('--no-shadow', action='store_true')
+    ap.add_argument('--banner', action='store_true', help='Generate full-width edge-to-edge banner across video width')
     args = ap.parse_args()
 
     sys.exit(build_card(
@@ -158,6 +194,7 @@ def main():
         fg=args.fg,
         font_file=args.font_file,
         shadow=not args.no_shadow,
+        banner=args.banner,
     ))
 
 

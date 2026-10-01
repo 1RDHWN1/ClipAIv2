@@ -39,6 +39,14 @@ test('Headline card: config normalisation', async (t) => {
     assert.strictEqual(normalizeBrandingConfig({ headlineRadius: 999 }).headlineRadius, 48);
     assert.strictEqual(normalizeBrandingConfig({ headlineRadius: -5 }).headlineRadius, 0);
   });
+
+  await t.test('headlineBanner is parsed correctly', () => {
+    const cfg1 = normalizeBrandingConfig({ showHeadline: true, headlineText: 'X', headlineBanner: true });
+    assert.strictEqual(cfg1.headlineBanner, true);
+    const cfg2 = normalizeBrandingConfig({ showHeadline: true, headlineText: 'X', headlineCornerStyle: 'banner' });
+    assert.strictEqual(cfg2.headlineBanner, true);
+    assert.strictEqual(cfg2.headlineCornerStyle, 'banner');
+  });
 });
 
 test('Headline card: PNG generation', async (t) => {
@@ -69,6 +77,37 @@ test('Headline card: PNG generation', async (t) => {
     const [cornerAlpha, centreAlpha] = probe;
     assert.strictEqual(cornerAlpha, 0, 'the corner must be transparent (rounded, not square)');
     assert.strictEqual(centreAlpha, 255, 'the centre must be opaque');
+
+    fs.unlinkSync(out);
+  });
+
+  await t.test('renders full-width edge-to-edge banner across video width', () => {
+    const python = resolvePythonWithPillow();
+    if (!python) {
+      t.skip('Pillow not available in this environment');
+      return;
+    }
+
+    const out = path.join(os.tmpdir(), `hl_banner_test_${Date.now()}.png`);
+    const res = renderHeadlineCard(
+      { showHeadline: true, headlineText: 'Full Width Viral Headline', headlineBanner: true },
+      { outPath: out, videoWidth: 1080 }
+    );
+
+    assert.strictEqual(res.ok, true, 'the banner card must render');
+    assert.ok(fs.existsSync(out), 'the banner PNG must exist on disk');
+    assert.strictEqual(res.width, 1080, 'banner width must match 1080px video width');
+    assert.strictEqual(res.margin, 0, 'banner margin must be 0 for edge-to-edge flush overlay');
+
+    const probe = execFileSync(python, [
+      '-c',
+      `from PIL import Image; im=Image.open(${JSON.stringify(out)}); ` +
+      `print(im.getpixel((0,0))[3], im.getpixel((im.width-1,0))[3])`,
+    ], { encoding: 'utf8' }).trim().split(/\s+/).map(Number);
+
+    const [leftAlpha, rightAlpha] = probe;
+    assert.strictEqual(leftAlpha, 255, 'left edge must be fully opaque');
+    assert.strictEqual(rightAlpha, 255, 'right edge must be fully opaque');
 
     fs.unlinkSync(out);
   });
