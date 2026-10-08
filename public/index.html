@@ -2555,14 +2555,14 @@
           ${block('Deskripsi', m.description)}
           ${hashtags ? `<div style="margin-bottom:10px;"><div style="font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text2); margin-bottom:5px;">Hashtag</div><div>${hashtags}</div></div>` : ''}
           ${block('Komentar Pin', m.pinnedComment)}
-          ${(m.trendKeywords && m.trendKeywords.length) ? `<div style="font-size:10px; color:var(--text2); margin-top:8px;">🔎 Trend: ${escapeHtml(m.trendKeywords.join(' · '))}</div>` : ''}
+          ${(m.trendKeywords && m.trendKeywords.length) ? `<div style="font-size:10px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Trend: ${escapeHtml(m.trendKeywords.join(' · '))}</span></div>` : ''}
         </div>`;
       }).join('');
 
       wrap.style.display = 'block';
       wrap.innerHTML = `
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-          <span style="font-size:18px;">🏷️</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
           <div style="font-family:var(--font-head); font-size:13px; font-weight:700; color:var(--text);">Metadata Publikasi Siap-Tempel</div>
         </div>
         ${cards}
@@ -2695,8 +2695,10 @@
       const completedCount = cachedJobs.filter((j) => j.state === 'completed' || (j.clips && j.clips.length > 0)).length;
 
       if (activeCount > 0) {
-        badge.style.display = 'inline-block';
-        badge.textContent = `⚙️ ${activeCount}`;
+        badge.style.display = 'inline-flex';
+        badge.style.alignItems = 'center';
+        badge.style.gap = '3px';
+        badge.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>${activeCount}`;
         badge.title = `${activeCount} video sedang diproses`;
       } else if (completedCount > 0) {
         badge.style.display = 'inline-block';
@@ -2824,7 +2826,7 @@
               <div class="opus-play-btn-circle">▶</div>
             </div>
             <div class="opus-thumb-bottom">
-              <div class="opus-badge-autozoom"><span>📐</span> 9:16</div>
+              <div class="opus-badge-autozoom"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><rect x="5" y="2" width="14" height="20" rx="2"/></svg>9:16</div>
               <div class="opus-duration-pill">${durationStr}</div>
             </div>
           </div>
