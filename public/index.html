@@ -3,89 +3,145 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ClipAI — AI Video Clipper</title>
+  <title>ClipAI Enterprise — AI Short Video Generation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <style>
+
     :root {
-      --bg: #080a0f;
-      --bg2: #0d1017;
-      --surface: #111520;
-      --surface2: #161b28;
-      --border: #1e2535;
-      --border-glow: #2a3a5e;
+      /* Obsidian Palette - UdinCloud Systems Lab Spec */
+      --bg-base: #06080d;
+      --bg-deep: #090d15;
+      --bg-surface: #0f1420;
+      --bg-surface-elevated: #141a29;
+      --bg-surface-hover: #192134;
+      --bg-glass: rgba(15, 20, 32, 0.72);
+
+      --border-subtle: rgba(255, 255, 255, 0.05);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(79, 142, 255, 0.28);
+      --border-active: rgba(79, 142, 255, 0.55);
+
       --accent: #4f8eff;
+      --accent-hover: #6ea1ff;
       --accent2: #7c5cfc;
-      --accent-glow: rgba(79, 142, 255, 0.15);
-      --success: #2ecc88;
-      --warning: #f5a623;
-      --danger: #ff4f6e;
-      --text: #e8ecf4;
-      --text2: #8a94aa;
-      --text3: #4a5568;
-      --font-head: 'Syne', sans-serif;
-      --font-mono: 'DM Mono', monospace;
+      --accent-glow: rgba(79, 142, 255, 0.16);
+      --accent-gradient: linear-gradient(135deg, #4f8eff 0%, #7c5cfc 100%);
+      --accent-gradient-hover: linear-gradient(135deg, #649bff 0%, #8c6fff 100%);
+
+      --success: #00e599;
+      --success-glow: rgba(0, 229, 153, 0.18);
+      --warning: #f59e0b;
+      --warning-glow: rgba(245, 158, 11, 0.15);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.15);
+
+      --text: #f1f5f9;
+      --text2: #94a3b8;
+      --text3: #64748b;
+      --text-muted: #475569;
+
+      /* Typography */
+      --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+      /* Legacy compatibility mappings */
+      --bg: var(--bg-base);
+      --bg2: var(--bg-deep);
+      --surface: var(--bg-surface);
+      --surface2: var(--bg-surface-elevated);
+      --font-head: var(--font-display);
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-    html { scroll-behavior: smooth; }
+    html {
+      scroll-behavior: smooth;
+      background-color: var(--bg-base);
+      overflow-x: hidden;
+      width: 100%;
+    }
 
     body {
-      background: var(--bg);
+      background-color: var(--bg-base);
       color: var(--text);
-      font-family: var(--font-mono);
+      font-family: var(--font-body);
       min-height: 100vh;
       overflow-x: hidden;
+      width: 100%;
+      position: relative;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.5;
     }
 
-    /* Grid background */
+    /* Ambient Spotlight & Engineering Micro-Grid */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
       background-image:
-        linear-gradient(rgba(79,142,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(79,142,255,0.03) 1px, transparent 1px);
-      background-size: 40px 40px;
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 36px 36px;
       pointer-events: none;
       z-index: 0;
     }
 
-    /* Glow orbs */
-    .orb {
+    body::after {
+      content: '';
       position: fixed;
-      border-radius: 50%;
-      filter: blur(120px);
+      top: -160px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      max-width: 100vw;
+      height: 480px;
+      background: radial-gradient(ellipse 65% 50% at 50% 30%, rgba(79, 142, 255, 0.13), transparent 70%);
       pointer-events: none;
       z-index: 0;
     }
-    .orb-1 {
-      width: 500px; height: 500px;
-      background: radial-gradient(circle, rgba(79,142,255,0.08), transparent 70%);
-      top: -150px; left: -100px;
-    }
-    .orb-2 {
-      width: 400px; height: 400px;
-      background: radial-gradient(circle, rgba(124,92,252,0.06), transparent 70%);
-      bottom: 0; right: -50px;
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
 
-    /* Layout */
     .container {
-      max-width: 900px;
+      max-width: 1060px;
+      width: 100%;
       margin: 0 auto;
-      padding: 0 24px;
+      padding: 0 20px 64px;
       position: relative;
       z-index: 1;
+      overflow-x: hidden;
     }
 
-    /* Header */
+    /* ── APPLICATION HEADER ────────────────────────── */
     header {
-      padding: 32px 0 16px;
+      padding: 20px 0 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      max-width: 100%;
     }
 
     .logo {
@@ -93,80 +149,223 @@
       align-items: center;
       gap: 10px;
       text-decoration: none;
+      cursor: pointer;
     }
 
     .logo-icon {
-      width: 36px; height: 36px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 10px;
+      width: 36px;
+      height: 36px;
+      background: var(--accent-gradient);
+      border-radius: 9px;
       display: grid;
       place-items: center;
-      font-size: 16px;
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(79, 142, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      flex-shrink: 0;
     }
 
     .logo-text {
-      font-family: var(--font-head);
+      font-family: var(--font-display);
       font-weight: 800;
-      font-size: 20px;
-      color: var(--text);
-      letter-spacing: -0.5px;
+      font-size: 21px;
+      color: #ffffff;
+      letter-spacing: -0.03em;
     }
 
-    .logo-text span { color: var(--accent); }
-
-    .badge {
-      font-size: 10px;
-      font-weight: 500;
-      padding: 3px 8px;
-      border-radius: 20px;
-      background: rgba(79,142,255,0.1);
-      border: 1px solid rgba(79,142,255,0.2);
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    /* Hero */
-    .hero {
-      padding: 64px 0 48px;
-      text-align: center;
-    }
-
-    .hero-eyebrow {
-      font-size: 11px;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .hero-eyebrow::before,
-    .hero-eyebrow::after {
-      content: '';
-      width: 30px; height: 1px;
-      background: var(--accent);
-      opacity: 0.4;
-    }
-
-    .hero-title {
-      font-family: var(--font-head);
-      font-weight: 800;
-      font-size: clamp(36px, 6vw, 64px);
-      line-height: 1.05;
-      letter-spacing: -2px;
-      margin-bottom: 20px;
-      background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.5));
+    .logo-text span {
+      background: var(--accent-gradient);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
 
+    .enterprise-badge {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 3px 7px;
+      border-radius: 5px;
+      background: rgba(79, 142, 255, 0.1);
+      border: 1px solid rgba(79, 142, 255, 0.25);
+      color: var(--accent);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* Main Navigation Sliding Tabs */
+    .app-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: 4px;
+      border-radius: 12px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      max-width: 100%;
+    }
+
+    .nav-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text2);
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .nav-tab:hover {
+      color: var(--text);
+      background: var(--bg-surface-elevated);
+    }
+
+    .nav-tab.active {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 2px 12px rgba(79, 142, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+
+    .nav-tab-icon {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .nav-tab-badge {
+      background: rgba(255, 255, 255, 0.22);
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 10px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .nav-tab:not(.active) .nav-tab-badge {
+      background: rgba(79, 142, 255, 0.12);
+      color: var(--accent);
+      border: 1px solid rgba(79, 142, 255, 0.25);
+    }
+
+    /* Telemetry Pill Cluster */
+    .telemetry-cluster {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: 100%;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 20px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .status-pill.active {
+      background: rgba(0, 229, 153, 0.08);
+      border-color: rgba(0, 229, 153, 0.25);
+      color: var(--success);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 6px currentColor;
+    }
+
+    .status-dot.pulsing {
+      animation: dotPulse 2s infinite ease-in-out;
+    }
+
+    @keyframes dotPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .btn-stop-all {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #ef4444;
+      border-radius: 8px;
+      font-family: var(--font-body);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-stop-all:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #ef4444;
+    }
+
+    /* ── HERO BANNER ────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 20px 0 32px;
+      width: 100%;
+    }
+
+    .hero-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: rgba(79, 142, 255, 0.08);
+      border: 1px solid rgba(79, 142, 255, 0.18);
+      max-width: 100%;
+      word-break: break-word;
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: clamp(28px, 5vw, 50px);
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 14px;
+      color: #ffffff;
+      word-break: break-word;
+    }
+
     .hero-title .highlight {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      background: var(--accent-gradient);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -174,20 +373,84 @@
 
     .hero-sub {
       color: var(--text2);
-      font-size: 15px;
-      line-height: 1.7;
-      max-width: 520px;
-      margin: 0 auto 40px;
+      font-size: 14.5px;
+      line-height: 1.65;
+      max-width: 620px;
+      margin: 0 auto;
     }
 
-    /* Main card */
-    .card {
-      background: var(--surface);
+    /* Technical Pipeline Features (Row of 3) */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 30px;
+      width: 100%;
+    }
+
+    .feature {
+      padding: 16px 18px;
+      background: var(--bg-surface);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 32px;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.2s;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      min-width: 0;
+    }
+
+    .feature:hover {
+      border-color: var(--border-glow);
+      background: var(--bg-surface-elevated);
+      transform: translateY(-2px);
+    }
+
+    .feature-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .feature-icon-box {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(79, 142, 255, 0.1);
+      border: 1px solid rgba(79, 142, 255, 0.2);
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .feature-title {
+      font-family: var(--font-display);
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .feature-sub {
+      font-size: 11.5px;
+      color: var(--text2);
+      line-height: 1.5;
+    }
+
+    /* ── BENTO CARD & CONSOLE SYSTEM ───────────────── */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 26px;
       margin-bottom: 24px;
       position: relative;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      width: 100%;
       overflow: hidden;
     }
 
@@ -196,109 +459,238 @@
       position: absolute;
       top: 0; left: 0; right: 0;
       height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(79,142,255,0.4), transparent);
+      background: linear-gradient(90deg, transparent, rgba(79, 142, 255, 0.35), transparent);
     }
 
     .card-title {
-      font-family: var(--font-head);
+      font-family: var(--font-display);
       font-weight: 700;
-      font-size: 15px;
-      margin-bottom: 20px;
+      font-size: 12px;
+      margin-bottom: 16px;
       color: var(--text2);
       text-transform: uppercase;
-      letter-spacing: 1px;
-      font-size: 11px;
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    /* URL Input */
+    /* URL Input Wrap with Paste & Clear */
     .url-group {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
+      width: 100%;
     }
 
     .input-wrap {
-      flex: 1;
       position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
     }
 
     .input-icon {
       position: absolute;
-      left: 16px;
+      left: 14px;
       top: 50%;
       transform: translateY(-50%);
       color: var(--text3);
-      font-size: 16px;
       pointer-events: none;
+      display: flex;
+      align-items: center;
     }
 
     input[type="text"], input[type="url"] {
       width: 100%;
-      background: var(--bg2);
+      background: var(--bg-deep);
       border: 1px solid var(--border);
       border-radius: 12px;
       color: var(--text);
       font-family: var(--font-mono);
       font-size: 13px;
-      padding: 14px 16px 14px 44px;
+      padding: 13px 86px 13px 40px;
       outline: none;
-      transition: all 0.2s;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+      min-width: 0;
     }
 
     input[type="text"]:focus, input[type="url"]:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
+      box-shadow: 0 0 0 3px var(--accent-glow), inset 0 1px 2px rgba(0, 0, 0, 0.3);
+      background: #0b0f18;
     }
 
     input[type="text"]::placeholder, input[type="url"]::placeholder {
-      color: var(--text3);
+      color: var(--text-muted);
     }
 
-    /* Options row */
+    .input-actions-cluster {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .btn-input-action {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      border-radius: 7px;
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-input-action:hover {
+      background: var(--bg-surface-hover);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    /* Live YouTube Thumbnail Preview Box */
+    .url-preview-box {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      background: var(--bg-deep);
+      border: 1px solid rgba(79, 142, 255, 0.2);
+      border-radius: 12px;
+      margin-bottom: 18px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .url-preview-thumb {
+      width: 76px;
+      height: 46px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #000;
+      flex-shrink: 0;
+    }
+
+    .url-preview-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .url-preview-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 9.5px;
+      font-family: var(--font-mono);
+      color: var(--accent);
+      background: rgba(79, 142, 255, 0.12);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+
+    .url-preview-id {
+      font-size: 11.5px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Transcript Drawer (Tanya Gemini / Fast Path) */
+    .transcript-box-wrap {
+      margin-bottom: 22px;
+      width: 100%;
+    }
+
+    .transcript-header-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding: 12px 14px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: all 0.2s;
+      gap: 10px;
+    }
+
+    .transcript-header-btn:hover {
+      border-color: var(--border-glow);
+      background: var(--bg-surface-hover);
+    }
+
+    /* Options Bento Matrix */
     .options-row {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, 1fr);
       gap: 16px;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
+      width: 100%;
+    }
+
+    .option-group {
+      min-width: 0;
     }
 
     .option-group label {
       display: block;
       font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 0.05em;
       color: var(--text2);
-      margin-bottom: 10px;
+      font-weight: 600;
+      margin-bottom: 8px;
     }
 
     .ar-buttons {
       display: flex;
       gap: 8px;
+      width: 100%;
     }
 
     .ar-btn {
       flex: 1;
-      padding: 10px 8px;
-      background: var(--bg2);
+      min-width: 0;
+      padding: 9px 6px;
+      background: var(--bg-deep);
       border: 1px solid var(--border);
       border-radius: 10px;
       color: var(--text2);
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 11.5px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
     }
 
-    .ar-btn:hover { border-color: var(--accent); color: var(--text); }
+    .ar-btn:hover {
+      border-color: var(--border-glow);
+      color: var(--text);
+      background: var(--bg-surface-elevated);
+    }
 
     .ar-btn.active {
-      background: rgba(79,142,255,0.1);
+      background: rgba(79, 142, 255, 0.12);
       border-color: var(--accent);
       color: var(--accent);
+      box-shadow: 0 0 12px rgba(79, 142, 255, 0.15);
     }
 
     .ar-icon {
@@ -307,80 +699,173 @@
       border-radius: 3px;
     }
 
-    .ar-btn[data-ar="9:16"] .ar-icon { width: 16px; height: 28px; }
-    .ar-btn[data-ar="1:1"] .ar-icon { width: 22px; height: 22px; }
-    .ar-btn[data-ar="16:9"] .ar-icon { width: 32px; height: 18px; }
+    .ar-btn[data-ar="9:16"] .ar-icon { width: 13px; height: 23px; }
+    .ar-btn[data-ar="1:1"] .ar-icon { width: 18px; height: 18px; }
+    .ar-btn[data-ar="16:9"] .ar-icon { width: 25px; height: 15px; }
 
-    /* Clip count */
+    /* Custom Form Select Styling */
+    select {
+      width: 100%;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 12.5px;
+      padding: 10px 12px;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-width: 0;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    /* Clip Count Stepper */
     .clip-count-wrap {
       display: flex;
       align-items: center;
       gap: 12px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px 8px;
+      width: fit-content;
+      max-width: 100%;
     }
 
     .clip-count-wrap button {
-      width: 32px; height: 32px;
-      border-radius: 8px;
-      background: var(--bg2);
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      background: var(--bg-surface-elevated);
       border: 1px solid var(--border);
       color: var(--text);
       font-size: 18px;
+      font-weight: 600;
       cursor: pointer;
       display: grid;
       place-items: center;
-      transition: all 0.15s;
+      transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .clip-count-wrap button:hover {
       border-color: var(--accent);
       color: var(--accent);
+      background: var(--bg-surface-hover);
+      transform: scale(1.05);
+    }
+
+    .clip-count-wrap button:active {
+      transform: scale(0.95);
     }
 
     #clipCountDisplay {
-      font-family: var(--font-head);
-      font-size: 24px;
-      font-weight: 700;
-      color: var(--text);
-      min-width: 28px;
+      font-family: var(--font-display);
+      font-size: 19px;
+      font-weight: 800;
+      color: #ffffff;
+      min-width: 24px;
       text-align: center;
     }
 
     .clip-count-wrap span.label {
       font-size: 12px;
       color: var(--text2);
+      font-family: var(--font-mono);
     }
 
-    /* Process button */
+    /* Linear / iOS Style Modern Switch Toggle */
+    .switch-toggle {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .switch-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .switch-toggle .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.12);
+      transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 24px;
+      border: 1px solid var(--border);
+    }
+
+    .switch-toggle .slider::before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #ffffff;
+      transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .switch-toggle input:checked + .slider {
+      background: var(--accent) !important;
+      border-color: var(--accent);
+    }
+
+    .switch-toggle input:checked + .slider::before {
+      transform: translateX(20px);
+    }
+
+    /* Primary Generate Process Button */
     .btn-process {
       width: 100%;
-      padding: 16px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      padding: 15px;
+      background: var(--accent-gradient);
       border: none;
       border-radius: 12px;
-      color: #fff;
-      font-family: var(--font-head);
+      color: #ffffff;
+      font-family: var(--font-display);
       font-weight: 700;
-      font-size: 15px;
+      font-size: 14.5px;
       cursor: pointer;
-      transition: all 0.2s;
-      letter-spacing: 0.5px;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      letter-spacing: 0.02em;
       position: relative;
       overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 4px 20px rgba(79, 142, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
     }
 
     .btn-process::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent);
+      pointer-events: none;
     }
 
     .btn-process:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 32px rgba(79,142,255,0.35);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(79, 142, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      background: var(--accent-gradient-hover);
     }
 
-    .btn-process:active { transform: translateY(0); }
+    .btn-process:active {
+      transform: translateY(0);
+    }
+
     .btn-process:disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -388,114 +873,113 @@
       box-shadow: none;
     }
 
-    /* Switch toggle */
-    .switch-toggle input:checked + .slider,
-    .switch-toggle input:checked + .switch-slider {
-      background-color: var(--accent) !important;
-    }
-    .switch-toggle input:checked + .slider:before,
-    .switch-toggle input:checked + .switch-slider:before {
-      transform: translateX(20px);
-    }
-    .switch-toggle .slider:before,
-    .switch-toggle .switch-slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .3s;
-      border-radius: 50%;
-    }
-
-    /* Progress section */
+    /* ── PROGRESS SECTION & PIPELINE TELEMETRY ──────── */
     #progressSection { display: none; }
 
     .progress-card {
-      background: var(--surface);
+      background: var(--bg-surface);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 32px;
+      border-radius: 18px;
+      padding: 24px;
       margin-bottom: 24px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+      width: 100%;
     }
 
     .progress-steps {
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      margin-bottom: 28px;
+      gap: 14px;
+      margin-bottom: 22px;
     }
 
     .step {
       display: flex;
       align-items: center;
       gap: 14px;
-      opacity: 0.3;
-      transition: all 0.3s;
+      opacity: 0.35;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      min-width: 0;
     }
 
-    .step.active { opacity: 1; }
-    .step.done { opacity: 0.6; }
+    .step.active {
+      opacity: 1;
+    }
+
+    .step.done {
+      opacity: 0.75;
+    }
 
     .step-icon {
-      width: 36px; height: 36px;
+      width: 36px;
+      height: 36px;
       border-radius: 10px;
-      background: var(--surface2);
+      background: var(--bg-surface-elevated);
       border: 1px solid var(--border);
       display: grid;
       place-items: center;
-      font-size: 16px;
+      color: var(--text3);
       flex-shrink: 0;
       transition: all 0.3s;
     }
 
     .step.active .step-icon {
-      background: rgba(79,142,255,0.15);
+      background: rgba(79, 142, 255, 0.15);
       border-color: var(--accent);
-      animation: pulse 1.5s ease-in-out infinite;
+      color: var(--accent);
+      box-shadow: 0 0 16px rgba(79, 142, 255, 0.4);
+      animation: pulseStep 1.8s infinite ease-in-out;
     }
 
     .step.done .step-icon {
-      background: rgba(46,204,136,0.1);
+      background: rgba(0, 229, 153, 0.12);
       border-color: var(--success);
+      color: var(--success);
     }
 
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(79,142,255,0.3); }
-      50% { box-shadow: 0 0 0 6px rgba(79,142,255,0); }
+    @keyframes pulseStep {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(79, 142, 255, 0.3); }
+      50% { transform: scale(1.06); box-shadow: 0 0 20px rgba(79, 142, 255, 0.6); }
     }
 
     .step-text {
       flex: 1;
+      min-width: 0;
     }
 
     .step-label {
-      font-size: 13px;
-      color: var(--text);
+      font-family: var(--font-display);
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #ffffff;
       margin-bottom: 2px;
+      word-break: break-word;
     }
 
     .step-sub {
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--text3);
+      font-family: var(--font-mono);
+      word-break: break-word;
     }
 
     /* Progress bar */
     .progress-bar-wrap {
-      background: var(--bg2);
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
       border-radius: 100px;
-      height: 6px;
+      height: 8px;
       overflow: hidden;
       margin-bottom: 12px;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+      width: 100%;
     }
 
     .progress-bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      background: var(--accent-gradient);
       border-radius: 100px;
-      transition: width 0.5s ease;
+      transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
     }
 
@@ -504,8 +988,8 @@
       position: absolute;
       right: 0; top: 0; bottom: 0;
       width: 40px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
-      animation: shimmer 1.5s ease-in-out infinite;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5));
+      animation: shimmer 1.5s infinite linear;
     }
 
     @keyframes shimmer {
@@ -517,521 +1001,151 @@
     .progress-text {
       display: flex;
       justify-content: space-between;
+      font-size: 12px;
+      color: var(--text2);
+      font-family: var(--font-mono);
+    }
+
+    /* Terminal Telemetry Log Console */
+    .terminal-console {
+      background: #040508;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-top: 18px;
+      font-family: var(--font-mono);
       font-size: 11px;
-      color: var(--text3);
-    }
-
-    /* Results */
-    #resultsSection { display: none; }
-
-    .results-header {
-      margin-bottom: 28px;
-    }
-
-    .results-title {
-      font-family: var(--font-head);
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      margin-bottom: 6px;
-    }
-
-    .results-sub { color: var(--text2); font-size: 13px; }
-
-    .clips-grid {
-      display: grid;
-      gap: 24px;
-    }
-
-    .clip-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 24px;
-      display: flex;
-      flex-direction: row;
-      align-items: stretch;
-      gap: 24px;
-      transition: all 0.25s ease;
-      animation: slideUp 0.4s ease forwards;
-      opacity: 0;
-      position: relative;
-    }
-
-    .clip-card:hover {
-      border-color: var(--border-glow);
-      transform: translateY(-2px);
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
-    }
-
-    @keyframes slideUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .clip-preview-wrap {
-      position: relative;
-      flex-shrink: 0;
-      width: 210px;
-      background: #04060a;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
-      aspect-ratio: 9 / 16;
-    }
-
-    .clip-preview-wrap[data-ar="1:1"] {
-      width: 240px;
-      aspect-ratio: 1 / 1;
-    }
-
-    .clip-preview-wrap[data-ar="16:9"] {
-      width: 280px;
-      aspect-ratio: 16 / 9;
-    }
-
-    .clip-video-player {
+      color: #94a3b8;
+      max-height: 140px;
+      overflow-y: auto;
       width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      background: #000;
-      border-radius: 13px;
     }
 
-    .clip-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      min-width: 0;
-    }
-
-    .clip-header {
+    .terminal-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      gap: 12px;
-    }
-
-    .clip-number {
-      font-family: var(--font-head);
-      font-size: 26px;
-      font-weight: 800;
+      gap: 6px;
       color: var(--accent);
-      min-width: 36px;
-      line-height: 1;
+      font-weight: 700;
+      margin-bottom: 6px;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
-    .clip-badges {
+    .terminal-line {
       display: flex;
       gap: 8px;
-      flex-wrap: wrap;
-      align-items: center;
+      line-height: 1.6;
+      word-break: break-word;
     }
 
-    .clip-info { flex: 1; min-width: 0; }
-
-    .clip-title {
-      font-family: var(--font-head);
-      font-weight: 700;
-      font-size: 17px;
-      line-height: 1.35;
-      margin-bottom: 8px;
-      color: #fff;
+    .terminal-time {
+      color: var(--text3);
+      user-select: none;
+      flex-shrink: 0;
     }
 
-    .clip-reason {
-      font-size: 13px;
-      color: var(--text2);
-      line-height: 1.55;
-      margin-bottom: 12px;
-    }
+    /* ── ERROR SECTION ──────────────────────────────── */
+    #errorSection { display: none; }
 
-    .clip-hook-quote {
-      background: rgba(79, 142, 255, 0.05);
-      border-left: 3px solid var(--accent);
-      padding: 8px 12px;
-      border-radius: 0 8px 8px 0;
-      font-size: 12px;
-      color: #d1dcfa;
-      font-style: italic;
-      margin-bottom: 14px;
-    }
-
-    .clip-meta {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 18px;
-    }
-
-    .meta-tag {
-      font-size: 10px;
-      padding: 4px 10px;
-      border-radius: 6px;
-      background: var(--surface2);
-      color: var(--text2);
-    }
-
-    .meta-tag.score {
-      background: rgba(46, 204, 136, 0.12);
-      border: 1px solid rgba(46, 204, 136, 0.25);
-      color: var(--success);
-      font-weight: 600;
-    }
-
-    .meta-tag.hook {
-      background: rgba(124, 92, 252, 0.15);
-      border: 1px solid rgba(124, 92, 252, 0.3);
-      color: #bfa5ff;
-      text-transform: capitalize;
-    }
-
-    .clip-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-top: auto;
-    }
-
-    .btn-download {
-      padding: 10px 20px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border: none;
-      border-radius: 10px;
-      color: #fff;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      text-decoration: none;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      box-shadow: 0 4px 16px rgba(79, 142, 255, 0.25);
-    }
-
-    .btn-download:hover {
-      box-shadow: 0 6px 22px rgba(79, 142, 255, 0.4);
-      transform: translateY(-1px);
-      color: #fff;
-    }
-
-    .btn-preview-toggle {
-      padding: 9px 16px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
-    }
-
-    .btn-preview-toggle:hover {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: var(--accent);
-      color: #fff;
-    }
-
-    .btn-tab-link {
-      padding: 9px 14px;
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text2);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: all 0.2s;
-    }
-
-    .btn-tab-link:hover {
-      border-color: var(--text2);
-      color: var(--text);
-    }
-
-    /* Error */
     .error-card {
-      background: rgba(255,79,110,0.05);
-      border: 1px solid rgba(255,79,110,0.2);
-      border-radius: 16px;
-      padding: 20px 24px;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 14px;
+      padding: 16px 20px;
       display: flex;
       align-items: center;
       gap: 14px;
       margin-bottom: 16px;
+      color: #fca5a5;
+      width: 100%;
     }
 
-    .error-card .icon { font-size: 22px; }
-    .error-card .msg { font-size: 13px; color: #ff8fa3; }
+    .error-card .icon {
+      color: #ef4444;
+      display: flex;
+      flex-shrink: 0;
+    }
 
-    /* Reset btn */
     .btn-reset {
       width: 100%;
       padding: 12px;
-      background: transparent;
+      background: var(--bg-surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 10px;
       color: var(--text2);
-      font-family: var(--font-mono);
+      font-family: var(--font-display);
       font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
       margin-top: 16px;
-    }
-
-    .btn-reset:hover { border-color: var(--text2); color: var(--text); }
-
-    /* Footer */
-    footer {
-      text-align: center;
-      padding: 32px 0;
-      color: var(--text3);
-      font-size: 11px;
-      border-top: 1px solid var(--border);
-      margin-top: 40px;
-    }
-
-    /* Features row */
-    .features {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-bottom: 32px;
-    }
-
-    .feature {
-      text-align: center;
-      padding: 20px 16px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-    }
-
-    .feature-icon { font-size: 24px; margin-bottom: 8px; }
-    .feature-title {
-      font-family: var(--font-head);
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-    .feature-sub { font-size: 11px; color: var(--text2); }
-
-    @media (max-width: 768px) {
-      .features { grid-template-columns: 1fr; }
-      .options-row { grid-template-columns: 1fr; }
-      .url-group { flex-direction: column; }
-      .clip-card {
-        flex-direction: column;
-        align-items: center;
-        padding: 20px 16px;
-      }
-      .clip-preview-wrap {
-        width: 100%;
-        max-width: 260px;
-      }
-      .clip-content {
-        width: 100%;
-      }
-      .clip-actions {
-        flex-direction: column;
-        width: 100%;
-      }
-      .btn-download, .btn-preview-toggle, .btn-tab-link {
-        width: 100%;
-        justify-content: center;
-      }
-    }
-
-    /* ── Main App Navigation & Dedicated Views ── */
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 24px 0 20px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 28px;
-      flex-wrap: wrap;
-    }
-
-    .app-nav {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      padding: 4px;
-      border-radius: 12px;
-    }
-
-    .nav-tab {
-      display: inline-flex;
-      align-items: center;
+      justify-content: center;
       gap: 8px;
-      padding: 8px 18px;
-      border-radius: 9px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--text2);
-      font-family: var(--font-head);
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-      user-select: none;
     }
 
-    .nav-tab:hover {
+    .btn-reset:hover {
+      border-color: var(--text2);
       color: var(--text);
-      background: var(--surface2);
+      background: var(--bg-surface-elevated);
     }
 
-    .nav-tab.active {
-      background: var(--accent);
+    /* ── RESULTS SECTION ────────────────────────────── */
+    #resultsSection { display: none; }
+
+    .results-header {
+      margin-bottom: 24px;
+    }
+
+    .results-title {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 800;
       color: #ffffff;
-      box-shadow: 0 2px 14px rgba(79, 142, 255, 0.4);
+      margin-bottom: 6px;
     }
 
-    .nav-tab-badge {
-      background: rgba(255, 255, 255, 0.22);
-      color: #fff;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      padding: 1px 7px;
-      border-radius: 10px;
-      min-width: 18px;
-      text-align: center;
-    }
-
-    .nav-tab:not(.active) .nav-tab-badge {
-      background: rgba(79, 142, 255, 0.15);
-      color: var(--accent);
-      border: 1px solid rgba(79, 142, 255, 0.3);
-    }
-
-    /* Filter chips on History page */
-    .filter-chip {
-      background: var(--bg2);
-      border: 1px solid var(--border);
+    .results-sub {
       color: var(--text2);
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-family: var(--font-body);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      transition: all 0.2s;
+      font-size: 13px;
     }
 
-    .filter-chip:hover {
-      border-color: var(--accent);
-      color: var(--text);
-    }
-
-    .filter-chip.active {
-      background: rgba(79, 142, 255, 0.15);
-      border-color: var(--accent);
-      color: var(--accent);
-      font-weight: 700;
-    }
-
-    .chip-count {
-      background: var(--surface);
-      padding: 1px 7px;
-      border-radius: 10px;
-      font-size: 11px;
-      font-family: var(--font-mono);
-    }
-
-    .filter-chip.active .chip-count {
-      background: rgba(79, 142, 255, 0.25);
-      color: #fff;
-    }
-
-    /* History Card layout */
-    .history-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 20px 22px;
-      transition: all 0.25s ease;
-    }
-
-    .history-card:hover {
-      border-color: var(--border-glow);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-    }
-
-    .history-clip-item {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .history-video-player {
-      width: 100%;
-      max-height: 480px;
-      border-radius: 10px;
-      background: #000;
-      margin-top: 8px;
-    }
-
-    /* ── OPUS CLIP INSPIRED DESIGN STYLES ── */
+    /* ── OPUS CLIP INSPIRED 9:16 GRID & CARDS ────────── */
     .opus-clips-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
       gap: 18px;
       margin-top: 16px;
+      width: 100%;
     }
 
     .opus-card {
-      background: #141720;
+      background: var(--bg-surface);
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 16px;
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      transition: all 0.22s ease;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       cursor: pointer;
       position: relative;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      min-width: 0;
     }
 
     .opus-card:hover {
-      transform: translateY(-4px);
-      border-color: rgba(79, 142, 255, 0.4);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+      transform: translateY(-5px);
+      border-color: rgba(79, 142, 255, 0.45);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(79, 142, 255, 0.15);
     }
 
     .opus-thumb-wrap {
       aspect-ratio: 9 / 16;
       width: 100%;
-      background: #090b10;
+      background: #06080e;
       position: relative;
       overflow: hidden;
       display: flex;
@@ -1052,12 +1166,9 @@
     .opus-thumb-overlay {
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 25%, rgba(0,0,0,0) 70%, rgba(0,0,0,0.7) 100%);
+      background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 70%, rgba(0,0,0,0.85) 100%);
       pointer-events: none;
     }
-
-    /* Headline & subtitle kini ter-burn-in di dalam MP4 oleh FFmpeg, jadi
-       tidak ada lagi overlay HTML di atas thumbnail. */
 
     .opus-thumb-bottom {
       position: absolute;
@@ -1068,31 +1179,34 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 8px 10px;
+      padding: 10px 12px;
       pointer-events: none;
     }
 
     .opus-badge-autozoom {
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(4px);
-      color: #e2e8f0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
+      color: #f1f5f9;
       font-size: 10px;
+      font-family: var(--font-mono);
       font-weight: 600;
-      padding: 2px 6px;
-      border-radius: 4px;
+      padding: 3px 7px;
+      border-radius: 5px;
       display: flex;
       align-items: center;
-      gap: 3px;
+      gap: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .opus-duration-pill {
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(6px);
       color: #ffffff;
       font-family: var(--font-mono);
       font-size: 10.5px;
-      padding: 2px 6px;
-      border-radius: 4px;
+      padding: 3px 7px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .opus-play-hover {
@@ -1100,7 +1214,7 @@
       inset: 0;
       display: grid;
       place-items: center;
-      background: rgba(0, 0, 0, 0.25);
+      background: rgba(0, 0, 0, 0.35);
       opacity: 0;
       transition: all 0.2s ease;
       z-index: 3;
@@ -1111,27 +1225,26 @@
     }
 
     .opus-play-btn-circle {
-      width: 46px;
-      height: 46px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.95);
-      color: #090b10;
+      background: #ffffff;
+      color: #06080e;
       display: grid;
       place-items: center;
-      font-size: 18px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-      transition: transform 0.2s;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .opus-card:hover .opus-play-btn-circle {
-      transform: scale(1.1);
+      transform: scale(1.12);
     }
 
     .opus-card-meta {
-      padding: 12px 14px 14px;
+      padding: 14px 16px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
 
     .opus-score-row {
@@ -1142,11 +1255,11 @@
     }
 
     .opus-virality-score {
-      font-family: var(--font-head);
-      font-size: 24px;
+      font-family: var(--font-display);
+      font-size: 26px;
       font-weight: 800;
-      color: #00e599;
-      text-shadow: 0 0 14px rgba(0, 229, 153, 0.4);
+      color: var(--success);
+      text-shadow: 0 0 16px var(--success-glow);
       line-height: 1;
     }
 
@@ -1157,79 +1270,136 @@
     }
 
     .opus-icon-btn {
-      background: var(--surface2);
+      background: var(--bg-surface-elevated);
       border: 1px solid var(--border);
       color: var(--text2);
-      border-radius: 6px;
-      width: 28px;
-      height: 28px;
+      border-radius: 7px;
+      width: 30px;
+      height: 30px;
       display: grid;
       place-items: center;
-      font-size: 12px;
       cursor: pointer;
       transition: all 0.15s;
       text-decoration: none;
+      flex-shrink: 0;
     }
 
     .opus-icon-btn:hover {
       border-color: var(--accent);
-      color: var(--text);
-      background: var(--surface);
+      color: #ffffff;
+      background: var(--bg-surface-hover);
     }
 
     .opus-card-title {
-      font-family: var(--font-head);
-      font-size: 12.5px;
+      font-family: var(--font-display);
+      font-size: 13px;
       font-weight: 700;
-      color: var(--text);
-      line-height: 1.35;
+      color: #ffffff;
+      line-height: 1.4;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
-      min-height: 34px;
+      min-height: 36px;
     }
 
-    /* ── OPUS CLIP DETAIL MODAL ── */
+    /* ── HISTORY PAGE STYLES ────────────────────────── */
+    .filter-chip {
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-family: var(--font-body);
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .filter-chip:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .filter-chip.active {
+      background: rgba(79, 142, 255, 0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .chip-count {
+      background: var(--bg-surface);
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    .filter-chip.active .chip-count {
+      background: rgba(79, 142, 255, 0.25);
+      color: #fff;
+    }
+
+    .history-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 22px;
+      transition: all 0.25s;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      width: 100%;
+    }
+
+    .history-card:hover {
+      border-color: var(--border-glow);
+    }
+
+    /* ── OPUS CLIP PRO DETAIL MODAL ─────────────────── */
     .opus-modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(5, 7, 12, 0.85);
-      backdrop-filter: blur(10px);
+      background: rgba(4, 6, 10, 0.88);
+      backdrop-filter: blur(14px);
       z-index: 9999;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 16px;
     }
 
     .opus-modal-container {
-      background: #11141d;
-      border: 1px solid var(--border-glow);
-      border-radius: 18px;
+      background: #0d111a;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
       width: 100%;
-      max-width: 1140px;
+      max-width: 1160px;
       max-height: 92vh;
       overflow-y: auto;
-      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.85);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.1);
       display: flex;
       flex-direction: column;
     }
 
     .opus-modal-header {
-      padding: 18px 24px;
+      padding: 16px 20px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      gap: 14px;
     }
 
     .opus-modal-body {
       display: grid;
       grid-template-columns: 340px 1fr 220px;
-      gap: 24px;
-      padding: 24px;
+      gap: 20px;
+      padding: 20px;
       overflow-y: auto;
     }
 
@@ -1238,38 +1408,101 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* ── RESPONSIVENESS (320px - 1920px) ────────────── */
+    @media (max-width: 768px) {
+      .features { grid-template-columns: 1fr; }
+      .options-row { grid-template-columns: 1fr; }
+      header { flex-direction: column; align-items: stretch; gap: 14px; }
+      .header-left { justify-content: space-between; width: 100%; }
+      .telemetry-cluster { justify-content: flex-start; width: 100%; }
+      .app-nav { width: 100%; }
+      .nav-tab { flex: 1; justify-content: center; }
+      #metadataSettings { grid-template-columns: 1fr !important; }
+      #brandingSettings > div { grid-template-columns: 1fr !important; }
+      #headlineOptions { grid-template-columns: 1fr !important; }
+      .card { padding: 18px 14px; }
+      .container { padding: 0 14px 44px; }
+    }
+
+    @media (max-width: 480px) {
+      .container { padding: 0 10px 40px; }
+      .card { padding: 16px 12px; }
+      .header-left { gap: 6px; }
+      .enterprise-badge { font-size: 8.5px; padding: 2px 5px; }
+      .telemetry-cluster { gap: 5px; }
+      .status-pill { font-size: 9.5px; padding: 3px 7px; }
+      .hero-title { font-size: 26px; }
+      .hero-eyebrow { font-size: 9.5px; }
+      .input-actions-cluster { position: static; transform: none; margin-top: 8px; justify-content: flex-end; }
+      input[type="text"], input[type="url"] { padding-right: 14px; }
+      .ar-buttons { flex-direction: column; }
+      .ar-btn { flex-direction: row; justify-content: center; padding: 8px; gap: 8px; }
+      .opus-modal-header { padding: 12px 14px; }
+      .opus-modal-body { padding: 14px; gap: 14px; }
+    }
+
+    @media (max-width: 360px) {
+      .header-left { flex-direction: column; align-items: flex-start; }
+      #viewHistory > div:first-child > div:last-child {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      #viewHistory > div:first-child > div:last-child button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
   </style>
 </head>
 <body>
-  <div class="orb orb-1"></div>
-  <div class="orb orb-2"></div>
-
   <div class="container">
     <header>
-      <a class="logo" href="#studio" onclick="switchView('studio'); return false;">
-        <div class="logo-icon">🎬</div>
-        <span class="logo-text">Clip<span>AI</span></span>
-      </a>
+      <div class="header-left">
+        <a class="logo" href="#studio" onclick="switchView('studio'); return false;">
+          <div class="logo-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 8-4-4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8z"/><polygon points="10 11 15 14 10 17 10 11"/><path d="M2 8h20"/></svg>
+          </div>
+          <span class="logo-text">Clip<span>AI</span></span>
+        </a>
+        <span class="enterprise-badge">v2.4 Enterprise</span>
+        <span class="enterprise-badge" style="background:rgba(0,229,153,0.1); border-color:rgba(0,229,153,0.25); color:var(--success);">Venture Ready</span>
+      </div>
 
       <!-- Main Navigation Tabs: Studio vs Riwayat -->
       <nav class="app-nav" id="appNav">
         <button type="button" class="nav-tab active" id="tabStudioBtn" onclick="switchView('studio')">
-          <span class="nav-tab-icon">⚡</span>
+          <span class="nav-tab-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </span>
           <span>Buat Klip</span>
         </button>
         <button type="button" class="nav-tab" id="tabHistoryBtn" onclick="switchView('history')">
-          <span class="nav-tab-icon">📁</span>
+          <span class="nav-tab-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+          </span>
           <span>Riwayat Klip</span>
           <span id="navHistoryBadge" class="nav-tab-badge" style="display:none;">0</span>
         </button>
       </nav>
 
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span id="hwBadge" class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10B981; border-color: rgba(16, 185, 129, 0.3);">⚡ GPU Active</span>
-        <span class="badge">AI Powered</span>
-        <button id="stopAllBtn" onclick="stopEverything()" title="Batalkan semua job yang menunggu & bersihkan antrian"
-          style="display:none; background: rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35); color:#EF4444; border-radius:8px; font-family:var(--font-body); font-size:11px; font-weight:600; padding:5px 11px; cursor:pointer;">
-          ⏹ Stop Semua <span id="stopAllCount"></span>
+      <!-- Real-Time Telemetry Status Pill Cluster -->
+      <div class="telemetry-cluster">
+        <span class="status-pill active" title="Redis BullMQ Message Bus Connected">
+          <span class="status-dot pulsing"></span> Redis Active
+        </span>
+        <span id="hwBadge" class="status-pill active" title="AMD Radeon VAAPI Acceleration">
+          <span class="status-dot pulsing"></span> GPU Active
+        </span>
+        <span class="status-pill" title="Ingest Pipeline Ready">
+          <span class="status-dot"></span> Ingest Ready
+        </span>
+        <button id="stopAllBtn" onclick="stopEverything()" title="Batalkan semua job yang menunggu &amp; bersihkan antrian" class="btn-stop-all">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          <span>Stop Semua <span id="stopAllCount"></span></span>
         </button>
       </div>
     </header>
@@ -1277,500 +1510,583 @@
     <!-- Halaman 1: STUDIO / BUAT KLIP -->
     <main id="viewStudio">
       <!-- Job tertinggal dari sesi sebelumnya -->
-      <div id="leftoverBanner" style="display:none; margin-bottom:20px; padding:13px 16px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); border-radius:12px; justify-content:space-between; align-items:center; gap:12px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <span style="font-size:17px;">⏳</span>
+      <div id="leftoverBanner" style="display:none; margin-bottom:20px; padding:14px 18px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:14px; justify-content:space-between; align-items:center; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:32px; height:32px; border-radius:8px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); display:grid; place-items:center; color:var(--warning); flex-shrink:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
           <div>
-            <div style="font-family:var(--font-head); font-size:12px; font-weight:700; color:#F59E0B;">
+            <div style="font-family:var(--font-display); font-size:12.5px; font-weight:700; color:var(--warning);">
               Ada <span id="leftoverCount">0</span> job tertinggal di antrian
             </div>
-            <div style="font-size:11px; color:var(--text2); margin-top:2px;">
-              Job ini otomatis dikerjakan worker. Batalkan kalau tidak mau dilanjutkan.
+            <div style="font-size:11.5px; color:var(--text2); margin-top:2px;">
+              Job ini otomatis dikerjakan worker. Batalkan jika tidak ingin dilanjutkan.
             </div>
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
-          <button onclick="switchView('history')" style="background:transparent; border:1px solid rgba(245,158,11,0.4); color:#F59E0B; border-radius:7px; font-family:var(--font-body); font-size:11px; font-weight:600; padding:6px 12px; cursor:pointer; white-space:nowrap;">
-            Lihat di Riwayat →
+          <button onclick="switchView('history')" style="background:transparent; border:1px solid rgba(245,158,11,0.4); color:var(--warning); border-radius:8px; font-family:var(--font-body); font-size:11.5px; font-weight:600; padding:6px 14px; cursor:pointer; white-space:nowrap;">
+            Lihat di Riwayat &rarr;
           </button>
-          <button onclick="stopEverything()" style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4); color:#F59E0B; border-radius:7px; font-family:var(--font-body); font-size:11px; font-weight:600; padding:6px 12px; cursor:pointer; white-space:nowrap;">
+          <button onclick="stopEverything()" style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4); color:var(--warning); border-radius:8px; font-family:var(--font-body); font-size:11.5px; font-weight:600; padding:6px 14px; cursor:pointer; white-space:nowrap;">
             Batalkan Semua
           </button>
         </div>
       </div>
 
       <section class="hero">
-        <div class="hero-eyebrow">YouTube → Short Clips</div>
+        <div class="hero-eyebrow">SYSTEMS LAB // CLOUD MEDIA PIPELINE</div>
         <h1 class="hero-title">
-          Ubah Video Panjang<br/>jadi <span class="highlight">Clip Viral</span>
+          Ubah Video Panjang Jadi <span class="highlight">Shorts Viral</span>
         </h1>
         <p class="hero-sub">
-          Paste URL YouTube, AI kami otomatis analisis dan potong momen terbaik.
-          Siap untuk TikTok, Reels & YouTube Shorts.
+          Ekstraksi momen berpotensi viral secara otomatis via Whisper transkripsi, AI hook curation, face-tracking reframe 9:16, dan akselerasi GPU AMD VAAPI.
         </p>
       </section>
 
-    <div class="features">
-      <div class="feature">
-        <div class="feature-icon">🎙️</div>
-        <div class="feature-title">AI Transcription</div>
-        <div class="feature-sub">Whisper transkripsi otomatis</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🤖</div>
-        <div class="feature-title">AI Analisis</div>
-        <div class="feature-sub" id="heroAiModelSub">Model AI pilih momen terbaik</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">✂️</div>
-        <div class="feature-title">Auto Clip</div>
-        <div class="feature-sub" id="heroHwSub">FFmpeg potong & reframe</div>
-      </div>
-    </div>
-
-    <!-- Input Form -->
-    <div id="formSection">
-      <div class="card">
-        <div class="card-title">📎 URL Video YouTube</div>
-        <div class="url-group">
-          <div class="input-wrap">
-            <span class="input-icon">🔗</span>
-            <input
-              type="url"
-              id="youtubeUrl"
-              placeholder="https://www.youtube.com/watch?v=..."
-            />
+      <div class="features">
+        <div class="feature">
+          <div class="feature-header">
+            <div class="feature-icon-box">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            </div>
+            <div class="feature-title">AI Transcription</div>
           </div>
+          <div class="feature-sub">Whisper transkripsi otomatis dengan timestamp presisi</div>
         </div>
 
-        <!-- Tanya Gemini Transcript Accordion (Fast Path) -->
-        <div class="transcript-box-wrap" style="margin-bottom: 20px;">
-          <div
-            id="transcriptHeader"
-            onclick="toggleTranscriptInput()"
-            style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; padding:12px 16px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; transition:all 0.2s;"
-          >
-            <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text);">
-              <span>✨</span>
-              <span style="font-weight:600;">Punya Transkrip YouTube / Tanya Gemini?</span>
-              <span style="font-size:10px; background:rgba(79,142,255,0.15); color:var(--accent); padding:2px 8px; border-radius:4px; font-weight:600;">MODE INSTAN</span>
+        <div class="feature">
+          <div class="feature-header">
+            <div class="feature-icon-box">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04Z"/></svg>
             </div>
-            <span id="transcriptToggleIcon" style="color:var(--text2); font-size:12px;">▼ Buka</span>
+            <div class="feature-title">AI Viral Analysis</div>
           </div>
-          <div id="transcriptInputContainer" style="display:none; margin-top:12px;">
-            <div style="font-size:11px; color:var(--text2); margin-bottom:8px; line-height:1.5;">
-              💡 <em>Salin hasil transkrip langsung dari tombol <strong>"Tanya"</strong> di YouTube atau teks ber-timestamp. Sistem akan <strong>melewati unduh audio & Whisper 100%</strong> sehingga proses menjadi super cepat!</em>
-            </div>
-            <textarea
-              id="transcriptText"
-              rows="6"
-              style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:var(--font-mono); font-size:12px; padding:12px; outline:none; resize:vertical; line-height:1.4;"
-              placeholder="Tempel transkrip di sini. Contoh format Tanya YouTube:&#10;([0:00](https://www.youtube.com/watch?t=0s)) Katanya manusia itu kan diciptakan dari tanah ya, Bib.&#10;([0:03](https://www.youtube.com/watch?t=3s)) Heeh.&#10;([0:04](https://www.youtube.com/watch?t=4s)) Berarti kita saudara sama brokoli. Kok bisa, Pak?"
-              oninput="handleTranscriptChange()"
-            ></textarea>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:11px; color:var(--text3);">
-              <span id="transcriptCharCount">0 karakter</span>
-              <button type="button" onclick="clearTranscript()" style="background:transparent; border:none; color:var(--danger); cursor:pointer; font-size:11px; font-family:var(--font-mono);">✕ Hapus Teks</button>
-            </div>
-          </div>
+          <div class="feature-sub" id="heroAiModelSub">Model AI analisis hook score &amp; momen terbaik</div>
         </div>
 
-        <div class="options-row">
-          <div class="option-group">
-            <label>Aspect Ratio</label>
-            <div class="ar-buttons">
-              <button class="ar-btn active" data-ar="9:16">
-                <span class="ar-icon"></span>
-                9:16
-              </button>
-              <button class="ar-btn" data-ar="1:1">
-                <span class="ar-icon"></span>
-                1:1
-              </button>
-              <button class="ar-btn" data-ar="16:9">
-                <span class="ar-icon"></span>
-                16:9
-              </button>
+        <div class="feature">
+          <div class="feature-header">
+            <div class="feature-icon-box">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg>
             </div>
+            <div class="feature-title">Hardware Render</div>
           </div>
-
-          <div class="option-group">
-            <label>Layout Mode (Universal)</label>
-            <select id="layoutModeSelect" style="width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 9px 12px; outline: none; cursor: pointer;">
-              <option value="auto_split" selected>✨ Smart Adaptive (Auto Split on 2-Person Shots)</option>
-              <option value="standard">⚡ Solo Only (Always 1 Person Crop)</option>
-              <option value="split_screen">👥 Split-Screen (Always Top-Bottom)</option>
-              <option value="gaming_streamer">🎮 Gaming Streamer (Cam + Gameplay)</option>
-            </select>
-          </div>
-
-          <div class="option-group">
-            <label>Jumlah Clip</label>
-            <div class="clip-count-wrap">
-              <button id="btnMinus" onclick="changeClipCount(-1)">−</button>
-              <span id="clipCountDisplay">3</span>
-              <span class="label">clips</span>
-              <button id="btnPlus" onclick="changeClipCount(1)">+</button>
-            </div>
-          </div>
-
-          <div class="option-group">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-              <label style="margin-bottom:0;">Model AI (LLM)</label>
-              <span id="aiModelBadge" style="font-size:10px; font-family:var(--font-mono); color:var(--accent); background:rgba(79,142,255,0.12); padding:2px 6px; border-radius:4px; border:1px solid rgba(79,142,255,0.25);">9Router</span>
-            </div>
-            <select id="aiModelSelect" onchange="handleAiModelChange()" style="width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 9px 12px; outline: none; cursor: pointer;">
-              <option value="" disabled selected>Memuat model...</option>
-            </select>
-            <input type="text" id="customAiModelInput" placeholder="Ketik model custom (contoh: openai/gpt-4o)..." style="display:none; width:100%; margin-top:8px; background:var(--bg2); border:1px solid var(--accent); border-radius:8px; color:var(--text); font-family:var(--font-mono); font-size:11px; padding:8px 10px; outline:none;" oninput="syncCustomModel()">
-          </div>
+          <div class="feature-sub" id="heroHwSub">FFmpeg potong &amp; reframe akselerasi GPU</div>
         </div>
+      </div>
 
-        <!-- Publishing Metadata Panel (judul, deskripsi, hashtag, caption) -->
-        <div class="metadata-card" style="margin-bottom: 24px; padding: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-size: 18px;">🏷️</span>
-              <div>
-                <div style="font-family: var(--font-head); font-size: 13px; font-weight: 700; color: var(--text);">
-                  Judul &amp; Deskripsi Viral
-                </div>
-                <div style="font-size: 11px; color: var(--text2);">
-                  AI menyusun judul, deskripsi, hashtag &amp; caption siap-tempel per klip
-                </div>
+      <!-- Bento Input Form Console -->
+      <div id="formSection">
+        <div class="card">
+          <div class="card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <span>URL Video YouTube</span>
+          </div>
+
+          <div class="url-group">
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              </span>
+              <input
+                type="url"
+                id="youtubeUrl"
+                placeholder="https://www.youtube.com/watch?v=..."
+                oninput="handleUrlInput(this.value)"
+              />
+              <div class="input-actions-cluster">
+                <button type="button" class="btn-input-action" id="btnPasteUrl" onclick="pasteFromClipboard()" title="Paste URL dari Clipboard">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                  <span>Paste</span>
+                </button>
+                <button type="button" class="btn-input-action" id="btnClearUrl" onclick="clearUrlInput()" title="Bersihkan URL" style="display:none;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
               </div>
             </div>
-            <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 24px;">
-              <input type="checkbox" id="metadataEnabled" checked onchange="toggleMetadataSettings()" style="opacity: 0; width: 0; height: 0;">
-              <span class="slider" style="position: absolute; cursor: pointer; inset: 0; background: var(--accent); transition: .3s; border-radius: 24px;"></span>
-            </label>
           </div>
 
-          <div id="metadataSettings" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div class="option-group" style="margin-bottom:0;">
-              <label>Gaya Metadata</label>
-              <select id="metadataMode" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                <option value="viral" selected>🔥 Viral (max scroll-stop)</option>
-                <option value="seo">🔍 SEO (optimasi pencarian)</option>
-                <option value="simple">📄 Sederhana (lugas, no clickbait)</option>
+          <!-- Live YouTube Thumbnail Container -->
+          <div id="urlPreviewBox" class="url-preview-box">
+            <div style="position:relative; width:76px; height:46px; border-radius:6px; overflow:hidden; border:1px solid var(--border); background:#111520; flex-shrink:0;">
+              <img id="urlPreviewThumb" class="url-preview-thumb" src="" alt="Thumbnail" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.opacity='0.4';" />
+              <div style="position:absolute; inset:0; display:grid; place-items:center; background:rgba(0,0,0,0.3); pointer-events:none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)"><polygon points="9 8 16 12 9 16 9 8"/></svg>
+              </div>
+            </div>
+            <div class="url-preview-info">
+              <div class="url-preview-badge">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                <span>YouTube Source Verified</span>
+              </div>
+              <div id="urlPreviewId" class="url-preview-id"></div>
+            </div>
+          </div>
+
+          <!-- Tanya Gemini Transcript Accordion (Fast Path) -->
+          <div class="transcript-box-wrap">
+            <div
+              id="transcriptHeader"
+              class="transcript-header-btn"
+              onclick="toggleTranscriptInput()"
+            >
+              <div style="display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--text);">
+                <div style="width:24px; height:24px; border-radius:6px; background:rgba(79,142,255,0.12); border:1px solid rgba(79,142,255,0.25); display:grid; place-items:center; color:var(--accent);">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>
+                </div>
+                <span style="font-weight:600;">Punya Transkrip YouTube / Tanya Gemini?</span>
+                <span style="font-size:10px; background:rgba(79,142,255,0.12); color:var(--accent); border:1px solid rgba(79,142,255,0.25); padding:2px 8px; border-radius:4px; font-weight:700; font-family:var(--font-mono);">MODE INSTAN</span>
+              </div>
+              <span id="transcriptToggleIcon" style="color:var(--text2); font-size:12px; font-family:var(--font-mono);">&darr; Buka</span>
+            </div>
+            <div id="transcriptInputContainer" style="display:none; margin-top:12px;">
+              <div style="font-size:11.5px; color:var(--text2); margin-bottom:8px; line-height:1.5;">
+                Salin hasil transkrip langsung dari tombol <strong>"Tanya"</strong> di YouTube atau teks ber-timestamp. Sistem akan <strong>melewati unduh audio &amp; Whisper 100%</strong> sehingga proses menjadi instan.
+              </div>
+              <textarea
+                id="transcriptText"
+                rows="6"
+                style="width:100%; background:var(--bg-deep); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:var(--font-mono); font-size:12px; padding:12px; outline:none; resize:vertical; line-height:1.5;"
+                placeholder="Tempel transkrip di sini. Contoh format Tanya YouTube:&#10;([0:00](https://www.youtube.com/watch?t=0s)) Katanya manusia itu kan diciptakan dari tanah ya, Bib.&#10;([0:03](https://www.youtube.com/watch?t=3s)) Heeh.&#10;([0:04](https://www.youtube.com/watch?t=4s)) Berarti kita saudara sama brokoli. Kok bisa, Pak?"
+                oninput="handleTranscriptChange()"
+              ></textarea>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:11px; color:var(--text3); font-family:var(--font-mono);">
+                <span id="transcriptCharCount">0 karakter</span>
+                <button type="button" onclick="clearTranscript()" style="background:transparent; border:none; color:var(--danger); cursor:pointer; font-size:11px; font-family:var(--font-mono);">Hapus Teks</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bento Control Matrix Grid -->
+          <div class="options-row">
+            <div class="option-group">
+              <label>Aspect Ratio</label>
+              <div class="ar-buttons">
+                <button class="ar-btn active" data-ar="9:16">
+                  <span class="ar-icon"></span>
+                  9:16
+                </button>
+                <button class="ar-btn" data-ar="1:1">
+                  <span class="ar-icon"></span>
+                  1:1
+                </button>
+                <button class="ar-btn" data-ar="16:9">
+                  <span class="ar-icon"></span>
+                  16:9
+                </button>
+              </div>
+            </div>
+
+            <div class="option-group">
+              <label>Layout Mode (Universal)</label>
+              <select id="layoutModeSelect">
+                <option value="auto_split" selected>Smart Adaptive (Auto Split on 2-Person Shots)</option>
+                <option value="standard">Solo Only (Always 1 Person Crop)</option>
+                <option value="split_screen">Split-Screen (Always Top-Bottom)</option>
+                <option value="gaming_streamer">Gaming Streamer (Cam + Gameplay)</option>
               </select>
             </div>
-            <div class="option-group" style="margin-bottom:0;">
-              <label>Platform Target</label>
-              <select id="targetPlatform" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                <option value="all" selected>🌐 Semua (TikTok + Shorts + Reels)</option>
-                <option value="tiktok">🎵 TikTok</option>
-                <option value="shorts">▶️ YouTube Shorts</option>
-                <option value="reels">📸 Instagram Reels</option>
+
+            <div class="option-group">
+              <label>Jumlah Clip</label>
+              <div class="clip-count-wrap">
+                <button id="btnMinus" onclick="changeClipCount(-1)">&minus;</button>
+                <span id="clipCountDisplay">3</span>
+                <span class="label">clips</span>
+                <button id="btnPlus" onclick="changeClipCount(1)">+</button>
+              </div>
+            </div>
+
+            <div class="option-group">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <label style="margin-bottom:0;">Model AI (LLM)</label>
+                <span id="aiModelBadge" style="font-size:10px; font-family:var(--font-mono); color:var(--accent); background:rgba(79,142,255,0.12); padding:2px 7px; border-radius:4px; border:1px solid rgba(79,142,255,0.25);">9Router</span>
+              </div>
+              <select id="aiModelSelect" onchange="handleAiModelChange()">
+                <option value="" disabled selected>Memuat model...</option>
               </select>
+              <input type="text" id="customAiModelInput" placeholder="Ketik model custom (contoh: openai/gpt-4o)..." style="display:none; width:100%; margin-top:8px; background:var(--bg-deep); border:1px solid var(--accent); border-radius:8px; color:var(--text); font-family:var(--font-mono); font-size:11px; padding:8px 10px; outline:none;" oninput="syncCustomModel()">
+            </div>
+          </div>
+
+          <!-- Publishing Metadata Panel (judul, deskripsi, hashtag, caption) -->
+          <div class="metadata-card" style="margin-bottom: 20px; padding: 18px 20px; background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(79, 142, 255, 0.1); border: 1px solid rgba(79, 142, 255, 0.2); display: grid; place-items: center; color: var(--accent); flex-shrink: 0;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                </div>
+                <div>
+                  <div style="font-family: var(--font-display); font-size: 13.5px; font-weight: 700; color: #ffffff;">
+                    Judul &amp; Deskripsi Viral
+                  </div>
+                  <div style="font-size: 11.5px; color: var(--text2);">
+                    AI menyusun hook title, caption &amp; hashtag siap-tempel per klip
+                  </div>
+                </div>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" id="metadataEnabled" checked onchange="toggleMetadataSettings()">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div id="metadataSettings" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+              <div class="option-group" style="margin-bottom:0;">
+                <label>Gaya Metadata</label>
+                <select id="metadataMode">
+                  <option value="viral" selected>Viral (Max Scroll-Stop)</option>
+                  <option value="seo">SEO (Optimasi Pencarian)</option>
+                  <option value="simple">Sederhana (Lugas &amp; No Clickbait)</option>
+                </select>
+              </div>
+              <div class="option-group" style="margin-bottom:0;">
+                <label>Platform Target</label>
+                <select id="targetPlatform">
+                  <option value="all" selected>Semua Platform (TikTok + Shorts + Reels)</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="shorts">YouTube Shorts</option>
+                  <option value="reels">Instagram Reels</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Branding Panel (atribusi sumber + watermark channel) -->
+          <div class="branding-card" style="margin-bottom: 20px; padding: 18px 20px; background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(79, 142, 255, 0.1); border: 1px solid rgba(79, 142, 255, 0.2); display: grid; place-items: center; color: var(--accent); flex-shrink: 0;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <div>
+                  <div style="font-family: var(--font-display); font-size: 13.5px; font-weight: 700; color: #ffffff;">
+                    Sumber &amp; Watermark
+                  </div>
+                  <div style="font-size: 11.5px; color: var(--text2);">
+                    Cantumkan channel sumber &amp; watermark akun kamu di dalam video
+                  </div>
+                </div>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" id="brandingEnabled" onchange="toggleBrandingSettings()">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div id="brandingSettings" style="display: none;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>Channel Sumber (Atribusi)</label>
+                  <input type="text" id="sourceChannel" placeholder="Otomatis dari YouTube">
+                </div>
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>Label Sumber</label>
+                  <input type="text" id="sourceLabel" value="Sumber">
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>Watermark Channel Kamu</label>
+                  <input type="text" id="watermarkText" placeholder="contoh: @prime.clipsmedia" value="@prime.clipsmedia">
+                </div>
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>Posisi Watermark</label>
+                  <select id="watermarkPosition">
+                    <option value="above-subtitles" selected>Diatas Subtitle (Disarankan)</option>
+                    <option value="bottom-right">Kanan Bawah</option>
+                    <option value="bottom-left">Kiri Bawah</option>
+                    <option value="top-right">Kanan Atas</option>
+                    <option value="top-left">Kiri Atas</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>Posisi Sumber</label>
+                  <select id="sourcePosition">
+                    <option value="top-left" selected>Kiri Atas</option>
+                    <option value="top-right">Kanan Atas</option>
+                    <option value="bottom-left">Kiri Bawah</option>
+                    <option value="bottom-right">Kanan Bawah</option>
+                  </select>
+                </div>
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>Durasi Sumber</label>
+                  <select id="sourceDuration">
+                    <option value="3">3 detik</option>
+                    <option value="4" selected>4 detik</option>
+                    <option value="6">6 detik</option>
+                    <option value="10">10 detik</option>
+                  </select>
+                </div>
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>Ukuran Watermark</label>
+                  <select id="watermarkFontSize">
+                    <option value="22">Kecil</option>
+                    <option value="30" selected>Sedang</option>
+                    <option value="42">Besar</option>
+                  </select>
+                </div>
+                <div class="option-group" style="margin-bottom:0;">
+                  <label>Opacity</label>
+                  <select id="watermarkOpacity">
+                    <option value="0.25">Sangat Tipis</option>
+                    <option value="0.35">Tipis</option>
+                    <option value="0.45" selected>Sedang</option>
+                    <option value="0.7">Jelas</option>
+                    <option value="1">Solid</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Auto Headline Settings (Opus Clip Feature) -->
+              <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                  <div>
+                    <div style="font-family: var(--font-display); font-size: 13px; font-weight: 700; color: #ffffff;">
+                      Auto Headline Video (Opus Clip Style)
+                    </div>
+                    <div style="font-size: 11.5px; color: var(--text2); margin-top: 2px;">
+                      Sematkan hook headline visual di bagian atas video pada 5 detik pertama
+                    </div>
+                  </div>
+                  <label class="switch-toggle">
+                    <input type="checkbox" id="autoHeadlineEnabled" checked onchange="toggleHeadlineSettings()">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+
+                <div id="headlineOptions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="option-group" style="margin-bottom:0;">
+                    <label>Durasi Headline</label>
+                    <select id="headlineDuration">
+                      <option value="3">3 detik pertama</option>
+                      <option value="5" selected>5 detik pertama (Disarankan)</option>
+                      <option value="8">8 detik pertama</option>
+                    </select>
+                  </div>
+                  <div class="option-group" style="margin-bottom:0;">
+                    <label>Tema Warna Headline</label>
+                    <select id="headlineTheme">
+                      <option value="white_black" selected>Kotak Putih - Teks Hitam (Opus Clip)</option>
+                      <option value="yellow_black">Kotak Kuning - Teks Hitam</option>
+                      <option value="black_white">Kotak Hitam - Teks Putih</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                  <div class="option-group" style="margin-bottom:0;">
+                    <label>Gaya Bentuk Headline</label>
+                    <select id="headlineCornerStyle">
+                      <option value="banner" selected>Banner Penuh (Sambung Kanan-Kiri)</option>
+                      <option value="rounded">Kartu Melengkung Halus</option>
+                      <option value="soft">Kartu Sangat Bulat</option>
+                      <option value="sharp">Kartu Siku Kaku</option>
+                    </select>
+                  </div>
+                  <div class="option-group" style="margin-bottom:0;">
+                    <label>&nbsp;</label>
+                    <div style="font-size:11px; color:var(--text3); line-height:1.45; padding-top:4px;">
+                      Banner penuh menyambung dari ujung kiri ke kanan frame (gaya Opus Clip).
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Auto Subtitle Customization Panel -->
+          <div class="subtitle-card" style="margin-bottom: 24px; padding: 18px 20px; background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(79, 142, 255, 0.1); border: 1px solid rgba(79, 142, 255, 0.2); display: grid; place-items: center; color: var(--accent); flex-shrink: 0;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="4.5" rx="2"/><path d="M7 15h4M15 15h2M7 11h2M13 11h4"/></svg>
+                </div>
+                <div>
+                  <div style="font-family: var(--font-display); font-size: 13.5px; font-weight: 700; color: #ffffff;">
+                    Auto Subtitles (Burn-in)
+                  </div>
+                  <div style="font-size: 11.5px; color: var(--text2);">
+                    Animasi teks per kata (Karaoke/Viral Pop ala Opus Clip &amp; Submagic)
+                  </div>
+                </div>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" id="subtitlesEnabled" checked onchange="toggleSubtitleSettings()">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div id="subtitleOptionsWrap" style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                <div>
+                  <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text2); font-weight: 600; margin-bottom: 8px;">
+                    Gaya Preset Viral
+                  </label>
+                  <select id="subtitlePreset" onchange="applySubtitlePreset()">
+                    <option value="hormozi" selected>Hormozi Yellow (Populer)</option>
+                    <option value="mrbeast">MrBeast Green (High Contrast)</option>
+                    <option value="cyber">Cyber Cyan (Modern Glow)</option>
+                    <option value="minimal">Clean Minimal (Putih)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text2); font-weight: 600; margin-bottom: 8px;">
+                    Posisi Vertikal
+                  </label>
+                  <select id="subtitlePosition">
+                    <option value="bottom" selected>Bawah (Rekomendasi 9:16)</option>
+                    <option value="center">Tengah Layar</option>
+                    <option value="top">Atas Layar</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Advanced Styling Accordion -->
+              <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 6px 0; font-size: 11.5px; color: var(--text2);" onclick="toggleAdvancedSubtitleSettings()">
+                <span style="display:flex; align-items:center; gap:6px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  <span>Kustomisasi Lanjutan (Font &amp; Warna Highlight)</span>
+                </span>
+                <span id="advSubToggleIcon" style="font-family:var(--font-mono);">&darr;</span>
+              </div>
+
+              <div id="advSubtitleOptions" style="display: none; margin-top: 12px; padding: 14px; background: var(--bg-deep); border-radius: 12px; border: 1px solid var(--border);">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
+                  <div>
+                    <label style="display: block; font-size: 11px; color: var(--text2); margin-bottom: 6px;">Pilihan Font</label>
+                    <select id="subtitleFont">
+                      <option value="Impact" selected>Impact (Bold Punchy)</option>
+                      <option value="Arial">Arial Black (Clean Bold)</option>
+                      <option value="Montserrat, Arial">Montserrat (Modern)</option>
+                      <option value="Trebuchet MS, Arial">Trebuchet MS (Stylized)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="display: block; font-size: 11px; color: var(--text2); margin-bottom: 6px;">Warna Kata Aktif</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <input type="color" id="subtitleHighlightColor" value="#FFE600" style="width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: transparent;">
+                      <span id="highlightColorHex" style="font-size: 12px; font-family: var(--font-mono); color: var(--text2);">#FFE600</span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 6px;">
+                    <span>Ukuran Font</span>
+                    <span id="fontSizeDisplay" style="font-family:var(--font-mono); color:var(--accent);">80px</span>
+                  </div>
+                  <input type="range" id="subtitleFontSize" min="50" max="110" value="80" oninput="document.getElementById('fontSizeDisplay').textContent = this.value + 'px'" style="width: 100%; accent-color: var(--accent);">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-process" id="btnProcess" onclick="startProcess()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>
+            <span>Generate Clips dengan AI</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Pipeline Telemetry & Progress Visualizer -->
+      <div id="progressSection">
+        <div class="progress-card">
+          <div class="progress-steps">
+            <div class="step" id="step1">
+              <div class="step-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </div>
+              <div class="step-text">
+                <div class="step-label">Download Video Stream</div>
+                <div class="step-sub" id="step1sub">Menunggu...</div>
+              </div>
+            </div>
+            <div class="step" id="step2">
+              <div class="step-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+              </div>
+              <div class="step-text">
+                <div class="step-label">Transkripsi Audio (Whisper Engine)</div>
+                <div class="step-sub" id="step2sub">Menunggu...</div>
+              </div>
+            </div>
+            <div class="step" id="step3">
+              <div class="step-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04Z"/></svg>
+              </div>
+              <div class="step-text">
+                <div class="step-label">AI Analisis Momen Viral</div>
+                <div class="step-sub" id="step3sub">Menunggu...</div>
+              </div>
+            </div>
+            <div class="step" id="step4">
+              <div class="step-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg>
+              </div>
+              <div class="step-text">
+                <div class="step-label">Proses &amp; Render Video (AMD VAAPI)</div>
+                <div class="step-sub" id="step4sub">Menunggu...</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" id="progressBar" style="width: 2%"></div>
+          </div>
+          <div class="progress-text">
+            <span id="progressMsg">Memulai proses...</span>
+            <span id="progressPct">2%</span>
+          </div>
+
+          <!-- Real-time Terminal Log Console -->
+          <div class="terminal-console" id="terminalLogConsole">
+            <div class="terminal-header">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+              <span>Pipeline Telemetry Stream</span>
+            </div>
+            <div id="terminalLogLines">
+              <div class="terminal-line"><span class="terminal-time">[00:00:00]</span> <span>System initialized. Waiting for task dispatch...</span></div>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Branding Panel (atribusi sumber + watermark channel) -->
-        <div class="branding-card" style="margin-bottom: 24px; padding: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-size: 18px;">💧</span>
-              <div>
-                <div style="font-family: var(--font-head); font-size: 13px; font-weight: 700; color: var(--text);">
-                  Sumber &amp; Watermark
-                </div>
-                <div style="font-size: 11px; color: var(--text2);">
-                  Cantumkan channel sumber &amp; watermark channel kamu di dalam video
-                </div>
-              </div>
-            </div>
-            <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 24px;">
-              <input type="checkbox" id="brandingEnabled" onchange="toggleBrandingSettings()" style="opacity: 0; width: 0; height: 0;">
-              <span class="slider" style="position: absolute; cursor: pointer; inset: 0; background: var(--border); transition: .3s; border-radius: 24px;"></span>
-            </label>
+      <!-- Error Section -->
+      <div id="errorSection" style="display:none">
+        <div class="error-card">
+          <div class="icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
           </div>
-
-          <div id="brandingSettings" style="display: none;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-              <div class="option-group" style="margin-bottom:0;">
-                <label>Channel Sumber (Atribusi)</label>
-                <input type="text" id="sourceChannel" placeholder="Otomatis dari YouTube" style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 11px; outline:none;">
-              </div>
-              <div class="option-group" style="margin-bottom:0;">
-                <label>Label Sumber</label>
-                <input type="text" id="sourceLabel" value="Sumber" style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 11px; outline:none;">
-              </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-              <div class="option-group" style="margin-bottom:0;">
-                <label>Watermark Channel Kamu</label>
-                <input type="text" id="watermarkText" placeholder="contoh: @prime.clipsmedia" value="@prime.clipsmedia" style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 11px; outline:none;">
-              </div>
-              <div class="option-group" style="margin-bottom:0;">
-                <label>Posisi Watermark</label>
-                <select id="watermarkPosition" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                  <option value="above-subtitles" selected>⬆ Diatas Subtitle (disarankan)</option>
-                  <option value="bottom-right">↘ Kanan Bawah</option>
-                  <option value="bottom-left">↙ Kiri Bawah</option>
-                  <option value="top-right">↗ Kanan Atas</option>
-                  <option value="top-left">↖ Kiri Atas</option>
-                </select>
-              </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px;">
-              <div class="option-group" style="margin-bottom:0;">
-                <label>Posisi Sumber</label>
-                <select id="sourcePosition" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                  <option value="top-left" selected>↖ Kiri Atas</option>
-                  <option value="top-right">↗ Kanan Atas</option>
-                  <option value="bottom-left">↙ Kiri Bawah</option>
-                  <option value="bottom-right">↘ Kanan Bawah</option>
-                </select>
-              </div>
-              <div class="option-group" style="margin-bottom:0;">
-                <label>Durasi Muncul Sumber</label>
-                <select id="sourceDuration" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                  <option value="3">3 detik</option>
-                  <option value="4" selected>4 detik</option>
-                  <option value="6">6 detik</option>
-                  <option value="10">10 detik</option>
-                </select>
-              </div>
-              <div class="option-group" style="margin-bottom:0;">
-                <label>Ukuran Watermark</label>
-                <select id="watermarkFontSize" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                  <option value="22">Kecil</option>
-                  <option value="30" selected>Sedang</option>
-                  <option value="42">Besar</option>
-                </select>
-              </div>
-              <div class="option-group" style="margin-bottom:0;">
-                <label>Kejelasan (Opacity)</label>
-                <select id="watermarkOpacity" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                  <option value="0.25">Sangat Tipis</option>
-                  <option value="0.35">Tipis</option>
-                  <option value="0.45" selected>Sedang (disarankan)</option>
-                  <option value="0.7">Jelas</option>
-                  <option value="1">Solid</option>
-                </select>
-              </div>
-            </div>
-
-            <div style="margin-top:12px; font-size:10px; color:var(--text3); line-height:1.5;">
-              💡 Nama channel sumber diambil otomatis dari metadata YouTube kalau kolomnya dibiarkan kosong.<br>
-              💡 Watermark tidak pakai kotak latar (biar tidak menutupi video) — hanya teks + bayangan tipis.
-            </div>
-
-            <!-- Auto Headline Settings (Opus Clip Feature) -->
-            <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                <div>
-                  <div style="font-family: var(--font-head); font-size: 12.5px; font-weight: 700; color: #fff;">
-                    🏷️ Auto Headline Video (Opus Clip Style)
-                  </div>
-                  <div style="font-size: 11px; color: var(--text2); margin-top: 2px;">
-                    Sematkan kotak teks hook headline otomatis di bagian atas video pada 5 detik pertama
-                  </div>
-                </div>
-                <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 24px;">
-                  <input type="checkbox" id="autoHeadlineEnabled" checked onchange="toggleHeadlineSettings()" style="opacity: 0; width: 0; height: 0;">
-                  <span class="slider" style="position: absolute; cursor: pointer; inset: 0; background: var(--accent); transition: .3s; border-radius: 24px;"></span>
-                </label>
-              </div>
-
-              <div id="headlineOptions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <div class="option-group" style="margin-bottom:0;">
-                  <label>Durasi Muncul Headline</label>
-                  <select id="headlineDuration" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                    <option value="3">3 detik pertama</option>
-                    <option value="5" selected>5 detik pertama (disarankan)</option>
-                    <option value="8">8 detik pertama</option>
-                  </select>
-                </div>
-                <div class="option-group" style="margin-bottom:0;">
-                  <label>Gaya Warna Headline</label>
-                  <select id="headlineTheme" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                    <option value="white_black" selected>Kotak Putih - Teks Hitam (Opus Clip)</option>
-                    <option value="yellow_black">Kotak Kuning - Teks Hitam</option>
-                    <option value="black_white">Kotak Hitam - Teks Putih</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
-                <div class="option-group" style="margin-bottom:0;">
-                  <label>Gaya Bentuk Headline</label>
-                  <select id="headlineCornerStyle" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-body); font-size:12px; padding:9px 12px; outline:none; cursor:pointer;">
-                    <option value="banner" selected>↔️ Banner Penuh (Sambung Kanan-Kiri)</option>
-                    <option value="rounded">◠ Kartu Melengkung Halus</option>
-                    <option value="soft">◡ Kartu Sangat Bulat</option>
-                    <option value="sharp">▭ Kartu Siku Kaku</option>
-                  </select>
-                </div>
-                <div class="option-group" style="margin-bottom:0;">
-                  <label>&nbsp;</label>
-                  <div style="font-size:10.5px; color:var(--text3); line-height:1.45; padding-top:2px;">
-                    Banner penuh menyambung dari ujung kiri ke kanan frame (gaya viral Opus Clip), atau opsi kartu rounded.
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <span class="msg" id="errorMsg">Terjadi kesalahan.</span>
         </div>
-
-        <!-- Auto Subtitle Customization Panel -->
-        <div class="subtitle-card" style="margin-bottom: 24px; padding: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px;">
-          <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-size: 18px;">💬</span>
-              <div>
-                <div style="font-family: var(--font-head); font-size: 13px; font-weight: 700; color: var(--text);">
-                  Auto Subtitles (Burn-in)
-                </div>
-                <div style="font-size: 11px; color: var(--text2);">
-                  Animasi teks per kata (Karaoke/Viral Pop ala Opus Clip & Submagic)
-                </div>
-              </div>
-            </div>
-            <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 24px;">
-              <input type="checkbox" id="subtitlesEnabled" checked onchange="toggleSubtitleSettings()" style="opacity: 0; width: 0; height: 0;">
-              <span class="slider" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--border); transition: .3s; border-radius: 24px;"></span>
-            </label>
-          </div>
-
-          <div id="subtitleOptionsWrap" style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-              <div>
-                <label style="display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); margin-bottom: 6px;">
-                  Gaya Preset Viral
-                </label>
-                <select id="subtitlePreset" onchange="applySubtitlePreset()" style="width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 8px 10px; outline: none;">
-                  <option value="hormozi" selected>⚡ Hormozi Yellow (Populer)</option>
-                  <option value="mrbeast">🔥 MrBeast Green (High Contrast)</option>
-                  <option value="cyber">💎 Cyber Cyan (Modern Glow)</option>
-                  <option value="minimal">✨ Clean Minimal (Putih)</option>
-                </select>
-              </div>
-              <div>
-                <label style="display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); margin-bottom: 6px;">
-                  Posisi Vertikal
-                </label>
-                <select id="subtitlePosition" style="width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 8px 10px; outline: none;">
-                  <option value="bottom" selected>Bawah (Rekomendasi 9:16)</option>
-                  <option value="center">Tengah Layar</option>
-                  <option value="top">Atas Layar</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Advanced Styling Accordion -->
-            <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 6px 0; font-size: 11px; color: var(--text2);" onclick="toggleAdvancedSubtitleSettings()">
-              <span>⚙️ Kustomisasi Lanjutan (Font & Warna Highlight)</span>
-              <span id="advSubToggleIcon">▼</span>
-            </div>
-
-            <div id="advSubtitleOptions" style="display: none; margin-top: 10px; padding: 12px; background: var(--bg2); border-radius: 10px; border: 1px solid var(--border);">
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
-                <div>
-                  <label style="display: block; font-size: 10px; color: var(--text2); margin-bottom: 4px;">Pilihan Font</label>
-                  <select id="subtitleFont" style="width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font-mono); font-size: 11px; padding: 6px 8px; outline: none;">
-                    <option value="Impact" selected>Impact (Bold Punchy)</option>
-                    <option value="Arial">Arial Black (Clean Bold)</option>
-                    <option value="Montserrat, Arial">Montserrat (Modern)</option>
-                    <option value="Trebuchet MS, Arial">Trebuchet MS (Stylized)</option>
-                  </select>
-                </div>
-                <div>
-                  <label style="display: block; font-size: 10px; color: var(--text2); margin-bottom: 4px;">Warna Kata Aktif</label>
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <input type="color" id="subtitleHighlightColor" value="#FFE600" style="width: 28px; height: 28px; border: none; border-radius: 6px; cursor: pointer; background: transparent;">
-                    <span id="highlightColorHex" style="font-size: 11px; color: var(--text2);">#FFE600</span>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text2); margin-bottom: 4px;">
-                  <span>Ukuran Font</span>
-                  <span id="fontSizeDisplay">80px</span>
-                </div>
-                <input type="range" id="subtitleFontSize" min="50" max="110" value="80" oninput="document.getElementById('fontSizeDisplay').textContent = this.value + 'px'" style="width: 100%; accent-color: var(--accent);">
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <button class="btn-process" id="btnProcess" onclick="startProcess()">
-          ✨ Generate Clips dengan AI
+        <button class="btn-reset" onclick="resetForm()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          <span>Coba Lagi</span>
         </button>
       </div>
-    </div>
 
-    <!-- Progress Section -->
-    <div id="progressSection">
-      <div class="progress-card">
-        <div class="progress-steps">
-          <div class="step" id="step1">
-            <div class="step-icon">📥</div>
-            <div class="step-text">
-              <div class="step-label">Download Video</div>
-              <div class="step-sub" id="step1sub">Menunggu...</div>
-            </div>
-          </div>
-          <div class="step" id="step2">
-            <div class="step-icon">🎙️</div>
-            <div class="step-text">
-              <div class="step-label">Transkripsi Audio</div>
-              <div class="step-sub" id="step2sub">Menunggu...</div>
-            </div>
-          </div>
-          <div class="step" id="step3">
-            <div class="step-icon">🤖</div>
-            <div class="step-text">
-              <div class="step-label">AI Analisis Momen Terbaik</div>
-              <div class="step-sub" id="step3sub">Menunggu...</div>
-            </div>
-          </div>
-          <div class="step" id="step4">
-            <div class="step-icon">✂️</div>
-            <div class="step-text">
-              <div class="step-label">Proses & Potong Video</div>
-              <div class="step-sub" id="step4sub">Menunggu...</div>
-            </div>
-          </div>
+      <!-- Results Section -->
+      <div id="resultsSection">
+        <div class="results-header">
+          <div class="results-title" id="resultsTitle">Clips Berhasil Dibuat</div>
+          <div class="results-sub" id="resultsSub"></div>
         </div>
 
-        <div class="progress-bar-wrap">
-          <div class="progress-bar-fill" id="progressBar" style="width: 2%"></div>
-        </div>
-        <div class="progress-text">
-          <span id="progressMsg">Memulai proses...</span>
-          <span id="progressPct">2%</span>
-        </div>
+        <div class="opus-clips-grid" id="clipsGrid"></div>
+
+        <!-- Panel metadata publikasi (judul, deskripsi, hashtag, caption) -->
+        <div id="metadataResults" style="display:none; margin-top:28px;"></div>
+
+        <button class="btn-reset" onclick="resetForm()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          <span>Proses Video Baru</span>
+        </button>
       </div>
-    </div>
-
-    <!-- Error Section -->
-    <div id="errorSection" style="display:none">
-      <div class="error-card">
-        <span class="icon">❌</span>
-        <span class="msg" id="errorMsg">Terjadi kesalahan.</span>
-      </div>
-      <button class="btn-reset" onclick="resetForm()">← Coba Lagi</button>
-    </div>
-
-    <!-- Results -->
-    <div id="resultsSection">
-      <div class="results-header">
-        <div class="results-title" id="resultsTitle">Clips Berhasil Dibuat! 🎉</div>
-        <div class="results-sub" id="resultsSub"></div>
-      </div>
-
-      <div class="clips-grid" id="clipsGrid"></div>
-
-      <!-- Panel metadata publikasi (judul, deskripsi, hashtag, caption) -->
-      <div id="metadataResults" style="display:none; margin-top:28px;"></div>
-
-      <button class="btn-reset" onclick="resetForm()">← Proses Video Baru</button>
-    </div>
     </main>
 
     <!-- Halaman 2: DEDICATED RIWAYAT & ARSIP KLIP -->
@@ -1778,74 +2094,79 @@
       <!-- History Header -->
       <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:24px; padding-bottom:18px; border-bottom:1px solid var(--border);">
         <div>
-          <div style="font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:var(--accent); font-weight:700; margin-bottom:6px;">
-            Library &amp; Archive
+          <div style="font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.12em; color:var(--accent); font-weight:700; margin-bottom:6px;">
+            LIBRARY &amp; ARCHIVE
           </div>
-          <h1 style="font-family:var(--font-head); font-size:26px; font-weight:800; color:var(--text); letter-spacing:-0.5px;">
-            📁 Riwayat Klip &amp; Galeri
+          <h1 style="font-family:var(--font-display); font-size:26px; font-weight:800; color:#ffffff; letter-spacing:-0.02em;">
+            Riwayat Klip &amp; Galeri
           </h1>
-          <p style="font-size:12px; color:var(--text2); margin-top:4px;">
+          <p style="font-size:13px; color:var(--text2); margin-top:4px;">
             Semua hasil klip video, metadata viral, dan status rendering tersimpan permanen di sini.
           </p>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
-          <button onclick="refreshJobs(true)" style="background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px; font-family:var(--font-body); font-size:12px; font-weight:600; padding:8px 14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s;">
-            <span>↻</span> <span>Segarkan</span>
+          <button onclick="refreshJobs(true)" style="background:var(--bg-surface); border:1px solid var(--border); color:var(--text); border-radius:8px; font-family:var(--font-body); font-size:12px; font-weight:600; padding:8px 14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+            <span>Segarkan</span>
           </button>
-          <button onclick="switchView('studio')" style="background:var(--accent); border:none; color:#fff; border-radius:8px; font-family:var(--font-body); font-size:12px; font-weight:600; padding:8px 14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 10px rgba(79,142,255,0.3);">
-            <span>⚡</span> <span>Buat Klip Baru</span>
+          <button onclick="switchView('studio')" style="background:var(--accent-gradient); border:none; color:#ffffff; border-radius:8px; font-family:var(--font-display); font-size:12px; font-weight:700; padding:8px 16px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 12px rgba(79,142,255,0.35);">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Buat Klip Baru</span>
           </button>
         </div>
       </div>
 
       <!-- Filter & Search Toolbar -->
-      <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px 18px; margin-bottom:22px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px;">
+      <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:14px; padding:14px 18px; margin-bottom:22px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px;">
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <span style="font-size:11px; text-transform:uppercase; color:var(--text3); font-weight:700; letter-spacing:0.5px;">Filter:</span>
+          <span style="font-size:11px; text-transform:uppercase; color:var(--text3); font-weight:700; letter-spacing:0.05em; font-family:var(--font-mono);">Filter:</span>
           <button type="button" class="filter-chip active" id="chipFilterAll" onclick="setHistoryFilter('all')">
             Semua <span id="countFilterAll" class="chip-count">0</span>
           </button>
           <button type="button" class="filter-chip" id="chipFilterCompleted" onclick="setHistoryFilter('completed')">
-            ✅ Selesai <span id="countFilterCompleted" class="chip-count">0</span>
+            Selesai <span id="countFilterCompleted" class="chip-count">0</span>
           </button>
           <button type="button" class="filter-chip" id="chipFilterActive" onclick="setHistoryFilter('active')">
-            ⚙️ Diproses <span id="countFilterActive" class="chip-count">0</span>
+            Diproses <span id="countFilterActive" class="chip-count">0</span>
           </button>
           <button type="button" class="filter-chip" id="chipFilterFailed" onclick="setHistoryFilter('failed')">
-            ❌ Gagal <span id="countFilterFailed" class="chip-count">0</span>
+            Gagal <span id="countFilterFailed" class="chip-count">0</span>
           </button>
         </div>
 
         <div style="position:relative; min-width:240px; flex:1; max-width:360px;">
-          <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:13px; color:var(--text3);">🔍</span>
+          <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text3); display:flex;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </span>
           <input type="text" id="historySearchInput" placeholder="Cari judul video atau link YouTube..." oninput="renderHistoryList()"
-            style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:8px 12px 8px 34px; font-size:12px; color:var(--text); outline:none; font-family:var(--font-body);" />
+            style="width:100%; background:var(--bg-deep); border:1px solid var(--border); border-radius:8px; padding:8px 12px 8px 34px; font-size:12px; color:var(--text); outline:none; font-family:var(--font-body);" />
         </div>
       </div>
 
       <!-- Jobs List Container -->
-      <div id="historyJobsList" style="display:grid; gap:16px;"></div>
+      <div id="historyJobsList" style="display:grid; gap:18px;"></div>
 
       <!-- Empty State -->
-      <div id="historyEmptyState" style="display:none; text-align:center; padding:60px 20px; background:var(--surface); border:1px dashed var(--border); border-radius:16px;">
-        <div style="font-size:40px; margin-bottom:12px;">📁</div>
-        <div style="font-family:var(--font-head); font-size:16px; font-weight:700; color:var(--text); margin-bottom:6px;">
+      <div id="historyEmptyState" style="display:none; text-align:center; padding:64px 20px; background:var(--bg-surface); border:1px dashed var(--border); border-radius:18px;">
+        <div style="width:48px; height:48px; border-radius:12px; background:rgba(79,142,255,0.1); border:1px solid rgba(79,142,255,0.2); display:grid; place-items:center; color:var(--accent); margin:0 auto 16px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+        </div>
+        <div style="font-family:var(--font-display); font-size:16px; font-weight:700; color:#ffffff; margin-bottom:6px;">
           Belum Ada Riwayat Klip
         </div>
-        <p style="font-size:12px; color:var(--text2); max-width:420px; margin:0 auto 18px;">
+        <p style="font-size:13px; color:var(--text2); max-width:440px; margin:0 auto 20px;">
           Video yang Anda proses akan otomatis diarsipkan di halaman ini lengkap dengan preview video, opsi unduh, dan metadata medsos.
         </p>
-        <button onclick="switchView('studio')" style="background:var(--accent); color:#fff; border:none; border-radius:8px; font-family:var(--font-body); font-size:12px; font-weight:600; padding:10px 18px; cursor:pointer;">
-          ⚡ Mulai Buat Klip Sekarang
+        <button onclick="switchView('studio')" style="background:var(--accent-gradient); color:#ffffff; border:none; border-radius:8px; font-family:var(--font-display); font-size:12.5px; font-weight:700; padding:10px 20px; cursor:pointer;">
+          Mulai Buat Klip Sekarang
         </button>
       </div>
     </main>
   </div>
 
-  <footer>
-    <div class="container">
-      ClipAI — Powered by Groq Whisper + DeepSeek + FFmpeg &nbsp;·&nbsp;
-      Built with Node.js + BullMQ
+  <footer style="text-align:center; padding:32px 0; color:var(--text3); font-size:11.5px; font-family:var(--font-mono); border-top:1px solid var(--border); margin-top:40px;">
+    <div class="container" style="padding-bottom:0;">
+      ClipAI Enterprise &nbsp;&middot;&nbsp; Powered by Whisper + DeepSeek + FFmpeg (AMD VAAPI) &nbsp;&middot;&nbsp; BullMQ Cloud Engine
     </div>
   </footer>
 
@@ -1855,16 +2176,24 @@
       <!-- Modal Header -->
       <div class="opus-modal-header">
         <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
-          <span id="opusModalRankBadge" style="background: rgba(79, 142, 255, 0.2); color: var(--accent); font-family: var(--font-mono); font-size: 13px; font-weight: 800; padding: 3px 8px; border-radius: 6px;">#1</span>
-          <h2 id="opusModalTitle" style="font-family: var(--font-head); font-size: 16px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          <span id="opusModalRankBadge" style="background: rgba(79, 142, 255, 0.18); color: var(--accent); font-family: var(--font-mono); font-size: 13px; font-weight: 800; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(79,142,255,0.3);">#1</span>
+          <h2 id="opusModalTitle" style="font-family: var(--font-display); font-size: 16px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
             Judul Klip
           </h2>
-          <span style="font-size: 14px; color: var(--text3); cursor: pointer;" title="Edit Judul" onclick="editModalTitle()">✏️</span>
+          <button type="button" onclick="editModalTitle()" title="Edit Judul" style="background:none; border:none; color:var(--text3); cursor:pointer; display:flex; align-items:center; padding:2px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <button type="button" onclick="navigateOpusModal(-1)" class="opus-icon-btn" title="Klip Sebelumnya" style="width: 32px; height: 32px; font-size: 14px;">↑</button>
-          <button type="button" onclick="navigateOpusModal(1)" class="opus-icon-btn" title="Klip Berikutnya" style="width: 32px; height: 32px; font-size: 14px;">↓</button>
-          <button type="button" onclick="closeOpusModal()" class="opus-icon-btn" title="Tutup Modal" style="width: 32px; height: 32px; font-size: 15px; margin-left: 6px;">✕</button>
+          <button type="button" onclick="navigateOpusModal(-1)" class="opus-icon-btn" title="Klip Sebelumnya" style="width: 32px; height: 32px; font-size: 14px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <button type="button" onclick="navigateOpusModal(1)" class="opus-icon-btn" title="Klip Berikutnya" style="width: 32px; height: 32px; font-size: 14px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <button type="button" onclick="closeOpusModal()" class="opus-icon-btn" title="Tutup Modal" style="width: 32px; height: 32px; margin-left: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
         </div>
       </div>
 
@@ -1872,8 +2201,7 @@
       <div class="opus-modal-body">
         <!-- Column 1: Video Player 9:16 -->
         <div>
-          <div style="position: relative; aspect-ratio: 9/16; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
-            <!-- Video Element (headline sudah ter-burn-in di dalam MP4) -->
+          <div style="position: relative; aspect-ratio: 9/16; background: #000; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 12px 36px rgba(0,0,0,0.7);">
             <video id="opusModalVideo" controls autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; background: #000;"></video>
           </div>
         </div>
@@ -1882,15 +2210,15 @@
         <div style="display: flex; flex-direction: column; gap: 16px;">
           <!-- Tabs: Scene Analysis vs Transcript Only -->
           <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
-            <div style="display: flex; gap: 12px;">
-              <button type="button" id="tabSceneAnalysis" onclick="toggleModalAnalysisTab('analysis')" style="background: none; border: none; font-family: var(--font-head); font-size: 13px; font-weight: 700; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 6px; cursor: pointer;">
+            <div style="display: flex; gap: 16px;">
+              <button type="button" id="tabSceneAnalysis" onclick="toggleModalAnalysisTab('analysis')" style="background: none; border: none; font-family: var(--font-display); font-size: 13.5px; font-weight: 700; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 6px; cursor: pointer;">
                 Scene analysis
               </button>
-              <button type="button" id="tabTranscriptOnly" onclick="toggleModalAnalysisTab('transcript')" style="background: none; border: none; font-family: var(--font-head); font-size: 13px; font-weight: 600; color: var(--text2); padding-bottom: 6px; cursor: pointer;">
+              <button type="button" id="tabTranscriptOnly" onclick="toggleModalAnalysisTab('transcript')" style="background: none; border: none; font-family: var(--font-display); font-size: 13.5px; font-weight: 600; color: var(--text2); padding-bottom: 6px; cursor: pointer;">
                 Transcript only
               </button>
             </div>
-            <label style="font-size: 11px; color: var(--text3); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <label style="font-size: 11.5px; color: var(--text3); display: flex; align-items: center; gap: 6px; cursor: pointer;">
               <input type="checkbox" id="checkTranscriptOnly" onchange="toggleModalAnalysisTab(this.checked ? 'transcript' : 'analysis')">
               Transcript only
             </label>
@@ -1898,59 +2226,61 @@
 
           <!-- Section: Virality Score & Pillars -->
           <div id="modalAnalysisSection">
-            <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+            <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
               <div>
-                <div style="font-size: 11px; text-transform: uppercase; color: var(--text3); font-weight: 700; letter-spacing: 0.5px;">Score Virality</div>
+                <div style="font-size: 11px; text-transform: uppercase; color: var(--text3); font-weight: 700; letter-spacing: 0.05em; font-family: var(--font-mono);">SCORE VIRALITY</div>
                 <div style="display: flex; align-items: baseline; gap: 4px; margin-top: 2px;">
-                  <span id="opusModalScoreNum" style="font-family: var(--font-head); font-size: 32px; font-weight: 800; color: #00e599; text-shadow: 0 0 16px rgba(0,229,153,0.4);">99</span>
-                  <span style="font-size: 13px; color: var(--text3);">/100</span>
+                  <span id="opusModalScoreNum" style="font-family: var(--font-display); font-size: 34px; font-weight: 800; color: var(--success); text-shadow: 0 0 16px var(--success-glow);">99</span>
+                  <span style="font-size: 13px; color: var(--text3); font-family: var(--font-mono);">/100</span>
                 </div>
               </div>
               <!-- 4 Pillar Metrics -->
               <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 8px; text-align: center;">
-                  <div style="font-size: 10px; color: var(--text3);">HOOK</div>
-                  <div id="opusMetricHook" style="font-size: 12px; font-weight: 800; color: #00e599;">A</div>
+                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 10px; text-align: center;">
+                  <div style="font-size: 9.5px; color: var(--text3); font-family: var(--font-mono);">HOOK</div>
+                  <div id="opusMetricHook" style="font-size: 13px; font-weight: 800; color: var(--success);">A</div>
                 </div>
-                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 8px; text-align: center;">
-                  <div style="font-size: 10px; color: var(--text3);">FLOW</div>
-                  <div id="opusMetricFlow" style="font-size: 12px; font-weight: 800; color: #00e599;">A</div>
+                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 10px; text-align: center;">
+                  <div style="font-size: 9.5px; color: var(--text3); font-family: var(--font-mono);">FLOW</div>
+                  <div id="opusMetricFlow" style="font-size: 13px; font-weight: 800; color: var(--success);">A</div>
                 </div>
-                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 8px; text-align: center;">
-                  <div style="font-size: 10px; color: var(--text3);">VALUE</div>
-                  <div id="opusMetricValue" style="font-size: 12px; font-weight: 800; color: #00e599;">A</div>
+                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 10px; text-align: center;">
+                  <div style="font-size: 9.5px; color: var(--text3); font-family: var(--font-mono);">VALUE</div>
+                  <div id="opusMetricValue" style="font-size: 13px; font-weight: 800; color: var(--success);">A</div>
                 </div>
-                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 8px; text-align: center;">
-                  <div style="font-size: 10px; color: var(--text3);">TREND</div>
-                  <div id="opusMetricTrend" style="font-size: 12px; font-weight: 800; color: #00e599;">A-</div>
+                <div style="background: rgba(0,229,153,0.1); border: 1px solid rgba(0,229,153,0.3); border-radius: 6px; padding: 4px 10px; text-align: center;">
+                  <div style="font-size: 9.5px; color: var(--text3); font-family: var(--font-mono);">TREND</div>
+                  <div id="opusMetricTrend" style="font-size: 13px; font-weight: 800; color: var(--success);">A-</div>
                 </div>
               </div>
             </div>
 
             <!-- AI Context Description -->
-            <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px;">
-              <div style="font-size: 10.5px; text-transform: uppercase; color: var(--accent); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">
-                🧠 AI Scene Analysis &amp; Context
+            <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px;">
+              <div style="font-size: 10.5px; text-transform: uppercase; color: var(--accent); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; font-family: var(--font-mono); display: flex; align-items: center; gap: 6px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04Z"/></svg>
+                <span>AI Scene Analysis &amp; Context</span>
               </div>
               <p id="opusModalExplanation" style="font-size: 12.5px; line-height: 1.6; color: var(--text);"></p>
             </div>
           </div>
 
           <!-- Timestamped Transcript -->
-          <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;">
+          <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-              <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text3); font-weight: 700; letter-spacing: 0.5px;">
+              <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text3); font-weight: 700; letter-spacing: 0.05em; font-family: var(--font-mono);">
                 Transkrip Pembicaraan
               </div>
               <span id="opusModalTimeRange" style="font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-weight: 700;">[00:00 - 01:00]</span>
             </div>
-            <div id="opusModalTranscriptBox" style="font-size: 12.5px; line-height: 1.6; color: #cbd5e1; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; max-height: 180px; overflow-y: auto;"></div>
+            <div id="opusModalTranscriptBox" style="font-size: 12.5px; line-height: 1.6; color: #cbd5e1; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; padding: 12px; max-height: 180px; overflow-y: auto;"></div>
           </div>
 
           <!-- Publishing Metadata Accordion -->
-          <div id="opusModalMetadataSection" style="background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;">
-            <div style="font-size: 10.5px; text-transform: uppercase; color: #f59e0b; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 8px;">
-              🏷️ Metadata Publikasi Siap Pakai
+          <div id="opusModalMetadataSection" style="background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;">
+            <div style="font-size: 10.5px; text-transform: uppercase; color: var(--warning); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 8px; font-family: var(--font-mono); display: flex; align-items: center; gap: 6px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+              <span>Metadata Publikasi Siap Pakai</span>
             </div>
             <div id="opusModalMetadataContent" style="display: grid; gap: 8px;"></div>
           </div>
@@ -1958,18 +2288,21 @@
 
         <!-- Column 3: Action Toolbar -->
         <div style="display: flex; flex-direction: column; gap: 10px;">
-          <a id="opusModalDownloadBtn" href="#" download="" style="background: var(--accent); color: #fff; border: none; border-radius: 9px; font-family: var(--font-head); font-size: 12.5px; font-weight: 700; padding: 12px 14px; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 16px rgba(79,142,255,0.4);">
-            <span>📥</span> <span>Download HD</span>
+          <a id="opusModalDownloadBtn" href="#" download="" style="background: var(--accent-gradient); color: #ffffff; border: none; border-radius: 10px; font-family: var(--font-display); font-size: 13px; font-weight: 700; padding: 12px 14px; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 16px rgba(79,142,255,0.4);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Download HD</span>
           </a>
-          <button type="button" onclick="copyModalAllMetadata()" style="background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 9px; font-family: var(--font-body); font-size: 12px; font-weight: 600; padding: 10px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-            <span>📋</span> <span>Salin Metadata</span>
+          <button type="button" onclick="copyModalAllMetadata()" style="background: var(--bg-surface-elevated); border: 1px solid var(--border); color: var(--text); border-radius: 10px; font-family: var(--font-body); font-size: 12px; font-weight: 600; padding: 10px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span>Salin Metadata</span>
           </button>
-          <button type="button" onclick="copyModalCaption()" style="background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 9px; font-family: var(--font-body); font-size: 12px; font-weight: 600; padding: 10px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-            <span>📅</span> <span>Publish on Social</span>
+          <button type="button" onclick="copyModalCaption()" style="background: var(--bg-surface-elevated); border: 1px solid var(--border); color: var(--text); border-radius: 10px; font-family: var(--font-body); font-size: 12px; font-weight: 600; padding: 10px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
+            <span>Publish on Social</span>
           </button>
-          <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 11px; color: var(--text3); text-align: center; margin-top: 10px;">
-            📱 Format: <strong>9:16 Vertikal</strong><br>
-            ⚡ Akselerasi: <strong>AMD VAAPI</strong>
+          <div style="background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 11px; color: var(--text3); text-align: center; margin-top: 10px; font-family: var(--font-mono);">
+            Format: <strong>9:16 Vertikal</strong><br>
+            Akselerasi: <strong>AMD VAAPI</strong>
           </div>
         </div>
       </div>
@@ -1977,6 +2310,7 @@
   </div>
 
   <script>
+
     // ── State ─────────────────────────────────────────────────
     let selectedAR = '9:16';
     let clipCount = 3;
@@ -2004,10 +2338,10 @@
       const icon = document.getElementById('transcriptToggleIcon');
       if (container.style.display === 'none') {
         container.style.display = 'block';
-        icon.textContent = '▲ Tutup';
+        icon.innerHTML = '&uarr; Tutup';
       } else {
         container.style.display = 'none';
-        icon.textContent = '▼ Buka';
+        icon.innerHTML = '&darr; Buka';
       }
     }
 
@@ -2017,9 +2351,9 @@
       const btnProcess = document.getElementById('btnProcess');
       if (countEl) countEl.textContent = `${val.length} karakter`;
       if (val.trim().length > 20) {
-        btnProcess.innerHTML = '⚡ Generate Clips Instan (Fast Path)';
+        btnProcess.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span>Generate Clips Instan (Fast Path)</span>`;
       } else {
-        btnProcess.innerHTML = '✨ Generate Clips dengan AI';
+        btnProcess.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg> <span>Generate Clips dengan AI</span>`;
       }
     }
 
@@ -2392,14 +2726,14 @@
 
     function jobStateMeta(state, hasClips) {
       if (hasClips && state !== 'active') {
-        return { icon: '✅', label: 'Selesai', color: '#10B981', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.32)' };
+        return { icon: '✓', label: 'Selesai', color: '#00e599', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.32)' };
       }
       switch (state) {
-        case 'active':    return { icon: '⚙️', label: 'Sedang Diproses', color: '#4F8EFF', bg: 'rgba(79,142,255,0.10)', border: 'rgba(79,142,255,0.32)' };
-        case 'waiting':   return { icon: '⏳', label: 'Menunggu Antrian', color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
-        case 'delayed':   return { icon: '⏳', label: 'Menunggu',         color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
-        case 'completed': return { icon: '✅', label: 'Selesai',          color: '#10B981', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.32)' };
-        case 'failed':    return { icon: '❌', label: 'Gagal',            color: '#EF4444', bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.32)' };
+        case 'active':    return { icon: '●', label: 'Sedang Diproses', color: '#4F8EFF', bg: 'rgba(79,142,255,0.10)', border: 'rgba(79,142,255,0.32)' };
+        case 'waiting':   return { icon: '○', label: 'Menunggu Antrian', color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
+        case 'delayed':   return { icon: '○', label: 'Menunggu',         color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
+        case 'completed': return { icon: '✓', label: 'Selesai',          color: '#10B981', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.32)' };
+        case 'failed':    return { icon: '✕', label: 'Gagal',            color: '#EF4444', bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.32)' };
         default:          return { icon: '•',  label: state,              color: '#94A3B8', bg: 'rgba(148,163,184,0.10)', border: 'rgba(148,163,184,0.3)' };
       }
     }
@@ -2501,9 +2835,15 @@
                 <div style="font-size:9.5px; color:#00e599; font-weight:800; background:rgba(0,229,153,0.14); padding:1px 5px; border-radius:3px;">VIRAL</div>
               </div>
               <div class="opus-action-icons" onclick="event.stopPropagation()">
-                <button type="button" class="opus-icon-btn" title="Favorit" onclick="toggleFavorite(this)">❤️</button>
-                <a href="${src}" download="${c.filename || 'clip.mp4'}" class="opus-icon-btn" title="Download MP4">⬇</a>
-                <button type="button" class="opus-icon-btn" title="Salin Hook &amp; Judul" onclick="copyToClipboard('${escapeHtml(clipTitle)}', this)">📋</button>
+                <button type="button" class="opus-icon-btn" title="Favorit" onclick="toggleFavorite(this)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                </button>
+                <a href="${src}" download="${c.filename || 'clip.mp4'}" class="opus-icon-btn" title="Download MP4">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </a>
+                <button type="button" class="opus-icon-btn" title="Salin Hook &amp; Judul" onclick="copyToClipboard('${escapeHtml(clipTitle)}', this)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
               </div>
             </div>
             <!-- 4-Pillar Score Badges -->
@@ -2545,7 +2885,7 @@
         ? `<div style="margin-top:16px;">
              <div class="opus-headline-notice" style="background: rgba(79, 142, 255, 0.08); border: 1px solid rgba(79, 142, 255, 0.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
                <div style="display: flex; align-items: center; gap: 10px;">
-                 <span style="font-size: 18px;">📢</span>
+                 <span class="feature-icon-box" style="width:28px;height:28px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span>
                  <div style="font-size: 11.5px; color: var(--text);">
                    <strong>Auto headline:</strong> Hook headline visual disematkan di 5 detik pertama video klip. Klik kartu mana saja untuk membuka preview modal ala Opus Clip.
                  </div>
@@ -2567,7 +2907,7 @@
         ? `<div style="margin-top:14px;">
              <button type="button" onclick="toggleCardMetadata('${metaAccordionId}')"
                style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#F59E0B; border-radius:8px; font-size:11px; font-weight:600; padding:7px 12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-               <span>🏷️</span> <span>Lihat Metadata Medsos (Viral Hook, Caption &amp; Hashtag)</span>
+               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> <span>Lihat Metadata Medsos (Viral Hook, Caption &amp; Hashtag)</span>
              </button>
              <div id="${metaAccordionId}" style="display:none; margin-top:12px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:14px;">
                ${metadataObj.clips.map((mc, mi) => `
@@ -2603,7 +2943,7 @@
             <h2 style="font-family:var(--font-head); font-size:15px; font-weight:700; color:var(--text); line-height:1.4;">
               ${escapeHtml(title)}
             </h2>
-            ${job.url ? `<a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" style="font-size:11px; color:var(--accent); text-decoration:none; display:inline-block; margin-top:2px;">🔗 Buka Video YouTube Asli ↗</a>` : ''}
+            ${job.url ? `<a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" style="font-size:11px; color:var(--accent); text-decoration:none; display:inline-block; margin-top:2px;">Buka Video YouTube Asli &nearr;</a>` : ''}
           </div>
         </div>
         ${progressHtml}
@@ -2734,7 +3074,7 @@
     async function stopEverything() {
       const btn = document.getElementById('stopAllBtn');
       const original = btn ? btn.innerHTML : '';
-      if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Membatalkan...'; }
+      if (btn) { btn.disabled = true; btn.innerHTML = 'Membatalkan...'; }
 
       try {
         const res = await fetch('/api/queue/clear', { method: 'POST' });
@@ -2773,7 +3113,7 @@
         const data = await res.json();
         if (data.supported) {
           if (hwBadge) {
-            hwBadge.textContent = '⚡ GPU Active';
+            hwBadge.innerHTML = '<span class=\"status-dot pulsing\"></span> GPU Active';
             hwBadge.title = data.name || 'VAAPI Hardware Acceleration';
           }
           if (heroHwSub) {
@@ -2781,7 +3121,7 @@
           }
         } else {
           if (hwBadge) {
-            hwBadge.textContent = '🖥️ CPU Mode';
+            hwBadge.innerHTML = '<span class=\"status-dot\"></span> CPU Mode';
             hwBadge.style.color = 'var(--text3)';
             hwBadge.style.background = 'var(--surface2)';
             hwBadge.style.borderColor = 'var(--border)';
@@ -2807,15 +3147,15 @@
         select.innerHTML = '';
 
         const optGroupFast = document.createElement('optgroup');
-        optGroupFast.label = '⚡ Rekomendasi (Cepat & Cerdas)';
+        optGroupFast.label = 'Rekomendasi (Cepat & Cerdas)';
 
         const optGroupAll = document.createElement('optgroup');
-        optGroupAll.label = '🌐 Semua Model 9Router / Gateway';
+        optGroupAll.label = 'Semua Model 9Router / Gateway';
 
         models.forEach(m => {
           const opt = document.createElement('option');
           opt.value = m;
-          opt.textContent = m === defaultModel ? `⭐ ${m} (Default)` : m;
+          opt.textContent = m === defaultModel ? `${m} (Default)` : m;
           if (m === defaultModel) {
             opt.selected = true;
           }
@@ -2831,7 +3171,7 @@
 
         const customOpt = document.createElement('option');
         customOpt.value = '__custom__';
-        customOpt.textContent = '✏️ Custom Model ID...';
+        customOpt.textContent = 'Custom Model ID...';
         select.appendChild(customOpt);
 
         if (heroSub) {
@@ -2843,11 +3183,11 @@
       } catch (err) {
         console.warn('Could not load AI models from server, using fallback:', err);
         select.innerHTML = `
-          <option value="cbai/deepseek-v4.1-flash" selected>⭐ cbai/deepseek-v4.1-flash (Default)</option>
-          <option value="xkiro/google/gemini-3.8-flash">⚡ xkiro/google/gemini-3.8-flash</option>
-          <option value="kimchi/deepseek-v4-flash-0731">🚀 kimchi/deepseek-v4-flash-0731</option>
-          <option value="kr/claude-sonnet-4.5">🧠 kr/claude-sonnet-4.5</option>
-          <option value="__custom__">✏️ Custom Model ID...</option>
+          <option value=\"cbai/deepseek-v4.1-flash\" selected>cbai/deepseek-v4.1-flash (Default)</option>
+          <option value=\"xkiro/google/gemini-3.8-flash\">xkiro/google/gemini-3.8-flash</option>
+          <option value=\"kimchi/deepseek-v4-flash-0731\">kimchi/deepseek-v4-flash-0731</option>
+          <option value=\"kr/claude-sonnet-4.5\">kr/claude-sonnet-4.5</option>
+          <option value=\"__custom__\">Custom Model ID...</option>
         `;
       }
     }
@@ -2991,6 +3331,9 @@
 
     // ── Update UI Progress ────────────────────────────────────
     function updateProgress(data) {
+      if (data && data.progress && data.progress.message) {
+        appendTerminalLog(data.progress.message);
+      }
       const progress = data.progress || {};
       const step = progress.step || 0;
       const percent = progress.percent || 2;
@@ -3031,7 +3374,7 @@
 
       const totalClips = result.clips ? result.clips.length : 0;
       const countLabel = totalClips === 1 ? '1 Clip' : `${totalClips} Clips`;
-      document.getElementById('resultsTitle').textContent = `${countLabel} Berhasil Dibuat! 🎉`;
+      document.getElementById('resultsTitle').textContent = `${countLabel} Berhasil Dibuat`;
       document.getElementById('resultsSub').textContent =
         `Dari "${result.videoTitle || 'Video'}" (${Math.round((result.videoDuration || 0) / 60)} menit) · Bahasa: ${(result.language || 'ID').toUpperCase()}`;
 
@@ -3388,6 +3731,78 @@
     window.copyModalCaption = copyModalCaption;
     window.editModalTitle = editModalTitle;
     window.toggleFavorite = toggleFavorite;
+  
+
+    // ── Live URL Preview & Clipboard Helper ───────────────────
+    function extractYouTubeId(url) {
+      if (!url) return null;
+      const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      return m ? m[1] : null;
+    }
+
+    function handleUrlInput(val) {
+      const clearBtn = document.getElementById('btnClearUrl');
+      const previewBox = document.getElementById('urlPreviewBox');
+      const previewThumb = document.getElementById('urlPreviewThumb');
+      const previewId = document.getElementById('urlPreviewId');
+
+      if (clearBtn) clearBtn.style.display = val ? 'inline-flex' : 'none';
+
+      const vidId = extractYouTubeId(val);
+      if (vidId && previewBox && previewThumb && previewId) {
+        previewThumb.src = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`;
+        previewId.textContent = `YouTube ID: ${vidId}`;
+        previewBox.style.display = 'flex';
+      } else if (previewBox) {
+        previewBox.style.display = 'none';
+      }
+    }
+
+    async function pasteFromClipboard() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          const input = document.getElementById('youtubeUrl');
+          if (input) {
+            input.value = text.trim();
+            handleUrlInput(input.value);
+            input.focus();
+          }
+        }
+      } catch (e) {
+        console.warn('Clipboard read failed:', e);
+      }
+    }
+
+    function clearUrlInput() {
+      const input = document.getElementById('youtubeUrl');
+      if (input) {
+        input.value = '';
+        handleUrlInput('');
+        input.focus();
+      }
+    }
+
+    function appendTerminalLog(msg) {
+      const container = document.getElementById('terminalLogLines');
+      const consoleBox = document.getElementById('terminalLogConsole');
+      if (!container) return;
+      const d = new Date();
+      const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      line.innerHTML = `<span class="terminal-time">[${timeStr}]</span> <span>${escapeHtml(msg)}</span>`;
+      container.appendChild(line);
+      if (consoleBox) consoleBox.scrollTop = consoleBox.scrollHeight;
+    }
+
+    // Expose helpers
+    window.extractYouTubeId = extractYouTubeId;
+    window.handleUrlInput = handleUrlInput;
+    window.pasteFromClipboard = pasteFromClipboard;
+    window.clearUrlInput = clearUrlInput;
+    window.appendTerminalLog = appendTerminalLog;
+
   </script>
 </body>
 </html>
