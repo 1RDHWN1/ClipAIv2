@@ -602,9 +602,9 @@ router.get('/thumbnail/:filename', (req, res) => {
   try {
     const raw = req.params.filename || '';
     const safeBase = path.basename(raw).replace(/\.(mp4|jpg|jpeg|png)$/i, '');
-    const outputsDir = process.env.OUTPUT_DIR || path.join(process.cwd(), 'outputs');
-    const thumbPath = path.join(outputsDir, `${safeBase}.jpg`);
-    const videoPath = path.join(outputsDir, `${safeBase}.mp4`);
+    const outputsDir = process.env.OUTPUT_DIR ? path.resolve(process.env.OUTPUT_DIR) : path.resolve(process.cwd(), 'outputs');
+    const thumbPath = path.resolve(outputsDir, `${safeBase}.jpg`);
+    const videoPath = path.resolve(outputsDir, `${safeBase}.mp4`);
 
     if (fs.existsSync(thumbPath)) {
       res.setHeader('Content-Type', 'image/jpeg');
