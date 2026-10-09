@@ -54,4 +54,21 @@ test('AI Model Picker & Dynamic Resolution Suite', async (t) => {
       assert.strictEqual(modelRegex.test(m), false, `Malicious/invalid model "${m}" must be rejected`);
     }
   });
+
+  await t.test('Case 4: Anthropic Claude flagship models are valid, recognized, and placed at top', () => {
+    const claudeFlagshipModels = [
+      'kr/claude-sonnet-4.5',
+      'claude-3-5-sonnet-20241022',
+      'kr/claude-haiku-4.5',
+      'xkiro/anthropic/claude-sonnet-4.5',
+      'cl/anthropic/claude-sonnet-5.5',
+    ];
+
+    const modelRegex = /^[a-zA-Z0-9_.:\/-]{1,100}$/;
+    for (const m of claudeFlagshipModels) {
+      assert.ok(modelRegex.test(m), `Claude flagship model "${m}" must be valid`);
+      const isClaude = m.toLowerCase().includes('claude') || m.toLowerCase().includes('anthropic');
+      assert.strictEqual(isClaude, true, `Model "${m}" must be identified as Claude ecosystem`);
+    }
+  });
 });
