@@ -360,14 +360,17 @@ router.get('/models', async (req, res) => {
     }
 
     // Daftar preset rekomendasi model terpopuler & efisien.
-    // `defaultModel` diambil dari env (DEFAULT_MODEL), jadi default di sini
-    // otomatis mengikuti konfigurasi — jangan hardcode model lama di daftar.
+    // Flagship Anthropic Claude ditempatkan di urutan teratas sebagai mesin naratif utama.
     const presetModels = [
       defaultModel,
+      'kr/claude-sonnet-4.5',
+      'claude-3-5-sonnet-20241022',
+      'kr/claude-haiku-4.5',
+      'xkiro/anthropic/claude-sonnet-4.5',
+      'cl/anthropic/claude-sonnet-5.5',
       'cbai/deepseek-v4.1-flash',
       'xkiro/google/gemini-3.8-flash',
       'xkiro/google/gemini-3.1-pro',
-      'kr/claude-sonnet-4.5',
       'kimchi/deepseek-v4-flash-0731',
     ].filter(Boolean);
 
