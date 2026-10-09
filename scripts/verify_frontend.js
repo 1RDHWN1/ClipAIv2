@@ -70,7 +70,7 @@ import { chromium } from 'playwright';
     await page.screenshot({ path: '/home/cutycat15/ClipAIv2/public-modal-after.png' });
     console.log('Opus modal screenshot saved to /home/cutycat15/ClipAIv2/public-modal-after.png');
     // Close modal
-    await page.click('.opus-icon-btn[title="Tutup Modal"]');
+    await page.click('.opus-icon-btn[title="Close Modal"], .opus-icon-btn[title="Tutup Modal"]');
     await page.waitForTimeout(300);
   } else {
     console.log('No opus-card found in history');

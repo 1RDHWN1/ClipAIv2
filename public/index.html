@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -626,7 +626,7 @@
       text-overflow: ellipsis;
     }
 
-    /* Transcript Drawer (Tanya Gemini / Fast Path) */
+    /* Transcript Drawer (Instant Transcript / Fast Path) */
     .transcript-box-wrap {
       margin-bottom: 22px;
       width: 100%;
@@ -1489,19 +1489,19 @@
         <span class="enterprise-badge" style="background:rgba(0,229,153,0.1); border-color:rgba(0,229,153,0.25); color:var(--success);">Venture Ready</span>
       </div>
 
-      <!-- Main Navigation Tabs: Studio vs Riwayat -->
+      <!-- Main Navigation Tabs: Studio vs History -->
       <nav class="app-nav" id="appNav">
         <button type="button" class="nav-tab active" id="tabStudioBtn" onclick="switchView('studio')">
           <span class="nav-tab-icon">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           </span>
-          <span>Buat Klip</span>
+          <span>Create Clips</span>
         </button>
         <button type="button" class="nav-tab" id="tabHistoryBtn" onclick="switchView('history')">
           <span class="nav-tab-icon">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
           </span>
-          <span>Riwayat Klip</span>
+          <span>Clip History</span>
           <span id="navHistoryBadge" class="nav-tab-badge" style="display:none;">0</span>
         </button>
       </nav>
@@ -1517,16 +1517,16 @@
         <span class="status-pill" title="Ingest Pipeline Ready">
           <span class="status-dot"></span> Ingest Ready
         </span>
-        <button id="stopAllBtn" onclick="stopEverything()" title="Batalkan semua job yang menunggu &amp; bersihkan antrian" class="btn-stop-all">
+        <button id="stopAllBtn" onclick="stopEverything()" title="Cancel all queued jobs &amp; clear queue" class="btn-stop-all">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-          <span>Stop Semua <span id="stopAllCount"></span></span>
+          <span>Stop All <span id="stopAllCount"></span></span>
         </button>
       </div>
     </header>
 
-    <!-- Halaman 1: STUDIO / BUAT KLIP -->
+    <!-- Page 1: STUDIO / CREATE CLIPS -->
     <main id="viewStudio">
-      <!-- Job tertinggal dari sesi sebelumnya -->
+      <!-- Pending jobs from previous session -->
       <div id="leftoverBanner" style="display:none; margin-bottom:20px; padding:14px 18px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:14px; justify-content:space-between; align-items:center; gap:12px;">
         <div style="display:flex; align-items:center; gap:12px;">
           <div style="width:32px; height:32px; border-radius:8px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); display:grid; place-items:center; color:var(--warning); flex-shrink:0;">
@@ -1534,19 +1534,19 @@
           </div>
           <div>
             <div style="font-family:var(--font-display); font-size:12.5px; font-weight:700; color:var(--warning);">
-              Ada <span id="leftoverCount">0</span> job tertinggal di antrian
+              <span id="leftoverCount">0</span> pending jobs remaining in queue
             </div>
             <div style="font-size:11.5px; color:var(--text2); margin-top:2px;">
-              Job ini otomatis dikerjakan worker. Batalkan jika tidak ingin dilanjutkan.
+              Jobs are automatically processed by background workers. Cancel if you do not wish to proceed.
             </div>
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <button onclick="switchView('history')" style="background:transparent; border:1px solid rgba(245,158,11,0.4); color:var(--warning); border-radius:8px; font-family:var(--font-body); font-size:11.5px; font-weight:600; padding:6px 14px; cursor:pointer; white-space:nowrap;">
-            Lihat di Riwayat &rarr;
+            View in History &rarr;
           </button>
           <button onclick="stopEverything()" style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4); color:var(--warning); border-radius:8px; font-family:var(--font-body); font-size:11.5px; font-weight:600; padding:6px 14px; cursor:pointer; white-space:nowrap;">
-            Batalkan Semua
+            Cancel All
           </button>
         </div>
       </div>
@@ -1554,10 +1554,10 @@
       <section class="hero">
         <div class="hero-eyebrow">SYSTEMS LAB // CLOUD MEDIA PIPELINE</div>
         <h1 class="hero-title">
-          Ubah Video Panjang Jadi <span class="highlight">Shorts Viral</span>
+          Turn Long Videos into <span class="highlight">Viral Shorts</span>
         </h1>
         <p class="hero-sub">
-          Ekstraksi momen berpotensi viral secara otomatis via Whisper transkripsi, AI hook curation, face-tracking reframe 9:16, dan akselerasi GPU AMD VAAPI.
+          Automatically extract high-retention viral moments via Whisper transcription, AI hook curation, 9:16 face-tracking reframe, and AMD VAAPI GPU acceleration.
         </p>
       </section>
 
@@ -1569,7 +1569,7 @@
             </div>
             <div class="feature-title">AI Transcription</div>
           </div>
-          <div class="feature-sub">Whisper transkripsi otomatis dengan timestamp presisi</div>
+          <div class="feature-sub">Automated Whisper transcription with millisecond timestamp precision</div>
         </div>
 
         <div class="feature">
@@ -1582,7 +1582,7 @@
               <span class="claude-micro-badge">Anthropic Claude</span>
             </div>
           </div>
-          <div class="feature-sub" id="heroAiModelSub">Anthropic Claude mengevaluasi kurva retensi, hook psikologis, dan punchline secara mendalam</div>
+          <div class="feature-sub" id="heroAiModelSub">Anthropic Claude deeply evaluates retention curves, psychological hooks, and conversational punchlines</div>
         </div>
 
         <div class="feature">
@@ -1592,7 +1592,7 @@
             </div>
             <div class="feature-title">Hardware Render</div>
           </div>
-          <div class="feature-sub" id="heroHwSub">FFmpeg potong &amp; reframe akselerasi GPU</div>
+          <div class="feature-sub" id="heroHwSub">FFmpeg cut &amp; reframe with GPU acceleration</div>
         </div>
       </div>
 
@@ -1601,7 +1601,7 @@
         <div class="card">
           <div class="card-title">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-            <span>URL Video YouTube</span>
+            <span>YouTube Video URL</span>
           </div>
 
           <div class="url-group">
@@ -1616,11 +1616,11 @@
                 oninput="handleUrlInput(this.value)"
               />
               <div class="input-actions-cluster">
-                <button type="button" class="btn-input-action" id="btnPasteUrl" onclick="pasteFromClipboard()" title="Paste URL dari Clipboard">
+                <button type="button" class="btn-input-action" id="btnPasteUrl" onclick="pasteFromClipboard()" title="Paste URL from Clipboard">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
                   <span>Paste</span>
                 </button>
-                <button type="button" class="btn-input-action" id="btnClearUrl" onclick="clearUrlInput()" title="Bersihkan URL" style="display:none;">
+                <button type="button" class="btn-input-action" id="btnClearUrl" onclick="clearUrlInput()" title="Clear URL" style="display:none;">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
               </div>
@@ -1644,7 +1644,7 @@
             </div>
           </div>
 
-          <!-- Tanya Gemini Transcript Accordion (Fast Path) -->
+          <!-- Instant Transcript Accordion (Fast Path) -->
           <div class="transcript-box-wrap">
             <div
               id="transcriptHeader"
@@ -1655,25 +1655,25 @@
                 <div style="width:24px; height:24px; border-radius:6px; background:rgba(79,142,255,0.12); border:1px solid rgba(79,142,255,0.25); display:grid; place-items:center; color:var(--accent);">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>
                 </div>
-                <span style="font-weight:600;">Punya Transkrip YouTube / Tanya Gemini?</span>
-                <span style="font-size:10px; background:rgba(79,142,255,0.12); color:var(--accent); border:1px solid rgba(79,142,255,0.25); padding:2px 8px; border-radius:4px; font-weight:700; font-family:var(--font-mono);">MODE INSTAN</span>
+                <span style="font-weight:600;">Instant Transcript (100% Zero-Download Fast Path)</span>
+                <span style="font-size:10px; background:rgba(79,142,255,0.12); color:var(--accent); border:1px solid rgba(79,142,255,0.25); padding:2px 8px; border-radius:4px; font-weight:700; font-family:var(--font-mono);">INSTANT MODE</span>
               </div>
-              <span id="transcriptToggleIcon" style="color:var(--text2); font-size:12px; font-family:var(--font-mono);">&darr; Buka</span>
+              <span id="transcriptToggleIcon" style="color:var(--text2); font-size:12px; font-family:var(--font-mono);">&darr; Open</span>
             </div>
             <div id="transcriptInputContainer" style="display:none; margin-top:12px;">
               <div style="font-size:11.5px; color:var(--text2); margin-bottom:8px; line-height:1.5;">
-                Salin hasil transkrip langsung dari tombol <strong>"Tanya"</strong> di YouTube atau teks ber-timestamp. Sistem akan <strong>melewati unduh audio &amp; Whisper 100%</strong> sehingga proses menjadi instan.
+                Paste raw transcript directly from YouTube's <strong>"Ask"</strong> feature or timestamped text. The system will <strong>bypass audio download &amp; Whisper 100%</strong> for instant processing.
               </div>
               <textarea
                 id="transcriptText"
                 rows="6"
                 style="width:100%; background:var(--bg-deep); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:var(--font-mono); font-size:12px; padding:12px; outline:none; resize:vertical; line-height:1.5;"
-                placeholder="Tempel transkrip di sini. Contoh format Tanya YouTube:&#10;([0:00](https://www.youtube.com/watch?t=0s)) Katanya manusia itu kan diciptakan dari tanah ya, Bib.&#10;([0:03](https://www.youtube.com/watch?t=3s)) Heeh.&#10;([0:04](https://www.youtube.com/watch?t=4s)) Berarti kita saudara sama brokoli. Kok bisa, Pak?"
+                placeholder="Paste transcript here. Example YouTube Ask format:&#10;([0:00](https://www.youtube.com/watch?t=0s)) Here is the introductory dialogue...&#10;([0:03](https://www.youtube.com/watch?t=3s)) Exactly.&#10;([0:04](https://www.youtube.com/watch?t=4s)) Here is the key insight..."
                 oninput="handleTranscriptChange()"
               ></textarea>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:11px; color:var(--text3); font-family:var(--font-mono);">
-                <span id="transcriptCharCount">0 karakter</span>
-                <button type="button" onclick="clearTranscript()" style="background:transparent; border:none; color:var(--danger); cursor:pointer; font-size:11px; font-family:var(--font-mono);">Hapus Teks</button>
+                <span id="transcriptCharCount">0 characters</span>
+                <button type="button" onclick="clearTranscript()" style="background:transparent; border:none; color:var(--danger); cursor:pointer; font-size:11px; font-family:var(--font-mono);">Clear Text</button>
               </div>
             </div>
           </div>
@@ -1709,7 +1709,7 @@
             </div>
 
             <div class="option-group">
-              <label>Jumlah Clip</label>
+              <label>Target Clip Count</label>
               <div class="clip-count-wrap">
                 <button id="btnMinus" onclick="changeClipCount(-1)">&minus;</button>
                 <span id="clipCountDisplay">3</span>
@@ -1720,23 +1720,23 @@
 
             <div class="option-group">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <label style="margin-bottom:0;">Model AI (LLM)</label>
+                <label style="margin-bottom:0;">AI Model (LLM)</label>
                 <span id="aiModelBadge" style="font-size:10px; font-family:var(--font-mono); color:#e07a5f; background:rgba(217,119,87,0.12); padding:2px 8px; border-radius:5px; border:1px solid rgba(217,119,87,0.3); font-weight:600; display:inline-flex; align-items:center; gap:4px;">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
                   Powered by Anthropic Claude
                 </span>
               </div>
               <select id="aiModelSelect" onchange="handleAiModelChange()">
-                <option value="" disabled selected>Memuat model Anthropic Claude...</option>
+                <option value="" disabled selected>Loading Anthropic Claude models...</option>
               </select>
-              <input type="text" id="customAiModelInput" placeholder="Ketik model custom (contoh: openai/gpt-4o)..." style="display:none; width:100%; margin-top:8px; background:var(--bg-deep); border:1px solid var(--accent); border-radius:8px; color:var(--text); font-family:var(--font-mono); font-size:11px; padding:8px 10px; outline:none;" oninput="syncCustomModel()">
+              <input type="text" id="customAiModelInput" placeholder="Enter custom model ID (e.g. openai/gpt-4o)..." style="display:none; width:100%; margin-top:8px; background:var(--bg-deep); border:1px solid var(--accent); border-radius:8px; color:var(--text); font-family:var(--font-mono); font-size:11px; padding:8px 10px; outline:none;" oninput="syncCustomModel()">
               <div id="aiModelHelperNote" style="margin-top:7px; font-size:11.5px; color:var(--text3); line-height:1.5;">
-                Dioptimalkan khusus untuk model <strong style="color:var(--text2); font-weight:600;">Anthropic Claude 3.5 Sonnet</strong> guna menganalisis emosi narasi, pacing percakapan, dan ekstraksi hook video panjang dengan akurasi retensi tertinggi.
+                Specially optimized for <strong style="color:var(--text2); font-weight:600;">Anthropic Claude 3.5 Sonnet</strong> to analyze narrative dynamics, conversational pacing, and long-form video hook extraction with peak retention accuracy.
               </div>
             </div>
           </div>
 
-          <!-- Publishing Metadata Panel (judul, deskripsi, hashtag, caption) -->
+          <!-- Publishing Metadata Panel (title, description, hashtags, caption) -->
           <div class="metadata-card" style="margin-bottom: 20px; padding: 18px 20px; background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 14px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
               <div style="display: flex; align-items: center; gap: 12px;">
@@ -1745,10 +1745,10 @@
                 </div>
                 <div>
                   <div style="font-family: var(--font-display); font-size: 13.5px; font-weight: 700; color: #ffffff;">
-                    Judul &amp; Deskripsi Viral
+                    Viral Title &amp; Description
                   </div>
                   <div style="font-size: 11.5px; color: var(--text2);">
-                    AI menyusun hook title, caption &amp; hashtag siap-tempel per klip
+                    AI crafts hook title, caption &amp; ready-to-paste hashtags per clip
                   </div>
                 </div>
               </div>
@@ -1760,17 +1760,17 @@
 
             <div id="metadataSettings" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
               <div class="option-group" style="margin-bottom:0;">
-                <label>Gaya Metadata</label>
+                <label>Publishing Metadata Strategy</label>
                 <select id="metadataMode">
                   <option value="viral" selected>Viral (Max Scroll-Stop)</option>
-                  <option value="seo">SEO (Optimasi Pencarian)</option>
-                  <option value="simple">Sederhana (Lugas &amp; No Clickbait)</option>
+                  <option value="seo">SEO (Search Optimization)</option>
+                  <option value="simple">Minimalist (Direct &amp; Clean)</option>
                 </select>
               </div>
               <div class="option-group" style="margin-bottom:0;">
-                <label>Platform Target</label>
+                <label>Target Platform</label>
                 <select id="targetPlatform">
-                  <option value="all" selected>Semua Platform (TikTok + Shorts + Reels)</option>
+                  <option value="all" selected>All Platforms (TikTok + Shorts + Reels)</option>
                   <option value="tiktok">TikTok</option>
                   <option value="shorts">YouTube Shorts</option>
                   <option value="reels">Instagram Reels</option>
@@ -1779,7 +1779,7 @@
             </div>
           </div>
 
-          <!-- Branding Panel (atribusi sumber + watermark channel) -->
+          <!-- Branding Panel (source attribution + channel watermark) -->
           <div class="branding-card" style="margin-bottom: 20px; padding: 18px 20px; background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 14px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
               <div style="display: flex; align-items: center; gap: 12px;">
@@ -1788,10 +1788,10 @@
                 </div>
                 <div>
                   <div style="font-family: var(--font-display); font-size: 13.5px; font-weight: 700; color: #ffffff;">
-                    Sumber &amp; Watermark
+                    Source Attribution &amp; Watermark
                   </div>
                   <div style="font-size: 11.5px; color: var(--text2);">
-                    Cantumkan channel sumber &amp; watermark akun kamu di dalam video
+                    Include source channel attribution &amp; your account watermark in video
                   </div>
                 </div>
               </div>
@@ -1804,66 +1804,66 @@
             <div id="brandingSettings" style="display: none;">
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                 <div class="option-group" style="margin-bottom:0;">
-                  <label>Channel Sumber (Atribusi)</label>
-                  <input type="text" id="sourceChannel" placeholder="Otomatis dari YouTube">
+                  <label>Source Channel (Attribution)</label>
+                  <input type="text" id="sourceChannel" placeholder="Auto-detected from YouTube">
                 </div>
                 <div class="option-group" style="margin-bottom:0;">
-                  <label>Label Sumber</label>
-                  <input type="text" id="sourceLabel" value="Sumber">
+                  <label>Source Label</label>
+                  <input type="text" id="sourceLabel" value="Source">
                 </div>
               </div>
 
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                 <div class="option-group" style="margin-bottom:0;">
-                  <label>Watermark Channel Kamu</label>
-                  <input type="text" id="watermarkText" placeholder="contoh: @prime.clipsmedia" value="@prime.clipsmedia">
+                  <label>Your Channel Watermark</label>
+                  <input type="text" id="watermarkText" placeholder="e.g. @prime.clipsmedia" value="@prime.clipsmedia">
                 </div>
                 <div class="option-group" style="margin-bottom:0;">
-                  <label>Posisi Watermark</label>
+                  <label>Watermark Position</label>
                   <select id="watermarkPosition">
-                    <option value="above-subtitles" selected>Diatas Subtitle (Disarankan)</option>
-                    <option value="bottom-right">Kanan Bawah</option>
-                    <option value="bottom-left">Kiri Bawah</option>
-                    <option value="top-right">Kanan Atas</option>
-                    <option value="top-left">Kiri Atas</option>
+                    <option value="above-subtitles" selected>Above Subtitles (Recommended)</option>
+                    <option value="bottom-right">Bottom Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                    <option value="top-right">Top Right</option>
+                    <option value="top-left">Top Left</option>
                   </select>
                 </div>
               </div>
 
               <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
                 <div class="option-group" style="margin-bottom:0;">
-                  <label>Posisi Sumber</label>
+                  <label>Source Position</label>
                   <select id="sourcePosition">
                     <option value="top-left" selected>Kiri Atas</option>
-                    <option value="top-right">Kanan Atas</option>
-                    <option value="bottom-left">Kiri Bawah</option>
-                    <option value="bottom-right">Kanan Bawah</option>
+                    <option value="top-right">Top Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                    <option value="bottom-right">Bottom Right</option>
                   </select>
                 </div>
                 <div class="option-group" style="margin-bottom:0;">
-                  <label>Durasi Sumber</label>
+                  <label>Source Duration</label>
                   <select id="sourceDuration">
-                    <option value="3">3 detik</option>
-                    <option value="4" selected>4 detik</option>
-                    <option value="6">6 detik</option>
-                    <option value="10">10 detik</option>
+                    <option value="3">3 seconds</option>
+                    <option value="4" selected>4 seconds</option>
+                    <option value="6">6 seconds</option>
+                    <option value="10">10 seconds</option>
                   </select>
                 </div>
                 <div class="option-group" style="margin-bottom:0;">
-                  <label>Ukuran Watermark</label>
+                  <label>Watermark Font Size</label>
                   <select id="watermarkFontSize">
-                    <option value="22">Kecil</option>
-                    <option value="30" selected>Sedang</option>
-                    <option value="42">Besar</option>
+                    <option value="22">Small</option>
+                    <option value="30" selected>Medium</option>
+                    <option value="42">Large</option>
                   </select>
                 </div>
                 <div class="option-group" style="margin-bottom:0;">
                   <label>Opacity</label>
                   <select id="watermarkOpacity">
-                    <option value="0.25">Sangat Tipis</option>
-                    <option value="0.35">Tipis</option>
-                    <option value="0.45" selected>Sedang</option>
-                    <option value="0.7">Jelas</option>
+                    <option value="0.25">Subtle</option>
+                    <option value="0.35">Light</option>
+                    <option value="0.45" selected>Medium</option>
+                    <option value="0.7">Prominent</option>
                     <option value="1">Solid</option>
                   </select>
                 </div>
@@ -1877,7 +1877,7 @@
                       Auto Headline Video (Opus Clip Style)
                     </div>
                     <div style="font-size: 11.5px; color: var(--text2); margin-top: 2px;">
-                      Sematkan hook headline visual di bagian atas video pada 5 detik pertama
+                      Embed visual hook headline at top of video during first 5 seconds
                     </div>
                   </div>
                   <label class="switch-toggle">
@@ -1888,37 +1888,37 @@
 
                 <div id="headlineOptions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                   <div class="option-group" style="margin-bottom:0;">
-                    <label>Durasi Headline</label>
+                    <label>Headline Duration</label>
                     <select id="headlineDuration">
-                      <option value="3">3 detik pertama</option>
-                      <option value="5" selected>5 detik pertama (Disarankan)</option>
-                      <option value="8">8 detik pertama</option>
+                      <option value="3">First 3 seconds</option>
+                      <option value="5" selected>First 5 seconds (Recommended)</option>
+                      <option value="8">First 8 seconds</option>
                     </select>
                   </div>
                   <div class="option-group" style="margin-bottom:0;">
-                    <label>Tema Warna Headline</label>
+                    <label>Headline Theme</label>
                     <select id="headlineTheme">
-                      <option value="white_black" selected>Kotak Putih - Teks Hitam (Opus Clip)</option>
-                      <option value="yellow_black">Kotak Kuning - Teks Hitam</option>
-                      <option value="black_white">Kotak Hitam - Teks Putih</option>
+                      <option value="white_black" selected>White Box - Black Text (Opus Clip)</option>
+                      <option value="yellow_black">Yellow Box - Black Text</option>
+                      <option value="black_white">Black Box - White Text</option>
                     </select>
                   </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
                   <div class="option-group" style="margin-bottom:0;">
-                    <label>Gaya Bentuk Headline</label>
+                    <label>Headline Corner Style</label>
                     <select id="headlineCornerStyle">
-                      <option value="banner" selected>Banner Penuh (Sambung Kanan-Kiri)</option>
-                      <option value="rounded">Kartu Melengkung Halus</option>
-                      <option value="soft">Kartu Sangat Bulat</option>
-                      <option value="sharp">Kartu Siku Kaku</option>
+                      <option value="banner" selected>Full Width Banner (Edge-to-Edge)</option>
+                      <option value="rounded">Smooth Rounded Card</option>
+                      <option value="soft">Soft Pill Card</option>
+                      <option value="sharp">Sharp Rectangular Card</option>
                     </select>
                   </div>
                   <div class="option-group" style="margin-bottom:0;">
                     <label>&nbsp;</label>
                     <div style="font-size:11px; color:var(--text3); line-height:1.45; padding-top:4px;">
-                      Banner penuh menyambung dari ujung kiri ke kanan frame (gaya Opus Clip).
+                      Full-width banner spanning edge-to-edge across the frame (Opus Clip style).
                     </div>
                   </div>
                 </div>
@@ -1938,7 +1938,7 @@
                     Auto Subtitles (Burn-in)
                   </div>
                   <div style="font-size: 11.5px; color: var(--text2);">
-                    Animasi teks per kata (Karaoke/Viral Pop ala Opus Clip &amp; Submagic)
+                    Word-by-word active animation (Karaoke / Viral Pop Opus &amp; Submagic style)
                   </div>
                 </div>
               </div>
@@ -1952,23 +1952,23 @@
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
                 <div>
                   <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text2); font-weight: 600; margin-bottom: 8px;">
-                    Gaya Preset Viral
+                    Viral Preset Style
                   </label>
                   <select id="subtitlePreset" onchange="applySubtitlePreset()">
-                    <option value="hormozi" selected>Hormozi Yellow (Populer)</option>
+                    <option value="hormozi" selected>Hormozi Yellow (Popular)</option>
                     <option value="mrbeast">MrBeast Green (High Contrast)</option>
                     <option value="cyber">Cyber Cyan (Modern Glow)</option>
-                    <option value="minimal">Clean Minimal (Putih)</option>
+                    <option value="minimal">Clean Minimal (White)</option>
                   </select>
                 </div>
                 <div>
                   <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text2); font-weight: 600; margin-bottom: 8px;">
-                    Posisi Vertikal
+                    Vertical Position
                   </label>
                   <select id="subtitlePosition">
-                    <option value="bottom" selected>Bawah (Rekomendasi 9:16)</option>
-                    <option value="center">Tengah Layar</option>
-                    <option value="top">Atas Layar</option>
+                    <option value="bottom" selected>Bottom (Recommended 9:16)</option>
+                    <option value="center">Center Screen</option>
+                    <option value="top">Top Screen</option>
                   </select>
                 </div>
               </div>
@@ -1977,7 +1977,7 @@
               <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 6px 0; font-size: 11.5px; color: var(--text2);" onclick="toggleAdvancedSubtitleSettings()">
                 <span style="display:flex; align-items:center; gap:6px;">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                  <span>Kustomisasi Lanjutan (Font &amp; Warna Highlight)</span>
+                  <span>Advanced Customization (Font &amp; Highlight Color)</span>
                 </span>
                 <span id="advSubToggleIcon" style="font-family:var(--font-mono);">&darr;</span>
               </div>
@@ -1985,7 +1985,7 @@
               <div id="advSubtitleOptions" style="display: none; margin-top: 12px; padding: 14px; background: var(--bg-deep); border-radius: 12px; border: 1px solid var(--border);">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
                   <div>
-                    <label style="display: block; font-size: 11px; color: var(--text2); margin-bottom: 6px;">Pilihan Font</label>
+                    <label style="display: block; font-size: 11px; color: var(--text2); margin-bottom: 6px;">Font Selection</label>
                     <select id="subtitleFont">
                       <option value="Impact" selected>Impact (Bold Punchy)</option>
                       <option value="Arial">Arial Black (Clean Bold)</option>
@@ -1994,7 +1994,7 @@
                     </select>
                   </div>
                   <div>
-                    <label style="display: block; font-size: 11px; color: var(--text2); margin-bottom: 6px;">Warna Kata Aktif</label>
+                    <label style="display: block; font-size: 11px; color: var(--text2); margin-bottom: 6px;">Active Word Color</label>
                     <div style="display: flex; align-items: center; gap: 10px;">
                       <input type="color" id="subtitleHighlightColor" value="#FFE600" style="width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: transparent;">
                       <span id="highlightColorHex" style="font-size: 12px; font-family: var(--font-mono); color: var(--text2);">#FFE600</span>
@@ -2003,7 +2003,7 @@
                 </div>
                 <div>
                   <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 6px;">
-                    <span>Ukuran Font</span>
+                    <span>Font Size</span>
                     <span id="fontSizeDisplay" style="font-family:var(--font-mono); color:var(--accent);">80px</span>
                   </div>
                   <input type="range" id="subtitleFontSize" min="50" max="110" value="80" oninput="document.getElementById('fontSizeDisplay').textContent = this.value + 'px'" style="width: 100%; accent-color: var(--accent);">
@@ -2014,7 +2014,7 @@
 
           <button class="btn-process" id="btnProcess" onclick="startProcess()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>
-            <span>Generate Clips dengan AI</span>
+            <span>Generate Clips with AI</span>
           </button>
         </div>
       </div>
@@ -2029,7 +2029,7 @@
               </div>
               <div class="step-text">
                 <div class="step-label">Download Video Stream</div>
-                <div class="step-sub" id="step1sub">Menunggu...</div>
+                <div class="step-sub" id="step1sub">Waiting...</div>
               </div>
             </div>
             <div class="step" id="step2">
@@ -2037,8 +2037,8 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
               </div>
               <div class="step-text">
-                <div class="step-label">Transkripsi Audio (Whisper Engine)</div>
-                <div class="step-sub" id="step2sub">Menunggu...</div>
+                <div class="step-label">Audio Transcription (Whisper Engine)</div>
+                <div class="step-sub" id="step2sub">Waiting...</div>
               </div>
             </div>
             <div class="step" id="step3">
@@ -2046,8 +2046,8 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04Z"/></svg>
               </div>
               <div class="step-text">
-                <div class="step-label">AI Analisis Momen Viral</div>
-                <div class="step-sub" id="step3sub">Menunggu...</div>
+                <div class="step-label">AI Viral Moment Analysis</div>
+                <div class="step-sub" id="step3sub">Waiting...</div>
               </div>
             </div>
             <div class="step" id="step4">
@@ -2055,8 +2055,8 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg>
               </div>
               <div class="step-text">
-                <div class="step-label">Proses &amp; Render Video (AMD VAAPI)</div>
-                <div class="step-sub" id="step4sub">Menunggu...</div>
+                <div class="step-label">Video Processing &amp; Rendering (AMD VAAPI)</div>
+                <div class="step-sub" id="step4sub">Waiting...</div>
               </div>
             </div>
           </div>
@@ -2065,7 +2065,7 @@
             <div class="progress-bar-fill" id="progressBar" style="width: 2%"></div>
           </div>
           <div class="progress-text">
-            <span id="progressMsg">Memulai proses...</span>
+            <span id="progressMsg">Initializing process...</span>
             <span id="progressPct">2%</span>
           </div>
 
@@ -2088,34 +2088,34 @@
           <div class="icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
           </div>
-          <span class="msg" id="errorMsg">Terjadi kesalahan.</span>
+          <span class="msg" id="errorMsg">An error occurred.</span>
         </div>
         <button class="btn-reset" onclick="resetForm()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          <span>Coba Lagi</span>
+          <span>Try Again</span>
         </button>
       </div>
 
       <!-- Results Section -->
       <div id="resultsSection">
         <div class="results-header">
-          <div class="results-title" id="resultsTitle">Clips Berhasil Dibuat</div>
+          <div class="results-title" id="resultsTitle">Clips Successfully Generated</div>
           <div class="results-sub" id="resultsSub"></div>
         </div>
 
         <div class="opus-clips-grid" id="clipsGrid"></div>
 
-        <!-- Panel metadata publikasi (judul, deskripsi, hashtag, caption) -->
+        <!-- Publishing metadata panel (title, description, hashtags, caption) -->
         <div id="metadataResults" style="display:none; margin-top:28px;"></div>
 
         <button class="btn-reset" onclick="resetForm()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          <span>Proses Video Baru</span>
+          <span>Process New Video</span>
         </button>
       </div>
     </main>
 
-    <!-- Halaman 2: DEDICATED RIWAYAT & ARSIP KLIP -->
+    <!-- Page 2: DEDICATED HISTORY & CLIP ARCHIVE -->
     <main id="viewHistory" style="display:none; margin-bottom:40px;">
       <!-- History Header -->
       <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:24px; padding-bottom:18px; border-bottom:1px solid var(--border);">
@@ -2124,20 +2124,20 @@
             LIBRARY &amp; ARCHIVE
           </div>
           <h1 style="font-family:var(--font-display); font-size:26px; font-weight:800; color:#ffffff; letter-spacing:-0.02em;">
-            Riwayat Klip &amp; Galeri
+            Clip History &amp; Gallery
           </h1>
           <p style="font-size:13px; color:var(--text2); margin-top:4px;">
-            Semua hasil klip video, metadata viral, dan status rendering tersimpan permanen di sini.
+            All video clips, viral metadata, and rendering statuses are archived permanently here.
           </p>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <button onclick="refreshJobs(true)" style="background:var(--bg-surface); border:1px solid var(--border); color:var(--text); border-radius:8px; font-family:var(--font-body); font-size:12px; font-weight:600; padding:8px 14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
-            <span>Segarkan</span>
+            <span>Refresh</span>
           </button>
           <button onclick="switchView('studio')" style="background:var(--accent-gradient); border:none; color:#ffffff; border-radius:8px; font-family:var(--font-display); font-size:12px; font-weight:700; padding:8px 16px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 12px rgba(79,142,255,0.35);">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            <span>Buat Klip Baru</span>
+            <span>Create New Clips</span>
           </button>
         </div>
       </div>
@@ -2147,16 +2147,16 @@
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <span style="font-size:11px; text-transform:uppercase; color:var(--text3); font-weight:700; letter-spacing:0.05em; font-family:var(--font-mono);">Filter:</span>
           <button type="button" class="filter-chip active" id="chipFilterAll" onclick="setHistoryFilter('all')">
-            Semua <span id="countFilterAll" class="chip-count">0</span>
+            All <span id="countFilterAll" class="chip-count">0</span>
           </button>
           <button type="button" class="filter-chip" id="chipFilterCompleted" onclick="setHistoryFilter('completed')">
-            Selesai <span id="countFilterCompleted" class="chip-count">0</span>
+            Completed <span id="countFilterCompleted" class="chip-count">0</span>
           </button>
           <button type="button" class="filter-chip" id="chipFilterActive" onclick="setHistoryFilter('active')">
-            Diproses <span id="countFilterActive" class="chip-count">0</span>
+            Processing <span id="countFilterActive" class="chip-count">0</span>
           </button>
           <button type="button" class="filter-chip" id="chipFilterFailed" onclick="setHistoryFilter('failed')">
-            Gagal <span id="countFilterFailed" class="chip-count">0</span>
+            Failed <span id="countFilterFailed" class="chip-count">0</span>
           </button>
         </div>
 
@@ -2164,7 +2164,7 @@
           <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text3); display:flex;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           </span>
-          <input type="text" id="historySearchInput" placeholder="Cari judul video atau link YouTube..." oninput="renderHistoryList()"
+          <input type="text" id="historySearchInput" placeholder="Search video title or YouTube URL..." oninput="renderHistoryList()"
             style="width:100%; background:var(--bg-deep); border:1px solid var(--border); border-radius:8px; padding:8px 12px 8px 34px; font-size:12px; color:var(--text); outline:none; font-family:var(--font-body);" />
         </div>
       </div>
@@ -2178,13 +2178,13 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
         </div>
         <div style="font-family:var(--font-display); font-size:16px; font-weight:700; color:#ffffff; margin-bottom:6px;">
-          Belum Ada Riwayat Klip
+          No Clip History Yet
         </div>
         <p style="font-size:13px; color:var(--text2); max-width:440px; margin:0 auto 20px;">
-          Video yang Anda proses akan otomatis diarsipkan di halaman ini lengkap dengan preview video, opsi unduh, dan metadata medsos.
+          Videos you process will automatically be archived here with interactive video preview, download options, and publishing metadata.
         </p>
         <button onclick="switchView('studio')" style="background:var(--accent-gradient); color:#ffffff; border:none; border-radius:8px; font-family:var(--font-display); font-size:12.5px; font-weight:700; padding:10px 20px; cursor:pointer;">
-          Mulai Buat Klip Sekarang
+          Create Clips Now
         </button>
       </div>
     </main>
@@ -2192,7 +2192,7 @@
 
   <footer style="text-align:center; padding:32px 0; color:var(--text3); font-size:11.5px; font-family:var(--font-mono); border-top:1px solid var(--border); margin-top:40px;">
     <div class="container" style="padding-bottom:0;">
-      ClipAI Enterprise &nbsp;&middot;&nbsp; Powered by Whisper + DeepSeek + FFmpeg (AMD VAAPI) &nbsp;&middot;&nbsp; BullMQ Cloud Engine
+      ClipAI Enterprise &nbsp;&middot;&nbsp; Powered by Whisper + Anthropic Claude + FFmpeg (AMD VAAPI) &nbsp;&middot;&nbsp; BullMQ Cloud Engine
     </div>
   </footer>
 
@@ -2204,20 +2204,20 @@
         <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
           <span id="opusModalRankBadge" style="background: rgba(79, 142, 255, 0.18); color: var(--accent); font-family: var(--font-mono); font-size: 13px; font-weight: 800; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(79,142,255,0.3);">#1</span>
           <h2 id="opusModalTitle" style="font-family: var(--font-display); font-size: 16px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            Judul Klip
+            Clip Title
           </h2>
-          <button type="button" onclick="editModalTitle()" title="Edit Judul" style="background:none; border:none; color:var(--text3); cursor:pointer; display:flex; align-items:center; padding:2px;">
+          <button type="button" onclick="editModalTitle()" title="Edit Title" style="background:none; border:none; color:var(--text3); cursor:pointer; display:flex; align-items:center; padding:2px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <button type="button" onclick="navigateOpusModal(-1)" class="opus-icon-btn" title="Klip Sebelumnya" style="width: 32px; height: 32px; font-size: 14px;">
+          <button type="button" onclick="navigateOpusModal(-1)" class="opus-icon-btn" title="Previous Clip" style="width: 32px; height: 32px; font-size: 14px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
           </button>
-          <button type="button" onclick="navigateOpusModal(1)" class="opus-icon-btn" title="Klip Berikutnya" style="width: 32px; height: 32px; font-size: 14px;">
+          <button type="button" onclick="navigateOpusModal(1)" class="opus-icon-btn" title="Next Clip" style="width: 32px; height: 32px; font-size: 14px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <button type="button" onclick="closeOpusModal()" class="opus-icon-btn" title="Tutup Modal" style="width: 32px; height: 32px; margin-left: 6px;">
+          <button type="button" onclick="closeOpusModal()" class="opus-icon-btn" title="Close Modal" style="width: 32px; height: 32px; margin-left: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
         </div>
@@ -2254,7 +2254,7 @@
           <div id="modalAnalysisSection">
             <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
               <div>
-                <div style="font-size: 11px; text-transform: uppercase; color: var(--text3); font-weight: 700; letter-spacing: 0.05em; font-family: var(--font-mono);">SCORE VIRALITY</div>
+                <div style="font-size: 11px; text-transform: uppercase; color: var(--text3); font-weight: 700; letter-spacing: 0.05em; font-family: var(--font-mono);">VIRALITY SCORE</div>
                 <div style="display: flex; align-items: baseline; gap: 4px; margin-top: 2px;">
                   <span id="opusModalScoreNum" style="font-family: var(--font-display); font-size: 34px; font-weight: 800; color: var(--success); text-shadow: 0 0 16px var(--success-glow);">99</span>
                   <span style="font-size: 13px; color: var(--text3); font-family: var(--font-mono);">/100</span>
@@ -2295,7 +2295,7 @@
           <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
               <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text3); font-weight: 700; letter-spacing: 0.05em; font-family: var(--font-mono);">
-                Transkrip Pembicaraan
+                Dialogue Transcript
               </div>
               <span id="opusModalTimeRange" style="font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-weight: 700;">[00:00 - 01:00]</span>
             </div>
@@ -2306,7 +2306,7 @@
           <div id="opusModalMetadataSection" style="background: var(--bg-surface-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;">
             <div style="font-size: 10.5px; text-transform: uppercase; color: var(--warning); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 8px; font-family: var(--font-mono); display: flex; align-items: center; gap: 6px;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-              <span>Metadata Publikasi Siap Pakai</span>
+              <span>Publishing-Ready Metadata</span>
             </div>
             <div id="opusModalMetadataContent" style="display: grid; gap: 8px;"></div>
           </div>
@@ -2320,15 +2320,15 @@
           </a>
           <button type="button" onclick="copyModalAllMetadata()" style="background: var(--bg-surface-elevated); border: 1px solid var(--border); color: var(--text); border-radius: 10px; font-family: var(--font-body); font-size: 12px; font-weight: 600; padding: 10px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            <span>Salin Metadata</span>
+            <span>Copy Metadata</span>
           </button>
           <button type="button" onclick="copyModalCaption()" style="background: var(--bg-surface-elevated); border: 1px solid var(--border); color: var(--text); border-radius: 10px; font-family: var(--font-body); font-size: 12px; font-weight: 600; padding: 10px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
             <span>Publish on Social</span>
           </button>
           <div style="background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 11px; color: var(--text3); text-align: center; margin-top: 10px; font-family: var(--font-mono);">
-            Format: <strong>9:16 Vertikal</strong><br>
-            Akselerasi: <strong>AMD VAAPI</strong>
+            Format: <strong>9:16 Vertical</strong><br>
+            Acceleration: <strong>AMD VAAPI</strong>
           </div>
         </div>
       </div>
@@ -2364,10 +2364,10 @@
       const icon = document.getElementById('transcriptToggleIcon');
       if (container.style.display === 'none') {
         container.style.display = 'block';
-        icon.innerHTML = '&uarr; Tutup';
+        icon.innerHTML = '&uarr; Close';
       } else {
         container.style.display = 'none';
-        icon.innerHTML = '&darr; Buka';
+        icon.innerHTML = '&darr; Open';
       }
     }
 
@@ -2375,11 +2375,11 @@
       const val = document.getElementById('transcriptText').value;
       const countEl = document.getElementById('transcriptCharCount');
       const btnProcess = document.getElementById('btnProcess');
-      if (countEl) countEl.textContent = `${val.length} karakter`;
+      if (countEl) countEl.textContent = `${val.length} characters`;
       if (val.trim().length > 20) {
-        btnProcess.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span>Generate Clips Instan (Fast Path)</span>`;
+        btnProcess.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span>Generate Clips Instantly (Fast Path)</span>`;
       } else {
-        btnProcess.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg> <span>Generate Clips dengan AI</span>`;
+        btnProcess.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg> <span>Generate Clips with AI</span>`;
       }
     }
 
@@ -2503,12 +2503,12 @@
           document.body.removeChild(ta);
         }
         if (btn) {
-          btn.textContent = '✓ Tersalin';
+          btn.textContent = '✓ Copied';
           setTimeout(() => { btn.textContent = original; }, 1500);
         }
       } catch (err) {
         if (btn) {
-          btn.textContent = '✗ Gagal';
+          btn.textContent = '✗ Failed';
           setTimeout(() => { btn.textContent = original; }, 1500);
         }
       }
@@ -2522,13 +2522,13 @@
       const m = clip.metadata;
       if (!m) return clip.title || '';
       const lines = [];
-      if (m.title || clip.title) lines.push(`JUDUL:\n${m.title || clip.title}`);
+      if (m.title || clip.title) lines.push(`TITLE:\n${m.title || clip.title}`);
       if (m.caption) lines.push(`CAPTION:\n${m.caption}`);
-      if (m.description) lines.push(`DESKRIPSI:\n${m.description}`);
-      if (Array.isArray(m.hashtags) && m.hashtags.length) lines.push(`HASHTAG:\n${m.hashtags.join(' ')}`);
-      if (m.pinnedComment) lines.push(`KOMENTAR PIN:\n${m.pinnedComment}`);
+      if (m.description) lines.push(`DESCRIPTION:\n${m.description}`);
+      if (Array.isArray(m.hashtags) && m.hashtags.length) lines.push(`HASHTAGS:\n${m.hashtags.join(' ')}`);
+      if (m.pinnedComment) lines.push(`PINNED COMMENT:\n${m.pinnedComment}`);
       if (Array.isArray(m.trendKeywords) && m.trendKeywords.length) {
-        lines.push(`KEYWORD TREND:\n${m.trendKeywords.join(', ')}`);
+        lines.push(`TRENDING KEYWORDS:\n${m.trendKeywords.join(', ')}`);
       }
       return lines.join('\n\n');
     }
@@ -2572,15 +2572,15 @@
 
         return `<div style="background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
-            <div style="font-family:var(--font-head); font-size:12px; font-weight:700; color:var(--accent);">KLIP ${clip.index ?? i + 1}</div>
+            <div style="font-family:var(--font-head); font-size:12px; font-weight:700; color:var(--accent);">CLIP ${clip.index ?? i + 1}</div>
             <button onclick="copyToClipboard(buildMetadataClipboardText(${JSON.stringify(clip).replace(/"/g, '&quot;')}), this)"
-              style="background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text2); font-size:10px; padding:4px 9px; cursor:pointer; font-family:var(--font-mono);">Copy semua</button>
+              style="background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text2); font-size:10px; padding:4px 9px; cursor:pointer; font-family:var(--font-mono);">Copy all</button>
           </div>
-          ${block('Judul', m.title || clip.title)}
+          ${block('Title', m.title || clip.title)}
           ${block('Caption', m.caption)}
-          ${block('Deskripsi', m.description)}
-          ${hashtags ? `<div style="margin-bottom:10px;"><div style="font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text2); margin-bottom:5px;">Hashtag</div><div>${hashtags}</div></div>` : ''}
-          ${block('Komentar Pin', m.pinnedComment)}
+          ${block('Description', m.description)}
+          ${hashtags ? `<div style="margin-bottom:10px;"><div style="font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text2); margin-bottom:5px;">Hashtags</div><div>${hashtags}</div></div>` : ''}
+          ${block('Pinned Comment', m.pinnedComment)}
           ${(m.trendKeywords && m.trendKeywords.length) ? `<div style="font-size:10px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Trend: ${escapeHtml(m.trendKeywords.join(' · '))}</span></div>` : ''}
         </div>`;
       }).join('');
@@ -2589,7 +2589,7 @@
       wrap.innerHTML = `
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          <div style="font-family:var(--font-head); font-size:13px; font-weight:700; color:var(--text);">Metadata Publikasi Siap-Tempel</div>
+          <div style="font-family:var(--font-head); font-size:13px; font-weight:700; color:var(--text);">Publishing-Ready Metadata</div>
         </div>
         ${cards}
       `;
@@ -2725,11 +2725,11 @@
         badge.style.alignItems = 'center';
         badge.style.gap = '3px';
         badge.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>${activeCount}`;
-        badge.title = `${activeCount} video sedang diproses`;
+        badge.title = `${activeCount} video${activeCount > 1 ? 's' : ''} processing`;
       } else if (completedCount > 0) {
         badge.style.display = 'inline-block';
         badge.textContent = completedCount;
-        badge.title = `${completedCount} video di riwayat`;
+        badge.title = `${completedCount} video${completedCount > 1 ? 's' : ''} in history`;
       } else {
         badge.style.display = 'none';
       }
@@ -2754,14 +2754,14 @@
 
     function jobStateMeta(state, hasClips) {
       if (hasClips && state !== 'active') {
-        return { icon: '✓', label: 'Selesai', color: '#00e599', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.32)' };
+        return { icon: '✓', label: 'Completed', color: '#00e599', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.32)' };
       }
       switch (state) {
-        case 'active':    return { icon: '●', label: 'Sedang Diproses', color: '#4F8EFF', bg: 'rgba(79,142,255,0.10)', border: 'rgba(79,142,255,0.32)' };
-        case 'waiting':   return { icon: '○', label: 'Menunggu Antrian', color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
-        case 'delayed':   return { icon: '○', label: 'Menunggu',         color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
-        case 'completed': return { icon: '✓', label: 'Selesai',          color: '#10B981', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.32)' };
-        case 'failed':    return { icon: '✕', label: 'Gagal',            color: '#EF4444', bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.32)' };
+        case 'active':    return { icon: '●', label: 'Processing', color: '#4F8EFF', bg: 'rgba(79,142,255,0.10)', border: 'rgba(79,142,255,0.32)' };
+        case 'waiting':   return { icon: '○', label: 'Queued', color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
+        case 'delayed':   return { icon: '○', label: 'Waiting',         color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.32)' };
+        case 'completed': return { icon: '✓', label: 'Completed',          color: '#10B981', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.32)' };
+        case 'failed':    return { icon: '✕', label: 'Failed',            color: '#EF4444', bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.32)' };
         default:          return { icon: '•',  label: state,              color: '#94A3B8', bg: 'rgba(148,163,184,0.10)', border: 'rgba(148,163,184,0.3)' };
       }
     }
@@ -2863,13 +2863,13 @@
                 <div style="font-size:9.5px; color:#00e599; font-weight:800; background:rgba(0,229,153,0.14); padding:1px 5px; border-radius:3px;">VIRAL</div>
               </div>
               <div class="opus-action-icons" onclick="event.stopPropagation()">
-                <button type="button" class="opus-icon-btn" title="Favorit" onclick="toggleFavorite(this)">
+                <button type="button" class="opus-icon-btn" title="Favorite" onclick="toggleFavorite(this)">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                 </button>
                 <a href="${src}" download="${c.filename || 'clip.mp4'}" class="opus-icon-btn" title="Download MP4">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 </a>
-                <button type="button" class="opus-icon-btn" title="Salin Hook &amp; Judul" onclick="copyToClipboard('${escapeHtml(clipTitle)}', this)">
+                <button type="button" class="opus-icon-btn" title="Copy Hook &amp; Title" onclick="copyToClipboard('${escapeHtml(clipTitle)}', this)">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>
               </div>
@@ -2891,15 +2891,15 @@
       const clips = job.clips || job.result?.clips || [];
       const hasClips = clips.length > 0;
       const meta = jobStateMeta(job.state, hasClips);
-      const title = job.videoTitle || job.url || 'Video Tanpa Judul';
-      const when = job.createdAt ? new Date(job.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+      const title = job.videoTitle || job.url || 'Untitled Video';
+      const when = job.createdAt ? new Date(job.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '';
       const pct = (job.state === 'completed' || hasClips) ? 100 : (job.percent || 0);
 
       // Baris progress
       const progressHtml = (job.state === 'active')
         ? `<div style="margin-top:14px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
              <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px;">
-               <span style="color:var(--text); font-weight:600;">${escapeHtml(job.message || 'Sedang memproses...')}</span>
+               <span style="color:var(--text); font-weight:600;">${escapeHtml(job.message || 'Processing...')}</span>
                <span style="color:${meta.color}; font-weight:700;">${pct}%</span>
              </div>
              <div style="height:6px; background:var(--surface); border-radius:4px; overflow:hidden;">
@@ -2915,7 +2915,7 @@
                <div style="display: flex; align-items: center; gap: 10px;">
                  <span class="feature-icon-box" style="width:28px;height:28px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span>
                  <div style="font-size: 11.5px; color: var(--text);">
-                   <strong>Auto headline:</strong> Hook headline visual disematkan di 5 detik pertama video klip. Klik kartu mana saja untuk membuka preview modal ala Opus Clip.
+                   <strong>Auto headline:</strong> Visual hook headline embedded in the first 5 seconds of the video clip. Click any card to open the Opus Clip style preview modal.
                  </div>
                </div>
                <button type="button" onclick="openOpusModal('${job.jobId}', 0)" style="background: rgba(79, 142, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; font-size: 11px; font-weight: 700; padding: 5px 12px; cursor: pointer; white-space: nowrap;">
@@ -2935,13 +2935,13 @@
         ? `<div style="margin-top:14px;">
              <button type="button" onclick="toggleCardMetadata('${metaAccordionId}')"
                style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#F59E0B; border-radius:8px; font-size:11px; font-weight:600; padding:7px 12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> <span>Lihat Metadata Medsos (Viral Hook, Caption &amp; Hashtag)</span>
+               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> <span>View Social Metadata (Viral Hook, Caption &amp; Hashtags)</span>
              </button>
              <div id="${metaAccordionId}" style="display:none; margin-top:12px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:14px;">
                ${metadataObj.clips.map((mc, mi) => `
                  <div style="margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);">
                    <div style="font-family:var(--font-head); font-size:12px; font-weight:700; color:var(--accent); margin-bottom:6px;">
-                     Klip ${mc.index ?? mi + 1}: ${escapeHtml(mc.title || '')}
+                     Clip ${mc.index ?? mi + 1}: ${escapeHtml(mc.title || '')}
                    </div>
                    ${mc.caption ? `<div style="font-size:11px; color:var(--text); margin-bottom:6px; white-space:pre-wrap;"><strong>Caption:</strong> ${escapeHtml(mc.caption)}</div>` : ''}
                    ${mc.hashtags ? `<div style="font-size:10.5px; color:var(--accent); margin-bottom:6px;"><strong>Hashtags:</strong> ${escapeHtml(Array.isArray(mc.hashtags) ? mc.hashtags.join(' ') : mc.hashtags)}</div>` : ''}
@@ -2954,7 +2954,7 @@
 
       const failHtml = (job.state === 'failed' && job.failedReason && !hasClips)
         ? `<div style="margin-top:12px; padding:10px 14px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); border-radius:10px; font-size:11.5px; color:#EF4444;">
-             <strong>Keterangan:</strong> ${escapeHtml(job.failedReason)}
+             <strong>Reason:</strong> ${escapeHtml(job.failedReason)}
            </div>`
         : '';
 
@@ -2966,12 +2966,12 @@
                 ${meta.icon} ${meta.label}
               </span>
               ${when ? `<span style="font-size:11px; color:var(--text3);">${when}</span>` : ''}
-              ${clips.length ? `<span style="font-size:11px; color:var(--text2); font-weight:600;">· ${clips.length} Klip Dihasilkan</span>` : ''}
+              ${clips.length ? `<span style="font-size:11px; color:var(--text2); font-weight:600;">· ${clips.length} Clip${clips.length > 1 ? 's' : ''} Generated</span>` : ''}
             </div>
             <h2 style="font-family:var(--font-head); font-size:15px; font-weight:700; color:var(--text); line-height:1.4;">
               ${escapeHtml(title)}
             </h2>
-            ${job.url ? `<a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" style="font-size:11px; color:var(--accent); text-decoration:none; display:inline-block; margin-top:2px;">Buka Video YouTube Asli &nearr;</a>` : ''}
+            ${job.url ? `<a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" style="font-size:11px; color:var(--accent); text-decoration:none; display:inline-block; margin-top:2px;">Open Original YouTube Video &nearr;</a>` : ''}
           </div>
         </div>
         ${progressHtml}
@@ -3014,16 +3014,16 @@
     async function showJobResult(jobId) {
       try {
         const res = await fetch(`/api/job/${jobId}`);
-        if (!res.ok) throw new Error('Job tidak ditemukan');
+        if (!res.ok) throw new Error('Job not found');
         const data = await res.json();
         if (!data.result || !data.result.success) {
-          throw new Error('Hasil job belum tersedia');
+          throw new Error('Job results not available yet');
         }
         showResults({ ...data.result, aspectRatio: data.result.aspectRatio || selectedAR });
         switchView('studio');
         document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (err) {
-        showError(`Gagal membuka hasil: ${err.message}`);
+        showError(`Failed to open results: ${err.message}`);
       }
     }
 
@@ -3102,15 +3102,15 @@
     async function stopEverything() {
       const btn = document.getElementById('stopAllBtn');
       const original = btn ? btn.innerHTML : '';
-      if (btn) { btn.disabled = true; btn.innerHTML = 'Membatalkan...'; }
+      if (btn) { btn.disabled = true; btn.innerHTML = 'Canceling...'; }
 
       try {
         const res = await fetch('/api/queue/clear', { method: 'POST' });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Gagal membatalkan');
+        if (!res.ok) throw new Error(data.error || 'Failed to cancel');
 
         const cleared = data.cleared || 0;
-        if (btn) btn.innerHTML = `✓ ${cleared} dibatalkan`;
+        if (btn) btn.innerHTML = `✓ ${cleared} canceled`;
 
         if (pollInterval) {
           clearInterval(pollInterval);
@@ -3123,9 +3123,9 @@
         await refreshQueueStatus();
         setTimeout(() => { if (btn) btn.innerHTML = original; }, 2200);
       } catch (err) {
-        if (btn) btn.innerHTML = '✗ Gagal';
+        if (btn) btn.innerHTML = '✗ Failed';
         setTimeout(() => { if (btn) btn.innerHTML = original; }, 2000);
-        showError(`Gagal membatalkan: ${err.message}`);
+        showError(`Failed to cancel: ${err.message}`);
       } finally {
         if (btn) btn.disabled = false;
       }
@@ -3145,7 +3145,7 @@
             hwBadge.title = data.name || 'VAAPI Hardware Acceleration';
           }
           if (heroHwSub) {
-            heroHwSub.textContent = `${data.name || 'GPU'} (Adem & Cepat)`;
+            heroHwSub.textContent = `${data.name || 'GPU'} (Cool & Fast)`;
           }
         } else {
           if (hwBadge) {
@@ -3196,9 +3196,9 @@
 
       if (heroSub) {
         if (isClaude) {
-          heroSub.textContent = 'Anthropic Claude mengevaluasi kurva retensi, hook psikologis, dan punchline secara mendalam';
+          heroSub.textContent = 'Anthropic Claude deeply evaluates retention curves, psychological hooks, and conversational punchlines';
         } else {
-          heroSub.textContent = `${modelId} mengevaluasi kurva retensi & hook narasi`;
+          heroSub.textContent = `${modelId} evaluates retention curves & narrative hooks`;
         }
       }
 
@@ -3231,10 +3231,10 @@
         select.innerHTML = '';
 
         const optGroupClaude = document.createElement('optgroup');
-        optGroupClaude.label = '✦ Anthropic Claude Ecosystem (Direkomendasikan untuk Kurva Retensi & Hook Narasi)';
+        optGroupClaude.label = '✦ Anthropic Claude Ecosystem (Recommended for Retention Curves & Narrative Hooks)';
 
         const optGroupAlt = document.createElement('optgroup');
-        optGroupAlt.label = 'Model Alternatif (Universal Gateway)';
+        optGroupAlt.label = 'Alternative Models (Universal Gateway)';
 
         models.forEach(m => {
           const opt = document.createElement('option');
@@ -3266,14 +3266,14 @@
       } catch (err) {
         console.warn('Could not load AI models from server, using fallback:', err);
         select.innerHTML = `
-          <optgroup label="✦ Anthropic Claude Ecosystem (Direkomendasikan untuk Kurva Retensi &amp; Hook Narasi)">
+          <optgroup label="✦ Anthropic Claude Ecosystem (Recommended for Retention Curves &amp; Narrative Hooks)">
             <option value="kr/claude-sonnet-4.5" selected>Claude 3.5 Sonnet - Deep Narrative Reasoning [Default]</option>
             <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Native Anthropic Direct)</option>
             <option value="kr/claude-haiku-4.5">Claude 3.5 Haiku - Low-Latency Rapid Scoring</option>
             <option value="xkiro/anthropic/claude-sonnet-4.5">Claude 3.5 Sonnet (High-Throughput Gateway)</option>
             <option value="cl/anthropic/claude-sonnet-5.5">Claude 3.7 Sonnet / Reasoning Hybrid</option>
           </optgroup>
-          <optgroup label="Model Alternatif (Universal Gateway)">
+          <optgroup label="Alternative Models (Universal Gateway)">
             <option value="cbai/deepseek-v4.1-flash">cbai/deepseek-v4.1-flash</option>
             <option value="xkiro/google/gemini-3.8-flash">xkiro/google/gemini-3.8-flash</option>
             <option value="kimchi/deepseek-v4-flash-0731">kimchi/deepseek-v4-flash-0731</option>
@@ -3311,7 +3311,7 @@
     async function startProcess() {
       const url = document.getElementById('youtubeUrl').value.trim();
       if (!url) {
-        alert('Masukkan URL YouTube terlebih dahulu!');
+        alert('Please enter a YouTube URL first!');
         return;
       }
 
@@ -3379,7 +3379,7 @@
         const data = await res.json();
 
         if (!res.ok || !data.jobId) {
-          throw new Error(data.error || 'Gagal memulai proses');
+          throw new Error(data.error || 'Failed to start process');
         }
 
         currentJobId = data.jobId;
@@ -3400,7 +3400,7 @@
           const res = await fetch(`/api/job/${jobId}`);
           const data = await res.json();
 
-          if (!res.ok) throw new Error(data.error || 'Status tidak diketahui');
+          if (!res.ok) throw new Error(data.error || 'Unknown status');
 
           updateProgress(data);
 
@@ -3409,7 +3409,7 @@
             showResults(data.result);
           } else if (data.state === 'failed') {
             clearInterval(pollInterval);
-            showError(data.error || 'Proses gagal. Coba lagi.');
+            showError(data.error || 'Processing failed. Please try again.');
           }
         } catch (err) {
           console.error('Polling error:', err);
@@ -3425,7 +3425,7 @@
       const progress = data.progress || {};
       const step = progress.step || 0;
       const percent = progress.percent || 2;
-      const message = progress.message || 'Memproses...';
+      const message = progress.message || 'Processing...';
 
       document.getElementById('progressBar').style.width = `${percent}%`;
       document.getElementById('progressMsg').textContent = message;
@@ -3462,9 +3462,9 @@
 
       const totalClips = result.clips ? result.clips.length : 0;
       const countLabel = totalClips === 1 ? '1 Clip' : `${totalClips} Clips`;
-      document.getElementById('resultsTitle').textContent = `${countLabel} Berhasil Dibuat`;
+      document.getElementById('resultsTitle').textContent = `${countLabel} Successfully Generated`;
       document.getElementById('resultsSub').textContent =
-        `Dari "${result.videoTitle || 'Video'}" (${Math.round((result.videoDuration || 0) / 60)} menit) · Bahasa: ${(result.language || 'ID').toUpperCase()}`;
+        `From "${result.videoTitle || 'Video'}" (${Math.round((result.videoDuration || 0) / 60)} min) · Language: ${(result.language || 'ID').toUpperCase()}`;
 
       const jobId = result.jobId || currentJobId || 'current_job';
       window.currentResultJob = {
@@ -3633,7 +3633,7 @@
 
       // Set explanation / scene analysis
       const explanation = clip.metadata?.description || clip.reason || clip.viralityRationale ||
-        'Penyalahgunaan istilah dan konsep seringkali berujung pada kesalahpahaman audiens. Momen ini memiliki hook yang kuat, ritme dialog padat, dan nilai retensi tinggi untuk media sosial.';
+        'Nuanced conversational dynamics and key concepts often capture strong audience engagement. This moment features a compelling hook, tight dialogue pacing, and high viral retention value.';
       const expEl = document.getElementById('opusModalExplanation');
       if (expEl) expEl.textContent = explanation;
 
@@ -3670,7 +3670,7 @@
           ? (Array.isArray(m.hashtags) ? m.hashtags.join(' ') : m.hashtags)
           : (contentIsEnglish
               ? '#shorts #podcast #clips'
-              : '#shorts #podcast #klip');
+              : '#shorts #podcast #clips');
 
         const pinnedText = m.pinnedComment || (contentIsEnglish
           ? `What's your take on this? Drop it in the comments.`
@@ -3779,7 +3779,7 @@
       const clips = currentModalJob.clips || currentModalJob.result?.clips || [];
       const clip = clips[currentModalClipIndex];
       if (!clip) return;
-      const newTitle = prompt('Edit judul klip:', clip.title);
+      const newTitle = prompt('Edit clip title:', clip.title);
       if (newTitle && newTitle.trim()) {
         clip.title = newTitle.trim();
         document.getElementById('opusModalTitle').textContent = clip.title;
