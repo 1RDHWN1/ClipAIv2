@@ -121,8 +121,17 @@ function runTool(bin, args, options = {}) {
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
 const YTDLP_BIN = process.env.YTDLP_PATH || 'yt-dlp';
 
+const cookiesPath = process.env.YTDLP_COOKIES_PATH || path.resolve(process.cwd(), 'cookies.txt');
+const hasCookies = fs.existsSync(cookiesPath);
+const nodeRuntime = process.execPath ? `node:${process.execPath}` : 'node';
+
 // Baseline flags shared by every yt-dlp invocation.
-const YTDLP_BASE_ARGS = ['--no-update', '--js-runtimes', 'node', '--no-playlist'];
+const YTDLP_BASE_ARGS = [
+  '--no-update',
+  '--js-runtimes', nodeRuntime,
+  '--no-playlist',
+  ...(hasCookies ? ['--cookies', cookiesPath] : [])
+];
 
 /**
  * Validate a YouTube video id.
